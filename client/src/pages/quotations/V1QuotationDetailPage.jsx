@@ -848,26 +848,26 @@ export default function V1QuotationDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3">
-              {submitResult.quotation?.status === 'APPROVED' ? (
+              {(submitResult.quotation?.status === 'APPROVED' || submitResult.status === 'APPROVED') ? (
                 <CheckCircle2 className="h-7 w-7 text-emerald-600 shrink-0" />
               ) : (
                 <ShieldAlert className="h-7 w-7 text-amber-600 shrink-0" />
               )}
               <div>
                 <h3 className="font-bold text-base text-slate-900">
-                  {submitResult.quotation?.status === 'APPROVED' 
+                  {(submitResult.quotation?.status === 'APPROVED' || submitResult.status === 'APPROVED')
                     ? 'Deal Self-Approved' 
                     : 'Escalated to Approval Chain'}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Status: {submitResult.quotation?.status}
+                  Status: {submitResult.quotation?.status || submitResult.status || 'PENDING_APPROVAL'}
                 </p>
               </div>
             </div>
 
             <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1.5 font-medium">
-              <p><span className="text-slate-500">Required Level:</span> <strong className="text-slate-900">{submitResult.quotation?.requiredApprovalLevel || 'NONE'}</strong></p>
-              <p><span className="text-slate-500">Total Net Value:</span> <strong className="text-[#008784]">₹{Number(submitResult.quotation?.grandTotal || submitResult.quotation?.totalAmount || 0).toLocaleString()}</strong></p>
+              <p><span className="text-slate-500">Required Level:</span> <strong className="text-slate-900">{submitResult.quotation?.requiredApprovalLevel || submitResult.requiredApprovalLevel || submitResult.riskEvaluation?.summary?.requiredApprovalLevel || 'NONE'}</strong></p>
+              <p><span className="text-slate-500">Total Net Value:</span> <strong className="text-[#008784]">₹{Number(submitResult.quotation?.grandTotal || submitResult.grandTotal || submitResult.riskEvaluation?.summary?.totalNetAmount || 0).toLocaleString()}</strong></p>
             </div>
 
             <button

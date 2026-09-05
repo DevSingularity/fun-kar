@@ -6,7 +6,8 @@ import { getDb } from '../../config/database.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../common/errors.js';
 
 export async function createIfRequired(quotationId, riskResult, tx = undefined) {
-  if (!riskResult || riskResult.requiredApprovalLevel === 'NONE') {
+  const reqLevel = riskResult?.summary?.requiredApprovalLevel || riskResult?.requiredApprovalLevel;
+  if (!riskResult || !reqLevel || reqLevel === 'NONE') {
     return null;
   }
 
