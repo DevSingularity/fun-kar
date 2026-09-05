@@ -14,8 +14,11 @@ import V1CustomersPage from '../pages/customers/V1CustomersPage.jsx';
 import V1ProductsPage from '../pages/catalog/V1ProductsPage.jsx';
 import V1ApprovalsPage from '../pages/approvals/V1ApprovalsPage.jsx';
 import V1ApprovalDetailPage from '../pages/approvals/V1ApprovalDetailPage.jsx';
+import V1DealHealthPage from '../pages/dealHealth/V1DealHealthPage.jsx';
+import V1DealDetailPage from '../pages/dealHealth/V1DealDetailPage.jsx';
 import V1FulfillmentPage from '../pages/fulfillment/V1FulfillmentPage.jsx';
 import V1FulfillmentDetailPage from '../pages/fulfillment/V1FulfillmentDetailPage.jsx';
+import V1GovernancePage from '../pages/governance/V1GovernancePage.jsx';
 import ProductsPage from '../pages/catalog/ProductsPage.jsx';
 import PricingPage from '../pages/catalog/PricingPage.jsx';
 import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
@@ -36,7 +39,8 @@ function RoleRoute({ allowedRoles }) {
   const user = useAuthStore((s) => s.user);
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/v1/dashboard" replace />;
+    const fallback = user.role === 'SALES_MANAGER' ? '/v1/deal-health' : '/v1/dashboard';
+    return <Navigate to={fallback} replace />;
   }
   return <Outlet />;
 }
@@ -77,21 +81,38 @@ export default function AppRoutes() {
         <Route path="/v1/customer/:quotationId" element={<CustomerQuotationDetailPage />} />
 
         <Route element={<PrivateRoute />}>
-          {/* Universal Authenticated Pages */}
-          <Route path="/v1/dashboard" element={<V1DashboardPage />} />
+          {/* Universal Authenticated Dashboard */}
+          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'FINANCE', 'OPERATIONS', 'ADMIN']} />}>
+            <Route path="/v1/dashboard" element={<V1DashboardPage />} />
+          </Route>
 
-          {/* Quotations, Customers & Product Master: Sales Rep, Sales Manager, Operations, Admin */}
-          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'SALES_MANAGER', 'OPERATIONS', 'ADMIN']} />}>
+          {/* Quotations, Customers & Product Master: Sales Rep, Operations, Admin */}
+          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'OPERATIONS', 'ADMIN']} />}>
             <Route path="/v1/quotations" element={<V1QuotationsPage />} />
             <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
             <Route path="/v1/customers" element={<V1CustomersPage />} />
             <Route path="/v1/products" element={<V1ProductsPage />} />
+            <Route path="/v1/product" element={<V1ProductsPage />} />
           </Route>
 
           {/* Approvals: Sales Manager, Finance, Admin */}
           <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'FINANCE', 'ADMIN']} />}>
             <Route path="/v1/approvals" element={<V1ApprovalsPage />} />
             <Route path="/v1/approvals/:id" element={<V1ApprovalDetailPage />} />
+          </Route>
+
+          {/* Deal Health: Sales Manager, Admin */}
+          <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'ADMIN']} />}>
+            <Route path="/v1/deal-health" element={<V1DealHealthPage />} />
+            <Route path="/v1/deal-health/:quotationId" element={<V1DealDetailPage />} />
+            <Route path="/v1/deal/:quotationId" element={<V1DealDetailPage />} />
+            <Route path="/v1/deals" element={<V1DealHealthPage />} />
+          </Route>
+
+          {/* Governance & Risk Engine: Admin Only */}
+          <Route element={<RoleRoute allowedRoles={['ADMIN']} />}>
+            <Route path="/v1/governance" element={<V1GovernancePage />} />
+            <Route path="/v1/discounts" element={<V1GovernancePage />} />
           </Route>
 
           {/* Fulfillment: Operations, Admin */}

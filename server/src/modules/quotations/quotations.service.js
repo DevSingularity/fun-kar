@@ -76,9 +76,12 @@ export async function getQuotation(id, authUser) {
   };
 }
 
+import { resolveRepScope } from '../../common/scope.util.js';
+
 export async function listQuotations(rawQuery = {}, authUser) {
   const pagination = parseListQuery(rawQuery);
-  const scopedSalesRepId = authUser?.role === 'SALES_REP' ? authUser.id : rawQuery.salesRepId;
+  const repScope = await resolveRepScope(authUser);
+  const scopedSalesRepId = repScope !== null ? repScope : rawQuery.salesRepId;
 
   const { items, total } = await repoListQuotations({
     status: rawQuery.status,
@@ -94,8 +97,8 @@ export async function listQuotations(rawQuery = {}, authUser) {
 }
 
 export async function getPipeline(authUser) {
-  const scopedSalesRepId = authUser?.role === 'SALES_REP' ? authUser.id : null;
-  const rows = await listForPipeline({ salesRepId: scopedSalesRepId });
+  const repScope = await resolveRepScope(authUser);
+  const rows = await listForPipeline({ salesRepId: repScope });
 
   const COLUMNS = [
     { status: 'DRAFT', label: 'Draft' },

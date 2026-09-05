@@ -5,9 +5,15 @@ import { products } from '../../db/schema/catalog.js';
 import { approvalRequests, auditLogs } from '../../db/schema/governance.js';
 import { users } from '../../db/schema/users.js';
 import { desc, eq, sql, inArray, and } from 'drizzle-orm';
+import { resolveRepScope } from '../../common/scope.util.js';
 
 export async function getDashboardOverview(currentUser) {
   const db = getDb();
+
+  // Resolve once: null = unscoped (ADMIN/FINANCE/OPERATIONS org-wide view),
+  // array = SALES_REP (self) or SALES_MANAGER (self + managed reps).
+  const repScope = await resolveRepScope(currentUser);
+
   // 1. Fetch real quotations from DB
   const allQuotations = await db
     .select({
@@ -18,6 +24,7 @@ export async function getDashboardOverview(currentUser) {
       customerName: customers.name,
       customerTier: customers.tier,
       salesRepId: quotations.salesRepId,
+      originType: quotations.originType,
       subtotal: quotations.subtotal,
       discountAmount: quotations.discountTotal,
       taxAmount: quotations.taxTotal,
@@ -30,22 +37,25 @@ export async function getDashboardOverview(currentUser) {
     .leftJoin(customers, eq(quotations.customerId, customers.id))
     .orderBy(desc(quotations.createdAt));
 
-  // Role scoping: sales rep sees own quotes by default or org-wide for managers
-  const scopedQuotes = currentUser.role === 'SALES_REP'
-    ? allQuotations.filter((q) => q.salesRepId === currentUser.id)
-    : allQuotations;
+  // Role scoping: SALES_REP sees only their own; SALES_MANAGER sees their
+  // own + every rep who reports to them; everyone else sees org-wide.
+  const scopedQuotes = repScope === null
+    ? allQuotations
+    : allQuotations.filter((q) => repScope.includes(q.salesRepId));
 
   // 2. Compute Real Aggregated Metrics
   const pendingApprovals = scopedQuotes.filter((q) => q.status === 'PENDING_APPROVAL');
-  const openDeals = scopedQuotes.filter((q) => 
+  const openDeals = scopedQuotes.filter((q) =>
     ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT', 'UNDER_NEGOTIATION'].includes(q.status)
   );
-  
-  // Deals with overage, required approval level > NONE, or subtotal with high discount
-  const atRiskDeals = scopedQuotes.filter((q) => 
-    q.requiredApprovalLevel !== 'NONE' || 
+
+  const atRiskDeals = scopedQuotes.filter((q) =>
+    q.requiredApprovalLevel !== 'NONE' ||
     Number(q.discountAmount) > (Number(q.subtotal) * 0.15)
   );
+
+  // Customer-triggered deals in this scope
+  const customerTriggeredDeals = scopedQuotes.filter((q) => q.originType === 'CUSTOMER_SELF_SERVICE');
 
   const totalPipelineValue = openDeals.reduce((sum, q) => sum + Number(q.grandTotal || 0), 0);
 
@@ -58,58 +68,39 @@ export async function getDashboardOverview(currentUser) {
     CONFIRMED: scopedQuotes.filter((q) => q.status === 'CONFIRMED' || q.status === 'COMPLETED' || q.status === 'FULFILLING'),
   };
 
-  // 4. Fetch Real Audit Logs & Activity Feed
-  // A SALES_REP must only ever see activity tied to their own quotations —
-  // never the raw, org-wide audit trail (that leaked every rep's deals to
-  // every other rep's dashboard).
+  // 4. Fetch Real Audit Logs & Activity Feed, scoped according to repScope
   const scopedQuoteIds = scopedQuotes.map((q) => q.id);
 
   let dbLogs = [];
-  if (currentUser.role !== 'SALES_REP' || scopedQuoteIds.length > 0) {
+  if (repScope === null || scopedQuoteIds.length > 0) {
     const logConditions = [eq(auditLogs.entityType, 'QUOTATION')];
-    if (currentUser.role === 'SALES_REP') {
+    if (repScope !== null) {
       logConditions.push(inArray(auditLogs.entityId, scopedQuoteIds));
     }
 
-    dbLogs = currentUser.role === 'SALES_REP'
-      ? await db
-          .select({
-            id: auditLogs.id,
-            action: auditLogs.action,
-            entityType: auditLogs.entityType,
-            entityId: auditLogs.entityId,
-            reason: auditLogs.reason,
-            createdAt: auditLogs.createdAt,
-            actorName: users.name,
-            actorRole: users.role,
-          })
-          .from(auditLogs)
-          .leftJoin(users, eq(auditLogs.actorId, users.id))
-          .where(and(...logConditions))
-          .orderBy(desc(auditLogs.createdAt))
-          .limit(10)
-      : await db
-          .select({
-            id: auditLogs.id,
-            action: auditLogs.action,
-            entityType: auditLogs.entityType,
-            entityId: auditLogs.entityId,
-            reason: auditLogs.reason,
-            createdAt: auditLogs.createdAt,
-            actorName: users.name,
-            actorRole: users.role,
-          })
-          .from(auditLogs)
-          .leftJoin(users, eq(auditLogs.actorId, users.id))
-          .orderBy(desc(auditLogs.createdAt))
-          .limit(10);
+    dbLogs = await db
+      .select({
+        id: auditLogs.id,
+        action: auditLogs.action,
+        entityType: auditLogs.entityType,
+        entityId: auditLogs.entityId,
+        reason: auditLogs.reason,
+        createdAt: auditLogs.createdAt,
+        actorName: users.name,
+        actorRole: users.role,
+      })
+      .from(auditLogs)
+      .leftJoin(users, eq(auditLogs.actorId, users.id))
+      .where(and(...logConditions))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(10);
   }
 
   // Format activity feed combining audit logs & recent quote status changes
   const formattedActivities = dbLogs.map((log) => {
     let title = `${log.actorName || 'System'} executed ${log.action.replace('_', ' ')} on ${log.entityType}`;
     let type = 'system';
-    
+
     if (log.action.includes('APPROV')) {
       title = `${log.actorName || 'Manager'} approved quotation deal`;
       type = 'approved';
@@ -119,6 +110,9 @@ export async function getDashboardOverview(currentUser) {
     } else if (log.action.includes('CREATE')) {
       title = `${log.actorName || 'Sales Rep'} created new quotation header`;
       type = 'active';
+    } else if (log.action === 'CUSTOMER_SELF_SERVICE_SUBMITTED') {
+      title = `Customer submitted a self-service quote request`;
+      type = 'pending';
     }
 
     return {
@@ -145,7 +139,7 @@ export async function getDashboardOverview(currentUser) {
     });
   }
 
-  // 5. Fetch Active Catalog Products for Dynamic Upsell Engine
+  // 5. Fetch Active Catalog Products for Dynamic Upsell Engine (unscoped)
   const catalogProducts = await db
     .select({
       id: products.id,
@@ -180,6 +174,7 @@ export async function getDashboardOverview(currentUser) {
       pendingApprovalsCount: pendingApprovals.length,
       openQuotationsCount: openDeals.length,
       atRiskDealsCount: atRiskDeals.length,
+      customerTriggeredCount: customerTriggeredDeals.length,
       totalPipelineValue,
       totalQuotationsCount: scopedQuotes.length,
     },
@@ -192,6 +187,7 @@ export async function getDashboardOverview(currentUser) {
     },
     recentActivities: formattedActivities,
     quotations: scopedQuotes.slice(0, 20),
+    customerTriggeredDeals: customerTriggeredDeals.slice(0, 10),
     upsellSuggestions,
   };
 }

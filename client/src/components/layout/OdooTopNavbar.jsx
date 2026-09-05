@@ -31,14 +31,15 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
 
   // Standard modules as per PS wireframe & RBAC matrix
   const allNavTabs = [
-    { label: 'Dashboard', path: '/v1/dashboard', id: 'Dashboard', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
-    { label: 'Quotations', path: '/v1/quotations', id: 'Quotations', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
-    { label: 'Customers', path: '/v1/customers', id: 'Customers', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
+    { label: 'Dashboard', path: '/v1/dashboard', id: 'Dashboard', roles: ['ADMIN', 'SALES_REP', 'FINANCE', 'OPERATIONS'] },
+    { label: 'Quotations', path: '/v1/quotations', id: 'Quotations', roles: ['ADMIN', 'SALES_REP'] },
+    { label: 'Customers', path: '/v1/customers', id: 'Customers', roles: ['ADMIN', 'SALES_REP'] },
+    { label: 'Deal Health', path: '/v1/deal-health', id: 'Deal Health', roles: ['ADMIN', 'SALES_MANAGER'] },
     { label: 'Approvals', path: '/v1/approvals', id: 'Approvals', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
     { label: 'Fulfillment', path: '/v1/fulfillment', id: 'Fulfillment', roles: ['ADMIN', 'OPERATIONS'] },
-    { label: 'Pricing Matrix', path: '/dashboard/pricing', id: 'Pricing', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
-    { label: 'Deal Health', path: '/dashboard/governance', id: 'Deal Health', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
-    { label: 'Catalog SKUs', path: '/v1/products', id: 'Product', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'OPERATIONS'] },
+    { label: 'Pricing Matrix', path: '/dashboard/pricing', id: 'Pricing', roles: ['ADMIN', 'FINANCE'] },
+    { label: 'Governance', path: '/v1/governance', id: 'Governance', roles: ['ADMIN'] },
+    { label: 'Catalog SKUs', path: '/v1/products', id: 'Product', roles: ['ADMIN', 'SALES_REP', 'OPERATIONS'] },
   ];
 
   const navTabs = allNavTabs.filter((tab) => tab.roles.includes(userRole));
@@ -46,11 +47,11 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
   return (
     <header className="bg-[#714b67] text-white shadow-sm select-none sticky top-0 z-40 border-b border-[#5a3a52]">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 flex items-center justify-between h-13">
-        
+
         {/* Brand & Horizontal Nav Tabs */}
         <div className="flex items-center gap-4 lg:gap-6 overflow-x-auto no-scrollbar py-1">
-          <Link 
-            to="/v1/dashboard" 
+          <Link
+            to={userRole === 'SALES_MANAGER' ? '/v1/deal-health' : '/v1/dashboard'}
             className="font-bold text-base tracking-tight shrink-0 flex items-center gap-2 text-white hover:opacity-95 transition-opacity"
           >
             <div className="h-7 w-7 rounded bg-white/20 flex items-center justify-center font-black text-xs text-white">
@@ -88,7 +89,7 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
 
         {/* Right User Information & Role */}
         <div className="flex items-center gap-3 shrink-0 ml-4">
-          
+
           {/* Role Badge */}
           <div className="hidden sm:flex items-center gap-1.5 bg-black/25 rounded-md px-2.5 py-1 border border-white/15 text-[11px] font-bold text-white tracking-wide">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -97,8 +98,8 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
 
           {/* User Avatar & Name */}
           <div className="flex items-center gap-2 pl-1">
-            <div 
-              title={user?.name || 'User'} 
+            <div
+              title={user?.name || 'User'}
               className="h-7 w-7 rounded-full bg-white/20 text-white flex items-center justify-center font-bold text-xs border border-white/30"
             >
               {user?.name?.[0]?.toUpperCase() || 'U'}

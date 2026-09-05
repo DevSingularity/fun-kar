@@ -10,6 +10,7 @@ import { findUserById } from '../auth/auth.repository.js';
 import { findPriceListById } from '../priceLists/priceLists.repository.js';
 import { NotFoundError, ConflictError, ForbiddenError } from '../../common/errors.js';
 import { buildMeta } from '../../common/pagination.util.js';
+import { resolveRepScope } from '../../common/scope.util.js';
 
 function assertCustomerOwnership(customer, authUser) {
   if (!authUser) return;
@@ -19,10 +20,8 @@ function assertCustomerOwnership(customer, authUser) {
 }
 
 export async function listCustomers(query = {}, authUser) {
-  // A SALES_REP only ever sees their own book of accounts — the
-  // server decides this, it is never taken from the client query string.
-  const scopedAssignedRepId =
-    authUser?.role === 'SALES_REP' ? authUser.id : query.assignedRepId;
+  const repScope = await resolveRepScope(authUser);
+  const scopedAssignedRepId = repScope !== null ? repScope : query.assignedRepId;
 
   const { items, total } = await findCustomers({
     search: query.search,

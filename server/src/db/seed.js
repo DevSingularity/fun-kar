@@ -29,6 +29,8 @@ const SEED_USERS = [
   { name: 'System Administrator', email: 'admin@dealflow.io', role: 'ADMIN' },
   { name: 'Alex Morgan (Sales Rep)', email: 'rep@dealflow.io', role: 'SALES_REP' },
   { name: 'Sarah Chen (Sales Manager)', email: 'manager@dealflow.io', role: 'SALES_MANAGER' },
+  { name: 'Priya Nair (Sales Manager, Team B)', email: 'manager2@dealflow.io', role: 'SALES_MANAGER' },
+  { name: 'Rohan Gupta (Sales Rep, Team B)', email: 'rep2@dealflow.io', role: 'SALES_REP' },
   { name: 'David Miller (Finance Lead)', email: 'finance@dealflow.io', role: 'FINANCE' },
   { name: 'Elena Rostova (Operations Head)', email: 'ops@dealflow.io', role: 'OPERATIONS' },
 ];
@@ -98,6 +100,20 @@ async function runSeed() {
         .returning();
       userMap[user.email] = updated[0];
       console.log(`[SEED] Updated user: ${user.email} (${user.role})`);
+    }
+  }
+
+  // Link SALES_REP hierarchy to SALES_MANAGER
+  const repManagerMap = {
+    'rep@dealflow.io': 'manager@dealflow.io',
+    'rep2@dealflow.io': 'manager2@dealflow.io',
+  };
+  for (const [repEmail, managerEmail] of Object.entries(repManagerMap)) {
+    const rep = userMap[repEmail];
+    const manager = userMap[managerEmail];
+    if (rep && manager) {
+      await db.update(users).set({ managerId: manager.id }).where(eq(users.id, rep.id));
+      console.log(`[SEED] Linked ${repEmail} -> Manager ${managerEmail}`);
     }
   }
 
@@ -375,7 +391,8 @@ async function runSeed() {
 
   // 8. Seed Customers
   console.log('[SEED] Upserting enterprise customer accounts...');
-  const salesRep = userMap['rep@dealflow.io'];
+  const salesRepA = userMap['rep@dealflow.io'];
+  const salesRepB = userMap['rep2@dealflow.io'];
   const stdPriceList = priceListMap['Standard Commercial Price List (INR)'];
 
   const SEED_CUSTOMERS = [
@@ -386,6 +403,7 @@ async function runSeed() {
       tier: 'GOLD',
       billingAddress: 'Tower 4, Bandra-Kurla Complex, Mumbai, MH 400051',
       priceListId: goldList?.id || stdPriceList?.id,
+      assignedRepId: salesRepA?.id || null,
     },
     {
       name: 'Starlight Fintech Solutions',
@@ -394,6 +412,7 @@ async function runSeed() {
       tier: 'SILVER',
       billingAddress: 'Prestige Tech Park, Outer Ring Road, Bangalore, KA 560103',
       priceListId: stdPriceList?.id,
+      assignedRepId: salesRepA?.id || null,
     },
     {
       name: 'BlueWave Retailers & Distribution',
@@ -402,6 +421,7 @@ async function runSeed() {
       tier: 'BRONZE',
       billingAddress: 'Sector 62, Electronic City, Noida, UP 201309',
       priceListId: stdPriceList?.id,
+      assignedRepId: salesRepA?.id || null,
     },
     {
       name: 'OmniCorp International Infra',
@@ -410,6 +430,7 @@ async function runSeed() {
       tier: 'GOLD',
       billingAddress: 'Cyber City, DLF Phase 2, Gurugram, HR 122002',
       priceListId: goldList?.id || stdPriceList?.id,
+      assignedRepId: salesRepB?.id || salesRepA?.id || null,
     },
   ];
 
@@ -426,7 +447,7 @@ async function runSeed() {
         email: cust.email.toLowerCase(),
         phone: cust.phone,
         tier: cust.tier,
-        assignedRepId: salesRep?.id || null,
+        assignedRepId: cust.assignedRepId,
         priceListId: cust.priceListId || null,
         billingAddress: cust.billingAddress,
       });
@@ -438,7 +459,7 @@ async function runSeed() {
           name: cust.name,
           phone: cust.phone,
           tier: cust.tier,
-          assignedRepId: salesRep?.id || null,
+          assignedRepId: cust.assignedRepId,
           priceListId: cust.priceListId || null,
           billingAddress: cust.billingAddress,
           updatedAt: new Date(),
