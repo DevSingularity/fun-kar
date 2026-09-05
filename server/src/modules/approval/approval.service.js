@@ -44,11 +44,11 @@ function assertActorCanAct(auth, step) {
 export async function listApprovalRequests(query, auth) {
   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
   const offset = Math.max(0, Number(query.offset) || 0);
-  const status = query.status !== undefined ? query.status : 'PENDING';
+  const status = query.status !== undefined ? query.status : 'ALL';
 
   const { rows, total } = await repo.listApprovalRequests({
     role: auth.role,
-    status: status === 'ALL' ? undefined : status,
+    status: status === 'ALL' ? null : status,
     offset,
     limit,
   });

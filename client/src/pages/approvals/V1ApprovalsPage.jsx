@@ -56,6 +56,7 @@ export default function V1ApprovalsPage() {
   const pendingCount = approvalRequests.filter((a) => a.status === 'PENDING').length;
   const returnedCount = approvalRequests.filter((a) => a.status === 'RETURNED').length;
   const approvedCount = approvalRequests.filter((a) => a.status === 'APPROVED').length;
+  const rejectedCount = approvalRequests.filter((a) => a.status === 'REJECTED').length;
 
   const filteredList = approvalRequests.filter((item) => {
     if (activeFilter !== 'ALL' && item.status !== activeFilter) return false;
@@ -76,9 +77,9 @@ export default function V1ApprovalsPage() {
       {/* ── Main Content Area ── */}
       <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-6 space-y-6">
         
-        {/* Top Controls: 3 Summary Pill Badges & Search */}
+        {/* Top Controls: 4 Summary Pill Badges & Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             {/* Pending Pill */}
             <button
               onClick={() => setActiveFilter(activeFilter === 'PENDING' ? 'ALL' : 'PENDING')}
@@ -96,7 +97,7 @@ export default function V1ApprovalsPage() {
               onClick={() => setActiveFilter(activeFilter === 'RETURNED' ? 'ALL' : 'RETURNED')}
               className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
                 activeFilter === 'RETURNED'
-                  ? 'bg-rose-500 text-white ring-2 ring-rose-400 ring-offset-1 scale-105'
+                  ? 'bg-pink-600 text-white ring-2 ring-pink-400 ring-offset-1 scale-105'
                   : 'bg-rose-400 hover:bg-rose-500 text-white opacity-90 hover:opacity-100'
               }`}
             >
@@ -113,6 +114,18 @@ export default function V1ApprovalsPage() {
               }`}
             >
               <span>{approvedCount} Approved</span>
+            </button>
+
+            {/* Rejected Pill */}
+            <button
+              onClick={() => setActiveFilter(activeFilter === 'REJECTED' ? 'ALL' : 'REJECTED')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                activeFilter === 'REJECTED'
+                  ? 'bg-rose-700 text-white ring-2 ring-rose-500 ring-offset-1 scale-105'
+                  : 'bg-red-600 hover:bg-red-700 text-white opacity-90 hover:opacity-100'
+              }`}
+            >
+              <span>{rejectedCount} Rejected</span>
             </button>
 
             {activeFilter !== 'ALL' && (
