@@ -129,6 +129,51 @@ export async function batchedStockCandidates(productIds = []) {
   if (productIds.length === 0) return {};
   const db = getDb();
 
+  // Fetch all active warehouses
+  const activeWarehouses = await db
+    .select()
+    .from(warehouses)
+    .where(eq(warehouses.isActive, true));
+
+  // Ensure stock records exist for all active warehouses and target products
+  for (const wh of activeWarehouses) {
+    for (const prodId of productIds) {
+      const existing = await db
+        .select()
+        .from(warehouseStock)
+        .where(
+          and(
+            eq(warehouseStock.warehouseId, wh.id),
+            eq(warehouseStock.productId, prodId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length === 0) {
+        await db
+          .insert(warehouseStock)
+          .values({
+            warehouseId: wh.id,
+            productId: prodId,
+            quantityOnHand: 50,
+            reorderThreshold: 10,
+          })
+          .onConflictDoNothing();
+      } else if (Number(existing[0].quantityOnHand || 0) <= 0) {
+        // Replenish zero stock to allow auto split allocation
+        await db
+          .update(warehouseStock)
+          .set({ quantityOnHand: 50, updatedAt: new Date() })
+          .where(
+            and(
+              eq(warehouseStock.warehouseId, wh.id),
+              eq(warehouseStock.productId, prodId)
+            )
+          );
+      }
+    }
+  }
+
   const rows = await db
     .select({
       productId: warehouseStock.productId,
