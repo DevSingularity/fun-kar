@@ -73,6 +73,12 @@ export default function AppRoutes() {
             <Route path="/dashboard/customers" element={<CustomersPage />} />
             <Route path="/dashboard/quotations" element={<QuotationsPage />} />
             <Route path="/dashboard/quotations/:id" element={<QuotationDetailPage />} />
+            <Route path="/dashboard/products" element={<ProductsPage />} />
+            <Route path="/dashboard/pricing" element={<PricingPage />} />
+            <Route path="/dashboard/governance" element={<DiscountsPage />} />
+            <Route path="/dashboard/customers" element={<CustomersPage />} />
+            <Route path="/dashboard/quotations" element={<QuotationsPage />} />
+            <Route path="/dashboard/quotations/:id" element={<QuotationDetailPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
