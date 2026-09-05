@@ -368,61 +368,70 @@ export default function V1ApprovalDetailPage() {
         </div>
 
         {/* ── Section 4: Bottom Action Buttons (From Wireframe 6) ── */}
-        {currentStatus === 'PENDING' && (
-          <div className="flex flex-wrap items-center gap-3 pt-4">
-            {/* Approve Button */}
-            <button
-              onClick={openApproveModal}
-              disabled={actionLoading}
-              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Approve</span>
-            </button>
+        <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-200">
+          {currentStatus === 'PENDING' && ['SALES_MANAGER', 'FINANCE', 'ADMIN'].includes(user?.role) && (
+            <>
+              {/* Approve Button */}
+              <button
+                onClick={openApproveModal}
+                disabled={actionLoading}
+                className="px-6 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Approve</span>
+              </button>
 
-            {/* Return for Revision Button */}
-            <button
-              onClick={() =>
-                setDecisionModal({
-                  open: true,
-                  type: 'RETURN',
-                  title: 'Return Quotation for Revision',
-                  reason: '',
-                })
-              }
-              disabled={actionLoading}
-              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span>Return for Revision</span>
-            </button>
+              {/* Return for Revision Button */}
+              <button
+                onClick={() =>
+                  setDecisionModal({
+                    open: true,
+                    type: 'RETURN',
+                    title: 'Return Quotation for Revision',
+                    reason: '',
+                  })
+                }
+                disabled={actionLoading}
+                className="px-6 py-2.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>Return for Revision</span>
+              </button>
 
-            {/* Reject Button */}
-            <button
-              onClick={() =>
-                setDecisionModal({
-                  open: true,
-                  type: 'REJECT',
-                  title: 'Reject Quotation Deal',
-                  reason: '',
-                })
-              }
-              disabled={actionLoading}
-              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <XCircle className="h-4 w-4" />
-              <span>Reject</span>
-            </button>
+              {/* Reject Button */}
+              <button
+                onClick={() =>
+                  setDecisionModal({
+                    open: true,
+                    type: 'REJECT',
+                    title: 'Reject Quotation Deal',
+                    reason: '',
+                  })
+                }
+                disabled={actionLoading}
+                className="px-6 py-2.5 rounded-lg text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <XCircle className="h-4 w-4" />
+                <span>Reject</span>
+              </button>
+            </>
+          )}
 
-            <Link
-              to="/v1/approvals"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors ml-auto"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Back to Approvals List</span>
-            </Link>
-          </div>
-        )}
+          {currentStatus === 'PENDING' && user?.role === 'SALES_REP' && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
+              <Clock className="h-4 w-4 text-amber-600" />
+              <span>Pending review by Sales Manager & Finance. You will be notified once a decision is recorded.</span>
+            </div>
+          )}
+
+          <Link
+            to="/v1/approvals"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors ml-auto"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Approvals List</span>
+          </Link>
+        </div>
       </main>
 
       {/* ── Custom Modal: Decision Confirmation & Reason Prompt (Zero Default Alerts) ── */}

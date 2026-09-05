@@ -38,7 +38,8 @@ function RoleRoute({ allowedRoles }) {
   const user = useAuthStore((s) => s.user);
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/v1/dashboard" replace />;
+    const fallback = user.role === 'SALES_MANAGER' ? '/v1/deal-health' : '/v1/dashboard';
+    return <Navigate to={fallback} replace />;
   }
   return <Outlet />;
 }
@@ -79,11 +80,13 @@ export default function AppRoutes() {
         <Route path="/v1/customer/:quotationId" element={<CustomerQuotationDetailPage />} />
 
         <Route element={<PrivateRoute />}>
-          {/* Universal Authenticated Pages */}
-          <Route path="/v1/dashboard" element={<V1DashboardPage />} />
+          {/* Universal Authenticated Dashboard */}
+          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'FINANCE', 'OPERATIONS', 'ADMIN']} />}>
+            <Route path="/v1/dashboard" element={<V1DashboardPage />} />
+          </Route>
 
-          {/* Quotations, Customers & Product Master: Sales Rep, Sales Manager, Operations, Admin */}
-          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'SALES_MANAGER', 'OPERATIONS', 'ADMIN']} />}>
+          {/* Quotations, Customers & Product Master: Sales Rep, Operations, Admin */}
+          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'OPERATIONS', 'ADMIN']} />}>
             <Route path="/v1/quotations" element={<V1QuotationsPage />} />
             <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
             <Route path="/v1/customers" element={<V1CustomersPage />} />

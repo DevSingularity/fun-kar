@@ -124,6 +124,10 @@ export async function listApprovalRequests({ role, repScope, status, offset = 0,
     if (repScope && repScope.length > 0) {
       conditions.push(inArray(quotations.salesRepId, repScope));
     }
+  } else if (role === 'SALES_REP') {
+    if (repScope && repScope.length > 0) {
+      conditions.push(inArray(quotations.salesRepId, repScope));
+    }
   } else if (role === 'FINANCE') {
     conditions.push(
       and(
