@@ -28,14 +28,6 @@ export default function V1DashboardPage() {
   const [dashboardData, setDashboardData] = useState(null);
   const [customers, setCustomers] = useState([]);
 
-  // New Quotation Modal State
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    customerId: '',
-    promisedDeliveryDate: '',
-  });
-
   // Fetch real data from backend
   const fetchData = async () => {
     setLoading(true);
@@ -45,11 +37,7 @@ export default function V1DashboardPage() {
         api.get('/customers', { params: { limit: 100 } }),
       ]);
       setDashboardData(overviewRes.data?.data || null);
-      const custs = custRes.data?.data || [];
-      setCustomers(custs);
-      if (custs.length > 0 && !formData.customerId) {
-        setFormData((prev) => ({ ...prev, customerId: custs[0].id }));
-      }
+      setCustomers(custRes.data?.data || []);
     } catch (err) {
       console.warn('Dashboard overview fetch fallback:', err);
     } finally {
@@ -60,33 +48,6 @@ export default function V1DashboardPage() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const handleCreateQuote = async (e) => {
-    e.preventDefault();
-    if (!formData.customerId) {
-      toast.error('Please select a customer account');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await api.post('/quotations', {
-        customerId: formData.customerId,
-        promisedDeliveryDate: formData.promisedDeliveryDate || undefined,
-      });
-      toast.success('Draft quotation created');
-      setShowCreateModal(false);
-      const newId = res.data?.data?.quotation?.id || res.data?.data?.id;
-      if (newId) {
-        navigate(`/v1/quotations/${newId}`);
-      } else {
-        fetchData();
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create quotation');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   // Real live metrics from server
   const metrics = dashboardData?.metrics || {};
@@ -173,12 +134,7 @@ export default function V1DashboardPage() {
           
           {/* New Quotation Button */}
           <button
-            onClick={() => {
-              if (customers.length > 0 && !formData.customerId) {
-                setFormData((prev) => ({ ...prev, customerId: customers[0].id }));
-              }
-              setShowCreateModal(true);
-            }}
+            onClick={() => navigate('/v1/quotations/new')}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
           >
             <Plus className="h-4 w-4" />
@@ -262,76 +218,6 @@ export default function V1DashboardPage() {
           </div>
         </div>
       </main>
-
-      {/* ── Modal: Create New Quotation ── */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-5 text-slate-900">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-[#714b67]" />
-                <h3 className="font-bold text-base text-slate-900">New Quotation Header</h3>
-              </div>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateQuote} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold mb-1 text-slate-700">
-                  Customer Account <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={formData.customerId}
-                  onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                  required
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 font-medium text-slate-800 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"
-                >
-                  <option value="" disabled>Select customer...</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.tier} Tier) — {c.country || 'Global'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1 text-slate-700">
-                  Promised Delivery Date (Optional)
-                </label>
-                <input
-                  type="date"
-                  value={formData.promisedDeliveryDate}
-                  onChange={(e) => setFormData({ ...formData, promisedDeliveryDate: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 font-medium text-slate-800 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {submitting ? 'Creating...' : 'Create & Open Builder →'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

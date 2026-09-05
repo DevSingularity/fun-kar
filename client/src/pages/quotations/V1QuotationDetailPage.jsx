@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  FileSpreadsheet, 
-  ArrowLeft, 
   Plus, 
   Trash2, 
   Send, 
@@ -10,13 +8,14 @@ import {
   AlertTriangle, 
   ShieldAlert, 
   Building2, 
-  Calendar, 
-  Layers, 
+  ArrowLeft,
   Sparkles, 
   Info,
   X,
   PlusCircle,
-  Tag
+  Tag,
+  Save,
+  ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
@@ -28,11 +27,23 @@ export default function V1QuotationDetailPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
 
-  const [data, setData] = useState(null);
+  const isNew = id === 'new';
+
+  const [loading, setLoading] = useState(true);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Data lists
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+
+  // Quotation header state
+  const [quoteData, setQuoteData] = useState(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [promisedDeliveryDate, setPromisedDeliveryDate] = useState('');
+
+  // Line items state
+  const [items, setItems] = useState([]);
 
   // Line item add modal
   const [showAddLineModal, setShowAddLineModal] = useState(false);
@@ -43,87 +54,212 @@ export default function V1QuotationDetailPage() {
   });
   const [addingLine, setAddingLine] = useState(false);
 
+  // Delete confirmation modal state
+  const [deleteModal, setDeleteModal] = useState({ open: false, itemId: null, itemName: '' });
+  const [deletingLine, setDeletingLine] = useState(false);
+
   // Submission result modal
   const [submitResult, setSubmitResult] = useState(null);
 
-  const fetchQuotation = async () => {
+  // Debounce ref for persisting item edits to backend
+  const patchTimerRef = useRef({});
+
+  // Fetch initial data
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const [quoteRes, prodRes, custRes] = await Promise.all([
-        api.get(`/quotations/${id}`),
+      const [prodRes, custRes] = await Promise.all([
         api.get('/products', { params: { limit: 100 } }),
         api.get('/customers', { params: { limit: 100 } }),
       ]);
-      const quote = quoteRes.data?.data || null;
-      setData(quote);
       const prods = prodRes.data?.data || [];
+      const custs = custRes.data?.data || [];
       setProducts(prods);
-      setCustomers(custRes.data?.data || []);
+      setCustomers(custs);
+
+      if (isNew) {
+        const defaultCust = custs[0] || null;
+        setSelectedCustomerId(defaultCust?.id || '');
+        setQuoteData({
+          id: 'new',
+          quoteNumber: 'New Draft',
+          status: 'DRAFT',
+          customerName: defaultCust?.name || 'Select Customer',
+          customerTier: defaultCust?.tier || 'BRONZE',
+        });
+        // Default with 1 starter item if catalog is available
+        if (prods.length > 0) {
+          const firstProd = prods[0];
+          setItems([
+            {
+              id: 'temp-' + Date.now(),
+              productId: firstProd.id,
+              productName: firstProd.name,
+              sku: firstProd.sku,
+              quantity: 2,
+              unitPrice: Number(firstProd.basePrice || 0),
+              discountPct: 25,
+              lineLimitPct: 10,
+              isLocal: true,
+            },
+          ]);
+        } else {
+          setItems([]);
+        }
+      } else {
+        const quoteRes = await api.get(`/quotations/${id}`);
+        const quote = quoteRes.data?.data;
+        if (!quote) throw new Error('Quotation not found');
+        setQuoteData(quote);
+        setSelectedCustomerId(quote.customerId || '');
+        setPromisedDeliveryDate(quote.promisedDeliveryDate ? quote.promisedDeliveryDate.slice(0, 10) : '');
+        setItems(quote.items || []);
+      }
+
       if (prods.length > 0 && !newLine.productId) {
         setNewLine((prev) => ({ ...prev, productId: prods[0].id }));
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to load quotation');
+      toast.error(err.response?.data?.message || err.message || 'Failed to load quotation');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchQuotation();
+    fetchData();
   }, [id]);
 
+  // Selected customer metadata
+  const selectedCustomer = useMemo(() => {
+    return customers.find((c) => c.id === selectedCustomerId) || null;
+  }, [customers, selectedCustomerId]);
+
+  const customerTier = selectedCustomer?.tier || quoteData?.customerTier || 'BRONZE';
+  const customerName = selectedCustomer?.name || quoteData?.customerName || 'Customer';
+
+  // Dynamic Tier Limit & Price List
+  const tierLimitPct = customerTier === 'GOLD' ? 30 : customerTier === 'SILVER' ? 20 : 10;
+  const assignedPriceList = customerTier === 'GOLD' 
+    ? 'Gold Partner Negotiated Matrix' 
+    : customerTier === 'SILVER' 
+    ? 'Silver Preferential Matrix' 
+    : 'Standard Enterprise Price List';
+
+  const isDraft = !quoteData?.status || quoteData?.status === 'DRAFT';
+
+  // Handle Customer Account Change
+  const handleCustomerChange = async (newCustId) => {
+    setSelectedCustomerId(newCustId);
+    const newCust = customers.find((c) => c.id === newCustId);
+    if (!newCust) return;
+
+    setQuoteData((prev) => ({
+      ...prev,
+      customerId: newCustId,
+      customerName: newCust.name,
+      customerTier: newCust.tier,
+    }));
+
+    if (!isNew && quoteData?.id) {
+      try {
+        await api.patch(`/quotations/${quoteData.id}`, { customerId: newCustId });
+        toast.success(`Updated customer to ${newCust.name} (${newCust.tier} Tier)`);
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to update quotation customer');
+      }
+    }
+  };
+
+  // Handle inline changes for quantity and discount
+  const handleItemFieldChange = (itemId, field, value) => {
+    const numVal = field === 'quantity' ? Math.max(1, parseInt(value) || 1) : Math.min(100, Math.max(0, parseFloat(value) || 0));
+
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.id !== itemId) return item;
+        return { ...item, [field]: numVal };
+      })
+    );
+
+    // If existing persistent quotation, debounce update to backend
+    if (!isNew && quoteData?.id && !String(itemId).startsWith('temp-')) {
+      if (patchTimerRef.current[itemId]) {
+        clearTimeout(patchTimerRef.current[itemId]);
+      }
+      patchTimerRef.current[itemId] = setTimeout(async () => {
+        try {
+          await api.patch(`/quotations/${quoteData.id}/items/${itemId}`, {
+            [field]: numVal,
+          });
+        } catch (err) {
+          console.warn('Auto-save item error:', err);
+        }
+      }, 500);
+    }
+  };
+
+  // Check if any line discount exceeds allowed limit
+  const hasAnyOverLimit = items.some((item) => {
+    const limit = item.lineLimitPct || tierLimitPct;
+    return Number(item.discountPct) > limit;
+  });
+
+  // Add Item to Quotation
   const handleAddLine = async (e) => {
     e.preventDefault();
     if (!newLine.productId) {
       toast.error('Please select a product');
       return;
     }
-    setAddingLine(true);
-    try {
-      await api.post(`/quotations/${id}/items`, {
-        productId: newLine.productId,
-        quantity: Number(newLine.quantity) || 1,
-        discountPct: Number(newLine.discountPct) || 0,
-      });
-      toast.success('Product added to quotation');
+
+    const prod = products.find((p) => p.id === newLine.productId);
+    if (!prod) return;
+
+    const qty = Number(newLine.quantity) || 1;
+    const disc = Number(newLine.discountPct) || 0;
+
+    if (isNew) {
+      setItems((prev) => [
+        ...prev,
+        {
+          id: 'temp-' + Date.now(),
+          productId: prod.id,
+          productName: prod.name,
+          sku: prod.sku,
+          quantity: qty,
+          unitPrice: Number(prod.basePrice || 0),
+          discountPct: disc,
+          lineLimitPct: tierLimitPct,
+          isLocal: true,
+        },
+      ]);
+      toast.success(`Added ${prod.name}`);
       setShowAddLineModal(false);
-      setNewLine({
-        productId: products[0]?.id || '',
-        quantity: 1,
-        discountPct: 0,
-      });
-      fetchQuotation();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add product');
-    } finally {
-      setAddingLine(false);
+      setNewLine({ productId: products[0]?.id || '', quantity: 1, discountPct: 0 });
+    } else {
+      setAddingLine(true);
+      try {
+        await api.post(`/quotations/${id}/items`, {
+          productId: prod.id,
+          quantity: qty,
+          discountPct: disc,
+        });
+        toast.success(`Added ${prod.name} to quotation`);
+        setShowAddLineModal(false);
+        setNewLine({ productId: products[0]?.id || '', quantity: 1, discountPct: 0 });
+        const quoteRes = await api.get(`/quotations/${id}`);
+        setQuoteData(quoteRes.data?.data);
+        setItems(quoteRes.data?.data?.items || []);
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to add product');
+      } finally {
+        setAddingLine(false);
+      }
     }
   };
 
-  // Delete confirmation modal state
-  const [deleteModal, setDeleteModal] = useState({ open: false, itemId: null, itemName: '' });
-  const [deletingLine, setDeletingLine] = useState(false);
-
-  const confirmDeleteItem = async () => {
-    if (!deleteModal.itemId) return;
-    setDeletingLine(true);
-    try {
-      await api.delete(`/quotations/${id}/items/${deleteModal.itemId}`);
-      toast.success('Line item removed successfully');
-      setDeleteModal({ open: false, itemId: null, itemName: '' });
-      fetchQuotation();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to remove item');
-    } finally {
-      setDeletingLine(false);
-    }
-  };
-
-  const handleDeleteItem = (itemId, itemName = 'this item') => {
-    setDeleteModal({ open: true, itemId, itemName });
-  };
-
+  // 1-Click Add Upsell SKU
   const handleAddUpsell = async (skuName, defaultDiscount = 0) => {
     const matched = products.find((p) => 
       p.name.toLowerCase().includes(skuName.toLowerCase()) ||
@@ -135,49 +271,161 @@ export default function V1QuotationDetailPage() {
       return;
     }
 
-    try {
-      await api.post(`/quotations/${id}/items`, {
-        productId: matched.id,
-        quantity: 1,
-        discountPct: defaultDiscount,
-      });
-      toast.success(`Added ${matched.name} to quotation`);
-      fetchQuotation();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add upsell');
+    if (isNew) {
+      setItems((prev) => [
+        ...prev,
+        {
+          id: 'temp-' + Date.now(),
+          productId: matched.id,
+          productName: matched.name,
+          sku: matched.sku,
+          quantity: 1,
+          unitPrice: Number(matched.basePrice || 0),
+          discountPct: defaultDiscount,
+          lineLimitPct: tierLimitPct,
+          isLocal: true,
+        },
+      ]);
+      toast.success(`Added ${matched.name}`);
+    } else {
+      try {
+        await api.post(`/quotations/${id}/items`, {
+          productId: matched.id,
+          quantity: 1,
+          discountPct: defaultDiscount,
+        });
+        toast.success(`Added ${matched.name} to quotation`);
+        const quoteRes = await api.get(`/quotations/${id}`);
+        setQuoteData(quoteRes.data?.data);
+        setItems(quoteRes.data?.data?.items || []);
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to add upsell');
+      }
     }
   };
 
+  // Delete line item
+  const confirmDeleteItem = async () => {
+    if (!deleteModal.itemId) return;
+
+    if (isNew || String(deleteModal.itemId).startsWith('temp-')) {
+      setItems((prev) => prev.filter((it) => it.id !== deleteModal.itemId));
+      toast.success('Line item removed');
+      setDeleteModal({ open: false, itemId: null, itemName: '' });
+      return;
+    }
+
+    setDeletingLine(true);
+    try {
+      await api.delete(`/quotations/${id}/items/${deleteModal.itemId}`);
+      toast.success('Line item removed successfully');
+      setDeleteModal({ open: false, itemId: null, itemName: '' });
+      const quoteRes = await api.get(`/quotations/${id}`);
+      setQuoteData(quoteRes.data?.data);
+      setItems(quoteRes.data?.data?.items || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove item');
+    } finally {
+      setDeletingLine(false);
+    }
+  };
+
+  // Save Draft handler
+  const handleSaveDraft = async () => {
+    if (!selectedCustomerId) {
+      toast.error('Please select a customer account');
+      return;
+    }
+
+    setSavingDraft(true);
+    try {
+      if (isNew) {
+        // 1. Create quotation header
+        const res = await api.post('/quotations', {
+          customerId: selectedCustomerId,
+          promisedDeliveryDate: promisedDeliveryDate || undefined,
+        });
+        const createdQuote = res.data?.data?.quotation || res.data?.data;
+        const newId = createdQuote.id;
+
+        // 2. Add all configured line items
+        for (const it of items) {
+          await api.post(`/quotations/${newId}/items`, {
+            productId: it.productId,
+            quantity: Number(it.quantity) || 1,
+            discountPct: Number(it.discountPct) || 0,
+          });
+        }
+
+        toast.success(`Quotation ${createdQuote.quoteNumber || 'Draft'} created & saved!`);
+        navigate(`/v1/quotations/${newId}`, { replace: true });
+      } else {
+        // Update header fields
+        await api.patch(`/quotations/${id}`, {
+          customerId: selectedCustomerId,
+          promisedDeliveryDate: promisedDeliveryDate || null,
+        });
+        toast.success('Quotation draft saved.');
+        fetchData();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save draft quotation');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  // Submit for Approval handler
   const handleSubmitQuotation = async () => {
-    if (!data?.items || data.items.length === 0) {
+    if (items.length === 0) {
       toast.error('Please add at least one line item before submitting.');
       return;
     }
+
+    if (!selectedCustomerId) {
+      toast.error('Please select a customer account');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const res = await api.post(`/quotations/${id}/submit`);
-      const resultData = res.data?.data;
+      let targetId = id;
+
+      if (isNew) {
+        // Save first
+        const res = await api.post('/quotations', {
+          customerId: selectedCustomerId,
+          promisedDeliveryDate: promisedDeliveryDate || undefined,
+        });
+        const createdQuote = res.data?.data?.quotation || res.data?.data;
+        targetId = createdQuote.id;
+
+        for (const it of items) {
+          await api.post(`/quotations/${targetId}/items`, {
+            productId: it.productId,
+            quantity: Number(it.quantity) || 1,
+            discountPct: Number(it.discountPct) || 0,
+          });
+        }
+      }
+
+      // Submit
+      const submitRes = await api.post(`/quotations/${targetId}/submit`);
+      const resultData = submitRes.data?.data;
       setSubmitResult(resultData);
-      toast.success(res.data?.message || 'Quotation submitted successfully!');
-      fetchQuotation();
+      toast.success(submitRes.data?.message || 'Quotation submitted successfully!');
+
+      if (isNew) {
+        navigate(`/v1/quotations/${targetId}`, { replace: true });
+      } else {
+        fetchData();
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit quotation');
     } finally {
       setSubmitting(false);
     }
   };
-
-  // Resolve tier limit for the customer
-  const customerTier = data?.customerTier || 'BRONZE';
-  const tierLimitPct = customerTier === 'GOLD' ? 30 : customerTier === 'SILVER' ? 20 : 10;
-
-  // Real line items from database
-  const items = data?.items || [];
-
-  const hasAnyOverLimit = items.some((item) => {
-    const limit = item.lineLimitPct || tierLimitPct;
-    return Number(item.discountPct) > limit;
-  });
 
   if (loading) {
     return (
@@ -190,7 +438,7 @@ export default function V1QuotationDetailPage() {
     );
   }
 
-  if (!data) {
+  if (!quoteData && !isNew) {
     return (
       <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
         <OdooTopNavbar activeTab="Quotations" />
@@ -218,38 +466,63 @@ export default function V1QuotationDetailPage() {
         {/* Quotation Header Title */}
         <div className="flex items-center gap-3">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Quotation Detail: {data.quoteNumber} ({data.customerName || 'Customer'})
+            Quotation Detail: {quoteData?.quoteNumber || (isNew ? 'New Draft' : 'Quotation')} ({customerName})
           </h1>
-          {data.status && (
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-              data.status === 'APPROVED' 
-                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                : data.status === 'PENDING_APPROVAL'
-                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                : 'bg-slate-100 text-slate-700 border border-slate-300'
-            }`}>
-              {data.status.replace('_', ' ')}
-            </span>
-          )}
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+            quoteData?.status === 'APPROVED' 
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+              : quoteData?.status === 'PENDING_APPROVAL'
+              ? 'bg-amber-100 text-amber-800 border border-amber-300'
+              : 'bg-slate-100 text-slate-700 border border-slate-300'
+          }`}>
+            {(quoteData?.status || 'DRAFT').replace('_', ' ')}
+          </span>
         </div>
 
-        {/* ── Customer & Price List Header Boxes ── */}
+        {/* ── Customer & Price List Dynamic Header Boxes ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           
           {/* Customer Field */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700">
-              Customer Account
+            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+              <span>Customer Account</span>
+              {isDraft && <span className="text-[10px] font-semibold text-[#714b67]">Editable</span>}
             </label>
-            <div className="p-3.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold flex items-center justify-between shadow-xs">
-              <div className="flex items-center gap-2 truncate">
-                <Building2 className="h-4 w-4 text-[#714b67]" />
-                <span className="truncate text-slate-900 font-bold">{data.customerName || 'Customer'}</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#714b67]/10 text-[#714b67] border border-[#714b67]/20">
-                  {data.customerTier || 'BRONZE'} Tier
-                </span>
+
+            {isDraft ? (
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none">
+                  <Building2 className="h-4 w-4 text-[#714b67]" />
+                </div>
+                <select
+                  value={selectedCustomerId}
+                  onChange={(e) => handleCustomerChange(e.target.value)}
+                  className="w-full pl-10 pr-24 py-3 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-900 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all shadow-xs cursor-pointer appearance-none"
+                >
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} — {c.tier} Tier ({c.country || 'Global'})
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#714b67]/10 text-[#714b67] border border-[#714b67]/20">
+                    {customerTier} Tier
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-3.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-2 truncate">
+                  <Building2 className="h-4 w-4 text-[#714b67]" />
+                  <span className="truncate text-slate-900 font-bold">{customerName}</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#714b67]/10 text-[#714b67] border border-[#714b67]/20">
+                    {customerTier} Tier
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Price List Field */}
@@ -261,7 +534,7 @@ export default function V1QuotationDetailPage() {
               <div className="flex items-center gap-2 truncate">
                 <Tag className="h-4 w-4 text-[#008784]" />
                 <span className="truncate text-slate-900 font-bold">
-                  {data.customerTier === 'GOLD' ? 'Gold Partner Negotiated Matrix' : 'Standard Enterprise Price List'}
+                  {assignedPriceList}
                 </span>
                 <span className="text-[11px] text-slate-500 font-normal">
                   (Auto-Resolved)
@@ -271,26 +544,28 @@ export default function V1QuotationDetailPage() {
           </div>
         </div>
 
-        {/* ── Line Items Table ── */}
+        {/* ── Dynamic Editable Line Items Table ── */}
         <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-50 text-slate-600 font-bold uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Product</th>
-                  <th className="py-3 px-4">Qty</th>
+                  <th className="py-3 px-4 w-28">Qty</th>
                   <th className="py-3 px-4">Price</th>
-                  <th className="py-3 px-4">Discount</th>
+                  <th className="py-3 px-4 w-32">Discount</th>
                   <th className="py-3 px-4">Limit</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => setShowAddLineModal(true)}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-[11px] font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs transition-colors"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Add Item
-                    </button>
+                    {isDraft && (
+                      <button
+                        onClick={() => setShowAddLineModal(true)}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-[11px] font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs transition-colors"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add Item
+                      </button>
+                    )}
                   </th>
                 </tr>
               </thead>
@@ -298,7 +573,7 @@ export default function V1QuotationDetailPage() {
                 {items.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-xs text-slate-400 font-medium">
-                      No line items added yet. Click &quot;+ Add Item&quot; to configure products.
+                      No line items configured. Click &quot;+ Add Item&quot; or select an upsell SKU below.
                     </td>
                   </tr>
                 ) : (
@@ -308,20 +583,62 @@ export default function V1QuotationDetailPage() {
 
                     return (
                       <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3.5 px-4 font-semibold text-slate-900">
-                          {item.productName || item.sku}
+                        {/* Product SKU / Title */}
+                        <td className="py-3 px-4 font-semibold text-slate-900">
+                          {item.productName || item.sku || 'Product Item'}
                         </td>
-                        <td className="py-3.5 px-4 font-bold">{item.quantity}</td>
-                        <td className="py-3.5 px-4">₹{Number(item.unitPrice || 0).toLocaleString()}</td>
-                        <td className="py-3.5 px-4">
-                          <span className={`font-extrabold ${isOverLimit ? 'text-amber-700' : 'text-slate-800'}`}>
-                            {item.discountPct}%
-                          </span>
+
+                        {/* Editable Quantity */}
+                        <td className="py-3 px-4">
+                          {isDraft ? (
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => handleItemFieldChange(item.id, 'quantity', e.target.value)}
+                              className="w-20 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-900 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"
+                            />
+                          ) : (
+                            <span className="font-bold">{item.quantity}</span>
+                          )}
                         </td>
-                        <td className="py-3.5 px-4 font-medium text-slate-500">
+
+                        {/* Unit Price */}
+                        <td className="py-3 px-4">₹{Number(item.unitPrice || 0).toLocaleString()}</td>
+
+                        {/* Editable Discount % */}
+                        <td className="py-3 px-4">
+                          {isDraft ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.5"
+                                value={item.discountPct}
+                                onChange={(e) => handleItemFieldChange(item.id, 'discountPct', e.target.value)}
+                                className={`w-20 px-2.5 py-1 text-xs font-extrabold rounded-lg border outline-hidden transition-all ${
+                                  isOverLimit
+                                    ? 'border-amber-400 bg-amber-50/50 text-amber-800 focus:border-amber-600 focus:ring-1 focus:ring-amber-500'
+                                    : 'border-slate-300 bg-white text-slate-900 focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67]'
+                                }`}
+                              />
+                              <span className="font-bold text-slate-500">%</span>
+                            </div>
+                          ) : (
+                            <span className={`font-extrabold ${isOverLimit ? 'text-amber-700' : 'text-slate-800'}`}>
+                              {item.discountPct}%
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Allowed Limit */}
+                        <td className="py-3 px-4 font-semibold text-slate-500">
                           {lineLimit}%
                         </td>
-                        <td className="py-3.5 px-4">
+
+                        {/* Real-time Status Badge */}
+                        <td className="py-3 px-4">
                           {isOverLimit ? (
                             <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
                               <AlertTriangle className="h-3 w-3 text-amber-600" />
@@ -334,14 +651,18 @@ export default function V1QuotationDetailPage() {
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => handleDeleteItem(item.id, item.productName)}
-                            title="Remove Line Item"
-                            className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+
+                        {/* Actions */}
+                        <td className="py-3 px-4 text-right">
+                          {isDraft && (
+                            <button
+                              onClick={() => setDeleteModal({ open: true, itemId: item.id, itemName: item.productName || item.sku })}
+                              title="Remove Line Item"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -360,76 +681,88 @@ export default function V1QuotationDetailPage() {
               Discount is checked against each line&apos;s own limit live, as soon as it is entered, not only at submit time.
             </span>
           </div>
-          {hasAnyOverLimit && (
+          {hasAnyOverLimit ? (
             <span className="shrink-0 text-[10px] font-extrabold px-2.5 py-1 rounded bg-amber-200/80 text-amber-900 border border-amber-300">
               Requires Manager Approval
+            </span>
+          ) : (
+            <span className="shrink-0 text-[10px] font-extrabold px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+              Auto-Approval Eligible
             </span>
           )}
         </div>
 
         {/* ── Upsell and Cross-Sell Suggestions (Real Products from Catalog) ── */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-[#008784] uppercase tracking-wider flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#008784]" />
-              Upsell and Cross-Sell Suggestions
-            </h2>
-            <span className="text-[11px] text-slate-500 font-medium">1-Click Add Real Catalog SKUs</span>
-          </div>
+        {isDraft && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-[#008784] uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-[#008784]" />
+                Upsell and Cross-Sell Suggestions
+              </h2>
+              <span className="text-[11px] text-slate-500 font-medium">1-Click Add Real Catalog SKUs</span>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {products.slice(1, 4).map((p, idx) => {
-              const basePrice = Number(p.basePrice || 0);
-              const cost = Number(p.estimatedCost || 0);
-              const marginBoost = Math.round(basePrice - cost);
-              const defaultDiscount = idx === 1 ? 12 : 5;
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {products.slice(0, 3).map((p, idx) => {
+                const basePrice = Number(p.basePrice || 0);
+                const cost = Number(p.estimatedCost || 0);
+                const marginBoost = Math.round(basePrice - cost);
+                const defaultDiscount = idx === 1 ? 12 : 5;
 
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => handleAddUpsell(p.name, defaultDiscount)}
-                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md text-left transition-all duration-150 group shadow-xs active:scale-98"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-xs font-bold text-slate-800 group-hover:text-[#008784] transition-colors line-clamp-1">
-                        + {p.name}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                        {p.sku} — Base: ₹{basePrice.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-emerald-600 font-extrabold mt-1">
-                        Margin Boost: +₹{marginBoost.toLocaleString()}
-                      </p>
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => handleAddUpsell(p.name, defaultDiscount)}
+                    className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md text-left transition-all duration-150 group shadow-xs active:scale-98"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-800 group-hover:text-[#008784] transition-colors line-clamp-1">
+                          + {p.name}
+                        </h3>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                          {p.sku} — Base: ₹{basePrice.toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-emerald-600 font-extrabold mt-1">
+                          Margin Boost: +₹{marginBoost.toLocaleString()}
+                        </p>
+                      </div>
+                      <PlusCircle className="h-4 w-4 text-slate-400 group-hover:text-[#008784] shrink-0 transition-colors ml-2" />
                     </div>
-                    <PlusCircle className="h-4 w-4 text-slate-400 group-hover:text-[#008784] shrink-0 transition-colors ml-2" />
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Bottom Action Buttons ── */}
         <div className="flex flex-wrap items-center gap-3 pt-4">
           
           {/* Save Draft Button */}
-          <button
-            onClick={() => toast.success('Quotation draft saved.')}
-            className="px-5 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-xs"
-          >
-            Save Draft
-          </button>
+          {isDraft && (
+            <button
+              onClick={handleSaveDraft}
+              disabled={savingDraft}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-xs disabled:opacity-50"
+            >
+              <Save className="h-3.5 w-3.5 text-slate-600" />
+              <span>{savingDraft ? 'Saving...' : 'Save Draft'}</span>
+            </button>
+          )}
 
           {/* Submit for Approval Button */}
-          <button
-            onClick={handleSubmitQuotation}
-            disabled={submitting}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50"
-          >
-            <Send className="h-3.5 w-3.5" />
-            {submitting ? 'Submitting...' : 'Submit for Approval'}
-          </button>
+          {isDraft && (
+            <button
+              onClick={handleSubmitQuotation}
+              disabled={submitting}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>{submitting ? 'Submitting...' : 'Submit for Approval'}</span>
+            </button>
+          )}
 
           <Link
             to="/v1/quotations"
@@ -500,6 +833,7 @@ export default function V1QuotationDetailPage() {
                     type="number"
                     min="0"
                     max="100"
+                    step="0.5"
                     value={newLine.discountPct}
                     onChange={(e) => setNewLine({ ...newLine, discountPct: e.target.value })}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 font-medium text-slate-800 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"

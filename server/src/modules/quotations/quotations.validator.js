@@ -32,8 +32,12 @@ export function validateCreateQuotation(req, res, next) {
 }
 
 export function validateUpdateQuotation(req, res, next) {
-  const { promisedDeliveryDate, salesRepId } = req.body || {};
+  const { customerId, promisedDeliveryDate, salesRepId } = req.body || {};
   const errors = [];
+
+  if (customerId !== undefined && customerId !== null && !isValidUUID(customerId)) {
+    errors.push({ field: 'customerId', message: 'customerId must be a valid UUID.' });
+  }
 
   if (promisedDeliveryDate !== undefined && promisedDeliveryDate !== null) {
     const d = new Date(promisedDeliveryDate);
