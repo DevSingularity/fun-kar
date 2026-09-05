@@ -8,6 +8,7 @@ import customersRoutes from '../modules/customers/customers.routes.js';
 import governanceRoutes from '../modules/governance/governance.routes.js';
 import riskRoutes from '../modules/risk/risk.routes.js';
 import quotationsRoutes from '../modules/quotations/quotations.routes.js';
+import dashboardRoutes from '../modules/dashboard/dashboard.routes.js';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.use(healthRouter);
 
 // Core Modules
 router.use('/auth', authRoutes);
+router.use('/dashboard', dashboardRoutes);
 router.use('/categories', categoriesRoutes);
 router.use('/products', productsRoutes);
 router.use('/price-lists', priceListsRoutes);

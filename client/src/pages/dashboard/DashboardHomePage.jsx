@@ -2,6 +2,8 @@
  * DashboardHomePage — DealFlow360 Operations Overview
  */
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { LayoutDashboard, Sparkles, ArrowRight } from 'lucide-react';
 import useAuthStore from '../../store/auth.store.js';
 import StatCard from '../../components/StatCard.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
@@ -54,6 +56,30 @@ export default function DashboardHomePage() {
 
   return (
     <div className="space-y-6">
+      {/* Official Wireframe View Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border border-sky-200 bg-sky-50/80 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-[#4a90e2] text-white">
+            <LayoutDashboard className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-800">
+              Official PS Wireframe Sales Dashboard (`/v1/dashboard`)
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Horizontal navigation tabs, live KPI cards, and recent activity feed matching the spec.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/v1/dashboard"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#4a90e2] hover:bg-[#357abd] text-white shadow-xs transition-all whitespace-nowrap"
+        >
+          <span>Open Wireframe Dashboard</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+
       <PageHeader
         title={`Sales Operations Hub — Welcome, ${user?.name ?? 'Sales Officer'}`}
         subtitle="Real-time deal execution, approval governance, stock fulfillment, and hybrid contract billing."
