@@ -8,32 +8,47 @@ function App() {
       <Toaster
         position="top-right"
         gutter={10}
-        containerStyle={{ top: 24, right: 24 }}
+        containerStyle={{ top: 20, right: 24 }}
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#1e293b',
-            color: '#f8fafc',
+            background: '#ffffff',
+            color: '#0f172a',
             borderRadius: '10px',
             fontSize: '13px',
             fontWeight: '600',
             padding: '12px 16px',
-            boxShadow: '0 12px 28px -4px rgba(0, 0, 0, 0.35), 0 8px 12px -6px rgba(0, 0, 0, 0.25)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            boxShadow: '0 10px 25px -3px rgba(15, 23, 42, 0.12), 0 4px 6px -2px rgba(15, 23, 42, 0.05)',
+            border: '1px solid #cbd5e1',
             letterSpacing: '-0.01em',
           },
           success: {
             duration: 3500,
             iconTheme: {
-              primary: '#10b981',
+              primary: '#059669',
               secondary: '#ffffff',
+            },
+            style: {
+              borderLeft: '4px solid #059669',
             },
           },
           error: {
             duration: 5000,
             iconTheme: {
-              primary: '#ef4444',
+              primary: '#e11d48',
               secondary: '#ffffff',
+            },
+            style: {
+              borderLeft: '4px solid #e11d48',
+            },
+          },
+          loading: {
+            iconTheme: {
+              primary: '#714b67',
+              secondary: '#ffffff',
+            },
+            style: {
+              borderLeft: '4px solid #714b67',
             },
           },
         }}
