@@ -14,6 +14,8 @@ import V1CustomersPage from '../pages/customers/V1CustomersPage.jsx';
 import V1ProductsPage from '../pages/catalog/V1ProductsPage.jsx';
 import V1ApprovalsPage from '../pages/approvals/V1ApprovalsPage.jsx';
 import V1ApprovalDetailPage from '../pages/approvals/V1ApprovalDetailPage.jsx';
+import V1DealHealthPage from '../pages/dealHealth/V1DealHealthPage.jsx';
+import V1DealDetailPage from '../pages/dealHealth/V1DealDetailPage.jsx';
 import V1FulfillmentPage from '../pages/fulfillment/V1FulfillmentPage.jsx';
 import V1FulfillmentDetailPage from '../pages/fulfillment/V1FulfillmentDetailPage.jsx';
 import ProductsPage from '../pages/catalog/ProductsPage.jsx';
@@ -93,6 +95,14 @@ export default function AppRoutes() {
           <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'FINANCE', 'ADMIN']} />}>
             <Route path="/v1/approvals" element={<V1ApprovalsPage />} />
             <Route path="/v1/approvals/:id" element={<V1ApprovalDetailPage />} />
+          </Route>
+
+          {/* Deal Health: Sales Manager, Admin */}
+          <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'ADMIN']} />}>
+            <Route path="/v1/deal-health" element={<V1DealHealthPage />} />
+            <Route path="/v1/deal-health/:quotationId" element={<V1DealDetailPage />} />
+            <Route path="/v1/deal/:quotationId" element={<V1DealDetailPage />} />
+            <Route path="/v1/deals" element={<V1DealHealthPage />} />
           </Route>
 
           {/* Fulfillment: Operations, Admin */}

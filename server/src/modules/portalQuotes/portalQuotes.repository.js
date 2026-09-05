@@ -1,12 +1,13 @@
 import { getDb } from '../../config/database.js';
 import { quotations, quotationItems, quotationPortalTokens, customers, products, orders, invoices } from '../../db/schema/index.js';
-import { eq, and, desc, sql, exists } from 'drizzle-orm';
+import { eq, and, or, desc, sql, exists } from 'drizzle-orm';
 
 const SAFE_QUOTE_COLUMNS = {
   id: quotations.id,
   quoteNumber: quotations.quoteNumber,
   customerId: quotations.customerId,
   status: quotations.status,
+  originType: quotations.originType,
   subtotal: quotations.subtotal,
   discountTotal: quotations.discountTotal,
   taxTotal: quotations.taxTotal,
@@ -38,6 +39,15 @@ export async function hasBeenShared(quotationId) {
   return !!row;
 }
 
+export async function findCustomerWithRep(customerId) {
+  const db = getDb();
+  const [row] = await db
+    .select({ id: customers.id, assignedRepId: customers.assignedRepId, tier: customers.tier })
+    .from(customers)
+    .where(eq(customers.id, customerId));
+  return row || null;
+}
+
 export async function listForCustomer(customerId, { offset, limit }) {
   const db = getDb();
   const sharedQuoteExists = db
@@ -46,15 +56,18 @@ export async function listForCustomer(customerId, { offset, limit }) {
     .where(eq(quotationPortalTokens.quotationId, quotations.id))
     .limit(1);
 
+  const filterCondition = and(
+    eq(quotations.customerId, customerId),
+    or(
+      exists(sharedQuoteExists),
+      eq(quotations.originType, 'CUSTOMER_SELF_SERVICE')
+    )
+  );
+
   const rows = await db
     .select(SAFE_QUOTE_COLUMNS)
     .from(quotations)
-    .where(
-      and(
-        eq(quotations.customerId, customerId),
-        exists(sharedQuoteExists)
-      )
-    )
+    .where(filterCondition)
     .orderBy(desc(quotations.createdAt))
     .limit(limit)
     .offset(offset);
@@ -62,12 +75,7 @@ export async function listForCustomer(customerId, { offset, limit }) {
   const [{ count }] = await db
     .select({ count: sql`count(*)::int` })
     .from(quotations)
-    .where(
-      and(
-        eq(quotations.customerId, customerId),
-        exists(sharedQuoteExists)
-      )
-    );
+    .where(filterCondition);
 
   return { rows, count };
 }
@@ -128,4 +136,3 @@ export async function findDraftOneTimeInvoice(orderId) {
     );
   return row || null;
 }
-

@@ -8,6 +8,13 @@
       "when": 1788583400412,
       "tag": "0000_flippant_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788631790987,
+      "tag": "0001_stiff_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }

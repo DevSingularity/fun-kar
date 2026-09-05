@@ -202,8 +202,15 @@ export default function V1ApprovalsPage() {
                         onClick={() => navigate(`/v1/approvals/${item.id}`)}
                         className="cursor-pointer hover:bg-slate-50/80 transition-colors"
                       >
-                        <td className="py-3.5 px-4 font-mono font-bold text-[#714b67]">
-                          {item.quoteNumber}
+                        <td className="py-3.5 px-4">
+                          <div className="font-mono font-bold text-[#714b67]">
+                            {item.quoteNumber}
+                          </div>
+                          {item.originType === 'CUSTOMER_SELF_SERVICE' && (
+                            <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-1.5 py-0.5 text-[9px] font-bold text-purple-700 border border-purple-200 uppercase tracking-wide mt-0.5">
+                              Customer Triggered
+                            </span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 font-semibold text-slate-900">
                           {item.customerName || 'Customer'}

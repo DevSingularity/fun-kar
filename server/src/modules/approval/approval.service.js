@@ -4,6 +4,7 @@ import * as riskService from '../risk/risk.service.js';
 import * as calc from '../quotations/quotations.calc.js';
 import { getDb } from '../../config/database.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../common/errors.js';
+import { resolveRepScope } from '../../common/scope.util.js';
 
 export async function createIfRequired(quotationId, riskResult, tx = undefined) {
   const reqLevel = riskResult?.summary?.requiredApprovalLevel || riskResult?.requiredApprovalLevel;
@@ -47,8 +48,11 @@ export async function listApprovalRequests(query, auth) {
   const offset = Math.max(0, Number(query.offset) || 0);
   const status = query.status !== undefined ? query.status : 'ALL';
 
+  const repScope = auth?.role === 'SALES_MANAGER' ? await resolveRepScope(auth) : null;
+
   const { rows, total } = await repo.listApprovalRequests({
-    role: auth.role,
+    role: auth?.role,
+    repScope,
     status: status === 'ALL' ? null : status,
     offset,
     limit,
@@ -65,10 +69,20 @@ export async function listApprovalRequests(query, auth) {
   };
 }
 
-export async function getApprovalDetail(id) {
+export async function getApprovalDetail(id, auth) {
   const joined = await repo.findByIdJoined(id);
   if (!joined) {
     throw new NotFoundError(`Approval request with ID '${id}' not found.`, 'APPROVAL_REQUEST_NOT_FOUND');
+  }
+
+  if (auth?.role === 'SALES_MANAGER') {
+    const repScope = await resolveRepScope(auth);
+    if (repScope && !repScope.includes(joined.requesterId)) {
+      throw new ForbiddenError(
+        'You do not have permission to view this approval request.',
+        'ACCESS_DENIED'
+      );
+    }
   }
 
   const actions = await repo.findActions(id);
@@ -124,6 +138,7 @@ export async function getApprovalDetail(id) {
     customerTier: joined.customerTier,
     requesterName: joined.requesterName,
     requesterEmail: joined.requesterEmail,
+    isCustomerTriggered: joined.originType === 'CUSTOMER_SELF_SERVICE',
     items,
     actions,
     riskEvaluation,
@@ -142,6 +157,15 @@ export async function decideApproval(id, action, payload, auth) {
       `This request was already ${request.status.toLowerCase()}.`,
       'ALREADY_RESOLVED'
     );
+  }
+
+  // Manager ownership validation
+  if (auth.role === 'SALES_MANAGER') {
+    const joined = await repo.findByIdJoined(id);
+    const repScope = await resolveRepScope(auth);
+    if (repScope && !repScope.includes(joined?.requesterId)) {
+      throw new ForbiddenError('You do not have permission to decide this approval request.', 'ACCESS_DENIED');
+    }
   }
 
   const priorActions = await repo.findActions(id);

@@ -19,6 +19,8 @@ import quotationSharingRoutes from '../modules/quotationSharing/quotationSharing
 import portalQuotesRoutes from '../modules/portalQuotes/portalQuotes.routes.js';
 import { quotationNegotiationRouter, requestActionsRouter } from '../modules/negotiation/negotiation.internal.routes.js';
 import paymentsRoutes from '../modules/payments/payments.routes.js';
+import dealHealthRoutes from '../modules/dealHealth/dealHealth.routes.js';
+import usersRoutes from '../modules/users/users.routes.js';
 
 const router = Router();
 
@@ -41,6 +43,8 @@ router.use('/upsell-rules', upsellRulesRoutes);
 router.use('/warehouses', warehousesRoutes);
 router.use('/orders', fulfillmentRoutes);
 router.use('/fulfillment', fulfillmentRoutes);
+router.use('/deal-health', dealHealthRoutes);
+router.use('/users', usersRoutes);
 
 // Phase 7 Modules
 router.use('/portal/auth', portalAuthRoutes);

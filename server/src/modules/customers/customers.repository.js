@@ -1,4 +1,4 @@
-import { eq, sql, ilike, and, count } from 'drizzle-orm';
+import { eq, sql, ilike, and, count, inArray } from 'drizzle-orm';
 import { getDb } from '../../config/database.js';
 import { customers } from '../../db/schema/customers.js';
 import { users } from '../../db/schema/users.js';
@@ -20,7 +20,11 @@ export async function findCustomers({
     );
   }
   if (tier) conditions.push(eq(customers.tier, tier));
-  if (assignedRepId) conditions.push(eq(customers.assignedRepId, assignedRepId));
+  if (Array.isArray(assignedRepId)) {
+    if (assignedRepId.length > 0) conditions.push(inArray(customers.assignedRepId, assignedRepId));
+  } else if (assignedRepId) {
+    conditions.push(eq(customers.assignedRepId, assignedRepId));
+  }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

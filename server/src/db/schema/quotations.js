@@ -12,9 +12,9 @@ import {
   check,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { quotationStatusEnum, approvalLevelEnum } from './enums.js';
+import { quotationStatusEnum, approvalLevelEnum, quotationOriginTypeEnum } from './enums.js';
 import { customers } from './customers.js';
-import { users } from './users.js';
+import { users, customerUsers } from './users.js';
 import { products } from './catalog.js';
 import { upsellRules } from './intelligence.js';
 
@@ -29,6 +29,11 @@ export const quotations = pgTable(
     salesRepId: uuid('sales_rep_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
+    originType: quotationOriginTypeEnum('origin_type').notNull().default('INTERNAL'),
+    createdByCustomerUserId: uuid('created_by_customer_user_id').references(
+      () => customerUsers.id,
+      { onDelete: 'set null' },
+    ),
     status: quotationStatusEnum('status').notNull().default('DRAFT'),
     subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
     discountTotal: numeric('discount_total', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -52,6 +57,7 @@ export const quotations = pgTable(
     index('quotations_sales_rep_id_idx').on(table.salesRepId),
     index('quotations_status_idx').on(table.status),
     index('quotations_last_activity_at_idx').on(table.lastActivityAt),
+    index('quotations_origin_type_idx').on(table.originType),
   ],
 );
 

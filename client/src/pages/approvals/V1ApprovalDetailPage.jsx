@@ -182,6 +182,12 @@ export default function V1ApprovalDetailPage() {
           <div className="inline-flex items-center px-4 py-1.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200 shadow-xs">
             <span>Customer Tier: {customerTier}</span>
           </div>
+
+          {(data.isCustomerTriggered || quotation.originType === 'CUSTOMER_SELF_SERVICE') && (
+            <div className="inline-flex items-center px-4 py-1.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-300 shadow-xs">
+              <span>Customer-Triggered Event</span>
+            </div>
+          )}
         </div>
 
         {/* ── Section 1: Why This Quote Was Flagged (Table) ── */}

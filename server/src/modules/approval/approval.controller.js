@@ -8,7 +8,7 @@ export async function handleListApprovalRequests(req, res) {
 }
 
 export async function handleGetApprovalDetail(req, res) {
-  const result = await service.getApprovalDetail(req.params.id);
+  const result = await service.getApprovalDetail(req.params.id, req.user);
   return successResponse(res, result, 200);
 }
 

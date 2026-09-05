@@ -125,9 +125,15 @@ export const dealAlertTypeEnum = pgEnum('deal_alert_type', [
 
 export const dealAlertSeverityEnum = pgEnum('deal_alert_severity', ['LOW', 'MEDIUM', 'HIGH']);
 
+export const quotationOriginTypeEnum = pgEnum('quotation_origin_type', [
+  'INTERNAL',
+  'CUSTOMER_SELF_SERVICE',
+]);
+
 export const dealAlertStatusEnum = pgEnum('deal_alert_status', [
   'OPEN',
   'ACKNOWLEDGED',
+  'ESCALATED',
   'RESOLVED',
   'DISMISSED',
 ]);

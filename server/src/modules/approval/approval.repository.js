@@ -1,4 +1,4 @@
-import { eq, and, or, sql, asc, desc } from 'drizzle-orm';
+import { eq, and, or, sql, inArray, asc, desc } from 'drizzle-orm';
 import { getDb } from '../../config/database.js';
 import { approvalRequests, approvalActions, auditLogs } from '../../db/schema/governance.js';
 import { quotations } from '../../db/schema/quotations.js';
@@ -62,6 +62,8 @@ export async function findByIdJoined(id) {
       customerTier: customers.tier,
       requesterName: users.name,
       requesterEmail: users.email,
+      requesterId: quotations.salesRepId,
+      originType: quotations.originType,
     })
     .from(approvalRequests)
     .innerJoin(quotations, eq(quotations.id, approvalRequests.quotationId))
@@ -93,7 +95,7 @@ export async function findActions(requestId) {
     .orderBy(asc(approvalActions.createdAt));
 }
 
-export async function listApprovalRequests({ role, status, offset = 0, limit = 20 } = {}) {
+export async function listApprovalRequests({ role, repScope, status, offset = 0, limit = 20 } = {}) {
   const db = getDb();
   const conditions = [];
 
@@ -119,6 +121,9 @@ export async function listApprovalRequests({ role, status, offset = 0, limit = 2
         )
       )
     );
+    if (repScope && repScope.length > 0) {
+      conditions.push(inArray(quotations.salesRepId, repScope));
+    }
   } else if (role === 'FINANCE') {
     conditions.push(
       and(
@@ -139,7 +144,9 @@ export async function listApprovalRequests({ role, status, offset = 0, limit = 2
       customerId: quotations.customerId,
       customerName: customers.name,
       customerTier: customers.tier,
+      salesRepId: quotations.salesRepId,
       salesRepName: users.name,
+      originType: quotations.originType,
       grandTotal: quotations.grandTotal,
       blendedRiskScore: approvalRequests.blendedRiskScore,
       requiredLevel: approvalRequests.requiredLevel,

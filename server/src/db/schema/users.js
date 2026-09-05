@@ -20,6 +20,7 @@ export const users = pgTable(
     email: varchar('email', { length: 255 }).notNull(),
     passwordHash: varchar('password_hash', { length: 255 }).notNull(),
     role: userRoleEnum('role').notNull(),
+    managerId: uuid('manager_id').references(() => users.id, { onDelete: 'set null' }),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -27,6 +28,7 @@ export const users = pgTable(
   (table) => [
     uniqueIndex('users_email_lower_unique').on(sql`lower(${table.email})`),
     index('users_role_idx').on(table.role),
+    index('users_manager_id_idx').on(table.managerId),
   ],
 );
 

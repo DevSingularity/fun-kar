@@ -92,7 +92,11 @@ export async function listQuotations({ status, customerId, salesRepId, search, o
 
   if (status) conditions.push(eq(quotations.status, status));
   if (customerId) conditions.push(eq(quotations.customerId, customerId));
-  if (salesRepId) conditions.push(eq(quotations.salesRepId, salesRepId));
+  if (Array.isArray(salesRepId)) {
+    if (salesRepId.length > 0) conditions.push(inArray(quotations.salesRepId, salesRepId));
+  } else if (salesRepId) {
+    conditions.push(eq(quotations.salesRepId, salesRepId));
+  }
   if (search) conditions.push(ilike(quotations.quoteNumber, `%${search}%`));
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -106,6 +110,7 @@ export async function listQuotations({ status, customerId, salesRepId, search, o
       customerTier: customers.tier,
       salesRepId: quotations.salesRepId,
       salesRepName: users.name,
+      originType: quotations.originType,
       status: quotations.status,
       grandTotal: quotations.grandTotal,
       subtotal: quotations.subtotal,
@@ -145,7 +150,9 @@ export async function listForPipeline({ salesRepId } = {}) {
   ];
 
   const conditions = [inArray(quotations.status, validStatuses)];
-  if (salesRepId) {
+  if (Array.isArray(salesRepId)) {
+    if (salesRepId.length > 0) conditions.push(inArray(quotations.salesRepId, salesRepId));
+  } else if (salesRepId) {
     conditions.push(eq(quotations.salesRepId, salesRepId));
   }
 
