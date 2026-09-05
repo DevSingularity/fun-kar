@@ -14,11 +14,7 @@ export default function CustomerNavbar({ customerUser }) {
     window.location.reload();
   };
 
-  const navLinks = [
-    { label: 'My Quotation', path: '/v1/customer' },
-    { label: 'Messages', path: '/v1/customer/messages' },
-    { label: 'Portal Profile', path: '/v1/customer/profile' },
-  ];
+  const navLinks = [{ label: 'My Quotations', path: '/v1/customer' }];
 
   return (
     <header className="bg-[#714b67] text-white shadow-sm select-none sticky top-0 z-40 border-b border-[#5a3a52]">
@@ -39,7 +35,7 @@ export default function CustomerNavbar({ customerUser }) {
           {/* Customer Module Tabs */}
           <nav className="flex items-center gap-1 shrink-0">
             {navLinks.map((tab) => {
-              const isActive = location.pathname === tab.path || (tab.path === '/v1/customer' && location.pathname.startsWith('/v1/customer/q'));
+              const isActive = location.pathname === tab.path || (tab.path === '/v1/customer' && location.pathname.startsWith('/v1/customer/'));
               return (
                 <Link
                   key={tab.label}
@@ -71,7 +67,7 @@ export default function CustomerNavbar({ customerUser }) {
             >
               {customerUser?.name?.[0]?.toUpperCase() || 'C'}
             </div>
-            <span className="hidden md:inline text-xs font-semibold text-white/95 max-w-[140px] truncate">
+            <span className="hidden md:inline text-xs font-semibold text-white/95 max-w-35 truncate">
               {customerUser?.name || customerUser?.email || 'Customer User'}
             </span>
           </div>
