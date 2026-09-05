@@ -38,9 +38,13 @@ export default function LoginPage() {
 
   const handleChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleSelectDemo = (email) => {
+  const handleSelectDemo = (email, isCustomer) => {
     setFormData({ email, password: 'Password123!' });
-    toast.success(`Demo credentials loaded for ${email}`, { duration: 2000 });
+    if (isCustomer) {
+      toast.success(`Loaded Customer Portal login (${email})`, { duration: 2500 });
+    } else {
+      toast.success(`Demo credentials loaded for ${email}`, { duration: 2000 });
+    }
   };
 
   const handleSubmit = async (e) => {
