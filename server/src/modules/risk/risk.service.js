@@ -74,10 +74,14 @@ export async function evaluateQuoteRisk({ customerId, lines }) {
       throw new NotFoundError(`Product with ID '${line.productId}' not found.`, 'PRODUCT_NOT_FOUND');
     }
 
-    const unitPrice = Number(line.unitPrice !== undefined ? line.unitPrice : product.listPrice);
+    const unitPrice = Number(
+      line.unitPrice !== undefined && line.unitPrice !== null
+        ? line.unitPrice
+        : (product.basePrice || product.listPrice || 0)
+    );
     const quantity = Number(line.quantity || 1);
     const requestedDiscountPct = Number(line.requestedDiscountPct || 0);
-    const standardCost = Number(product.standardCost || 0);
+    const standardCost = Number(product.estimatedCost || product.standardCost || 0);
 
     // Fetch category limit
     let categoryMaxDiscountPct = null;

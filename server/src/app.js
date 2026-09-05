@@ -21,10 +21,8 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Support both /api and /api/v1 prefixes gracefully
-app.use(env.API_PREFIX, routes);
-if (env.API_PREFIX !== '/api') {
-  app.use('/api', routes);
-}
+app.use('/api', routes);
+app.use('/api/v1', routes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -15,12 +15,12 @@ export function buildLimiter({ windowMs = 15 * 60 * 1000, max = 100, message = '
 
 export const authLimiter = buildLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: process.env.NODE_ENV === 'production' ? 30 : 5000,
   message: 'Too many authentication attempts. Please try again after 15 minutes.',
 });
 
 export const apiLimiter = buildLimiter({
   windowMs: 60 * 1000,
-  max: 300,
+  max: process.env.NODE_ENV === 'production' ? 300 : 10000,
   message: 'Rate limit exceeded. Please throttle your requests.',
 });
