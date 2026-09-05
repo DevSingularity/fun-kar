@@ -362,71 +362,46 @@ export default function V1QuotationDetailPage() {
           )}
         </div>
 
-        {/* ── Upsell and Cross-Sell Suggestions ── */}
+        {/* ── Upsell and Cross-Sell Suggestions (Real Products from Catalog) ── */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold text-[#008784] uppercase tracking-wider flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-[#008784]" />
               Upsell and Cross-Sell Suggestions
             </h2>
-            <span className="text-[11px] text-slate-500 font-medium">1-Click Fast Add</span>
+            <span className="text-[11px] text-slate-500 font-medium">1-Click Add Real Catalog SKUs</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            
-            {/* Suggestion 1 */}
-            <button
-              onClick={() => handleAddUpsell('Analytics', 5)}
-              className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md text-left transition-all duration-150 group shadow-xs active:scale-98"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-[#008784] transition-colors">
-                    + Wireless Mouse / Real-Time Analytics
-                  </h3>
-                  <p className="text-[11px] text-emerald-600 font-extrabold mt-1">
-                    Margin +$18
-                  </p>
-                </div>
-                <PlusCircle className="h-4 w-4 text-slate-400 group-hover:text-[#008784] transition-colors" />
-              </div>
-            </button>
+            {products.slice(1, 4).map((p, idx) => {
+              const basePrice = Number(p.basePrice || 0);
+              const cost = Number(p.estimatedCost || 0);
+              const marginBoost = Math.round(basePrice - cost);
+              const defaultDiscount = idx === 1 ? 12 : 5;
 
-            {/* Suggestion 2 */}
-            <button
-              onClick={() => handleAddUpsell('Cloud', 12)}
-              className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md text-left transition-all duration-150 group shadow-xs active:scale-98"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-[#008784] transition-colors">
-                    + Docking Station / Dedicated Cloud Pod
-                  </h3>
-                  <p className="text-[11px] text-[#008784] font-extrabold mt-1">
-                    Promo: 12% off
-                  </p>
-                </div>
-                <PlusCircle className="h-4 w-4 text-slate-400 group-hover:text-[#008784] transition-colors" />
-              </div>
-            </button>
-
-            {/* Suggestion 3 */}
-            <button
-              onClick={() => handleAddUpsell('Support', 8)}
-              className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md text-left transition-all duration-150 group shadow-xs active:scale-98"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 group-hover:text-[#008784] transition-colors">
-                    + Care Plan 2yr / SLA Gold Support
-                  </h3>
-                  <p className="text-[11px] text-emerald-600 font-extrabold mt-1">
-                    Margin +$46
-                  </p>
-                </div>
-                <PlusCircle className="h-4 w-4 text-slate-400 group-hover:text-[#008784] transition-colors" />
-              </div>
-            </button>
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => handleAddUpsell(p.name, defaultDiscount)}
+                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md text-left transition-all duration-150 group shadow-xs active:scale-98"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-800 group-hover:text-[#008784] transition-colors line-clamp-1">
+                        + {p.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        {p.sku} — Base: ₹{basePrice.toLocaleString()}
+                      </p>
+                      <p className="text-[11px] text-emerald-600 font-extrabold mt-1">
+                        Margin Boost: +₹{marginBoost.toLocaleString()}
+                      </p>
+                    </div>
+                    <PlusCircle className="h-4 w-4 text-slate-400 group-hover:text-[#008784] shrink-0 transition-colors ml-2" />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 

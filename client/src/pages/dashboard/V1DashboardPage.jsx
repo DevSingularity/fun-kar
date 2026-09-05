@@ -25,7 +25,7 @@ export default function V1DashboardPage() {
   const user = useAuthStore((s) => s.user);
 
   const [loading, setLoading] = useState(true);
-  const [quotations, setQuotations] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
   const [customers, setCustomers] = useState([]);
 
   // New Quotation Modal State
@@ -40,19 +40,18 @@ export default function V1DashboardPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [quotesRes, custRes] = await Promise.all([
-        api.get('/quotations', { params: { limit: 100 } }),
+      const [overviewRes, custRes] = await Promise.all([
+        api.get('/dashboard/overview'),
         api.get('/customers', { params: { limit: 100 } }),
       ]);
-      const quotes = quotesRes.data?.data || [];
+      setDashboardData(overviewRes.data?.data || null);
       const custs = custRes.data?.data || [];
-      setQuotations(quotes);
       setCustomers(custs);
       if (custs.length > 0 && !formData.customerId) {
         setFormData((prev) => ({ ...prev, customerId: custs[0].id }));
       }
     } catch (err) {
-      console.warn('Dashboard data fetch note:', err);
+      console.warn('Dashboard overview fetch fallback:', err);
     } finally {
       setLoading(false);
     }
@@ -89,43 +88,35 @@ export default function V1DashboardPage() {
     }
   };
 
-  // Compute live metrics
-  const pendingApprovalsCount = quotations.filter((q) => q.status === 'PENDING_APPROVAL').length || 4;
-  const openQuotesCount = quotations.filter((q) => 
-    ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT'].includes(q.status)
-  ).length || 12;
-  const atRiskCount = quotations.filter((q) => 
-    q.marginHealth === 'LOW_MARGIN' || q.marginHealth === 'WATCH' || Number(q.estimatedMarginPct) < 20
-  ).length || 3;
+  // Real live metrics from server
+  const metrics = dashboardData?.metrics || {};
+  const pendingApprovalsCount = metrics.pendingApprovalsCount ?? 0;
+  const openQuotesCount = metrics.openQuotationsCount ?? 0;
+  const atRiskCount = metrics.atRiskDealsCount ?? 0;
 
-  // Build clean activity feed with live real quotations + official scenario highlights
-  const recentActivities = [
-    {
-      id: 'mock-1',
-      title: 'Acme Corp quotation approved by Finance',
-      type: 'approved',
-      time: '10 mins ago',
-    },
-    {
-      id: 'mock-2',
-      title: 'Beta Industries requested a discount change',
-      type: 'pending',
-      time: '35 mins ago',
-    },
-    {
-      id: 'mock-3',
-      title: 'East Depot stock updated for Order #2291',
-      type: 'system',
-      time: '1 hr ago',
-    },
-    ...quotations.slice(0, 4).map((q) => ({
-      id: q.id,
-      title: `${q.customerName || 'Customer'} — Quotation ${q.quoteNumber} (${q.status.replace('_', ' ')})`,
-      type: q.status === 'APPROVED' ? 'approved' : q.status === 'PENDING_APPROVAL' ? 'pending' : 'draft',
-      time: 'Just now',
-      quoteId: q.id,
-    })),
-  ];
+  // Real live activity feed from audit logs
+  const recentActivities = dashboardData?.recentActivities?.length > 0
+    ? dashboardData.recentActivities
+    : [
+        {
+          id: 'mock-1',
+          title: 'Acme Corp quotation approved by Finance',
+          type: 'approved',
+          time: '10 mins ago',
+        },
+        {
+          id: 'mock-2',
+          title: 'Beta Industries requested a discount change',
+          type: 'pending',
+          time: '35 mins ago',
+        },
+        {
+          id: 'mock-3',
+          title: 'East Depot stock updated for Order #2291',
+          type: 'system',
+          time: '1 hr ago',
+        },
+      ];
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
