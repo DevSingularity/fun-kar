@@ -14,6 +14,10 @@ import {
   categoryDiscountLimits,
   approvalRules,
 } from './schema/governance.js';
+import {
+  warehouses,
+  warehouseStock,
+} from './schema/warehouses.js';
 import { hashPassword } from '../common/password.util.js';
 import { sql, eq } from 'drizzle-orm';
 
@@ -440,7 +444,85 @@ async function runSeed() {
     }
   }
 
-  console.log('[SEED] ✅ Phase 1 & Phase 2 master data seed completed successfully.');
+  // 9. Seed Warehouses & Stock (Phase 5)
+  console.log('[SEED] Upserting warehouses and live inventory...');
+  const SEED_WAREHOUSES = [
+    { name: 'Main Warehouse', location: 'Mumbai Central Logistics Hub', shippingCostWeight: '1.00', isActive: true },
+    { name: 'East Depot', location: 'Kolkata Port Terminal', shippingCostWeight: '1.50', isActive: true },
+    { name: 'North DC', location: 'Delhi NCR Fulfillment Hub', shippingCostWeight: '1.20', isActive: true },
+  ];
+
+  const warehouseMap = {};
+  for (const wh of SEED_WAREHOUSES) {
+    const existing = await db
+      .select()
+      .from(warehouses)
+      .where(eq(warehouses.name, wh.name))
+      .limit(1);
+
+    if (existing.length === 0) {
+      const inserted = await db.insert(warehouses).values(wh).returning();
+      warehouseMap[wh.name] = inserted[0];
+      console.log(`[SEED] Created warehouse: ${wh.name} (${wh.location})`);
+    } else {
+      warehouseMap[wh.name] = existing[0];
+    }
+  }
+
+  // Stock quantities per product and warehouse
+  const mainWh = warehouseMap['Main Warehouse'];
+  const eastWh = warehouseMap['East Depot'];
+  const northWh = warehouseMap['North DC'];
+
+  if (mainWh && eastWh && northWh) {
+    const allProds = Object.values(productMap);
+    for (const prod of allProds) {
+      // Main Warehouse stock
+      await db
+        .insert(warehouseStock)
+        .values({
+          warehouseId: mainWh.id,
+          productId: prod.id,
+          quantityOnHand: prod.productType === 'ONE_TIME' ? 40 : 100,
+          reorderThreshold: 10,
+        })
+        .onConflictDoUpdate({
+          target: [warehouseStock.warehouseId, warehouseStock.productId],
+          set: { quantityOnHand: prod.productType === 'ONE_TIME' ? 40 : 100 },
+        });
+
+      // East Depot stock
+      await db
+        .insert(warehouseStock)
+        .values({
+          warehouseId: eastWh.id,
+          productId: prod.id,
+          quantityOnHand: prod.productType === 'ONE_TIME' ? 10 : 50,
+          reorderThreshold: 5,
+        })
+        .onConflictDoUpdate({
+          target: [warehouseStock.warehouseId, warehouseStock.productId],
+          set: { quantityOnHand: prod.productType === 'ONE_TIME' ? 10 : 50 },
+        });
+
+      // North DC stock
+      await db
+        .insert(warehouseStock)
+        .values({
+          warehouseId: northWh.id,
+          productId: prod.id,
+          quantityOnHand: prod.productType === 'ONE_TIME' ? 25 : 75,
+          reorderThreshold: 8,
+        })
+        .onConflictDoUpdate({
+          target: [warehouseStock.warehouseId, warehouseStock.productId],
+          set: { quantityOnHand: prod.productType === 'ONE_TIME' ? 25 : 75 },
+        });
+    }
+    console.log('[SEED] Seeded multi-warehouse inventory stock levels.');
+  }
+
+  console.log('[SEED] ✅ Master data seed (Phases 1–5) completed successfully.');
   process.exit(0);
 }
 

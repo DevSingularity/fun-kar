@@ -32,7 +32,7 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
     { label: 'Dashboard', path: '/v1/dashboard', id: 'Dashboard' },
     { label: 'Quotations', path: '/v1/quotations', id: 'Quotations' },
     { label: 'Approvals', path: '/v1/approvals', id: 'Approvals' },
-    { label: 'Fulfillment', path: '/dashboard/products', id: 'Fulfillment' },
+    { label: 'Fulfillment', path: '/v1/fulfillment', id: 'Fulfillment' },
     { label: 'Subscriptions', path: '/dashboard/pricing', id: 'Subscriptions' },
     { label: 'Invoices', path: '/dashboard/pricing', id: 'Invoices' },
     { label: 'Deal Health', path: '/dashboard/governance', id: 'Deal Health' },

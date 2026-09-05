@@ -11,6 +11,8 @@ import quotationsRoutes from '../modules/quotations/quotations.routes.js';
 import dashboardRoutes from '../modules/dashboard/dashboard.routes.js';
 import approvalRoutes from '../modules/approval/approval.routes.js';
 import { adminRouter as upsellRulesRoutes, suggestionsRouter as quoteUpsellRoutes } from '../modules/intelligence/intelligence.routes.js';
+import warehousesRoutes from '../modules/warehouses/warehouses.routes.js';
+import fulfillmentRoutes from '../modules/fulfillment/fulfillment.routes.js';
 
 const router = Router();
 
@@ -30,5 +32,8 @@ router.use('/quotations', quotationsRoutes);
 router.use('/quotations/:id', quoteUpsellRoutes);
 router.use('/approval-requests', approvalRoutes);
 router.use('/upsell-rules', upsellRulesRoutes);
+router.use('/warehouses', warehousesRoutes);
+router.use('/orders', fulfillmentRoutes);
+router.use('/fulfillment', fulfillmentRoutes);
 
 export default router;
