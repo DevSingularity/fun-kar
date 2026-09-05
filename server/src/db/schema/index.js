@@ -1,12 +1,13 @@
-/**
- * Schema barrel
- *
- * Export every table/enum here so drizzle-kit can find them and so the rest
- * of the app can do:
- *   import { users, resourceItems } from '../db/schema/index.js';
- *
- * TODO: add exports for any new tables you create.
- */
-
+export * from './enums.js';
 export * from './users.js';
-export * from './resourceItems.js';
+export * from './catalog.js';
+export * from './customers.js';
+export * from './intelligence.js';
+export * from './quotations.js';
+export * from './governance.js';
+export * from './orders.js';
+export * from './warehouses.js';
+export * from './billing.js';
+export * from './dealhealth.js';
+export * from './negotiation.js';
+export * from './relations.js';

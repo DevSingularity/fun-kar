@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 @import "./app/styles/theme.css";
 
@@ -44,7 +44,7 @@ select {
 
 ::selection {
 	background: var(--app-color-primary-soft);
-	color: var(--app-color-text);
+	color: var(--app-color-primary);
 }
 
 @keyframes float-slow {
@@ -53,7 +53,7 @@ select {
 		transform: translate3d(0, 0, 0) scale(1);
 	}
 	50% {
-		transform: translate3d(0, -10px, 0) scale(1.03);
+		transform: translate3d(0, -8px, 0) scale(1.02);
 	}
 }
 
@@ -69,7 +69,7 @@ select {
 @keyframes reveal-up {
 	0% {
 		opacity: 0;
-		transform: translateY(24px);
+		transform: translateY(20px);
 	}
 	100% {
 		opacity: 1;
@@ -80,35 +80,36 @@ select {
 .aurora {
 	position: absolute;
 	border-radius: 999px;
-	filter: blur(24px);
-	opacity: 0.55;
-	animation: float-slow 12s ease-in-out infinite;
+	filter: blur(40px);
+	opacity: 0.35;
+	animation: float-slow 14s ease-in-out infinite;
+	pointer-events: none;
 }
 
 .aurora-one {
-	top: 14%;
-	right: 8%;
-	width: 22rem;
-	height: 22rem;
-	background: radial-gradient(circle, rgba(23, 92, 211, 0.35), rgba(23, 92, 211, 0));
+	top: 8%;
+	right: 6%;
+	width: 26rem;
+	height: 26rem;
+	background: radial-gradient(circle, rgba(113, 75, 103, 0.22), rgba(113, 75, 103, 0));
 }
 
 .aurora-two {
-	left: 6%;
-	bottom: 10%;
-	width: 18rem;
-	height: 18rem;
-	background: radial-gradient(circle, rgba(15, 95, 115, 0.3), rgba(15, 95, 115, 0));
-	animation-delay: -4s;
+	left: 5%;
+	bottom: 12%;
+	width: 22rem;
+	height: 22rem;
+	background: radial-gradient(circle, rgba(0, 135, 132, 0.18), rgba(0, 135, 132, 0));
+	animation-delay: -5s;
 }
 
 .noise-overlay {
 	position: absolute;
 	inset: 0;
-	opacity: 0.035;
-	background-image: linear-gradient(rgba(11, 20, 34, 0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(11, 20, 34, 0.8) 1px, transparent 1px);
-	background-size: 30px 30px;
-	mask-image: radial-gradient(circle at center, black, transparent 82%);
+	opacity: 0.02;
+	background-image: linear-gradient(rgba(33, 37, 41, 0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(33, 37, 41, 0.8) 1px, transparent 1px);
+	background-size: 28px 28px;
+	mask-image: radial-gradient(circle at center, black, transparent 85%);
 }
 
 .scroll-reveal {
@@ -263,9 +264,9 @@ select {
 }
 
 .net-loader-wrapper {
-	--loader-color: #10b981;
-	--loader-color-soft: rgba(16, 185, 129, 0.4);
-	--loader-color-faint: rgba(16, 185, 129, 0.1);
+	--loader-color: var(--app-color-primary);
+	--loader-color-soft: rgba(113, 75, 103, 0.4);
+	--loader-color-faint: rgba(113, 75, 103, 0.1);
 	animation: net-entrance 0.5s ease-out forwards;
 	display: flex;
 	flex-direction: column;
@@ -360,25 +361,24 @@ select {
 
 /* Logo and Branding */
 .logo-brand {
-	font-family: 'Outfit', sans-serif;
-	font-weight: 800;
-	letter-spacing: -0.01em;
+	font-family: var(--app-font-sans);
+	font-weight: 700;
+	letter-spacing: -0.02em;
 	display: flex;
 	align-items: center;
 	line-height: 1;
 }
 
-.logo-shield {
-	font-family: 'Orbitron', sans-serif;
-	color: #10b981;
-	font-weight: 900;
+.logo-accent {
+	color: var(--app-color-accent);
+	font-weight: 800;
 }
 
 /* Navbar Sleek Underline */
 .nav-link-underline {
 	position: relative;
 	color: var(--app-color-text-muted);
-	transition: color 0.3s ease;
+	transition: color 0.2s ease;
 	display: inline-flex;
 	align-items: center;
 }
@@ -390,8 +390,8 @@ select {
 	left: 50%;
 	width: 0;
 	height: 2px;
-	background: #10b981;
-	transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+	background: var(--app-color-primary);
+	transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 	transform: translateX(-50%);
 	border-radius: 2px;
 }
@@ -401,7 +401,7 @@ select {
 }
 
 .nav-link-underline.active {
-	color: var(--app-color-text);
+	color: var(--app-color-primary);
 	font-weight: 600;
 }
 
@@ -411,16 +411,16 @@ select {
 
 /* Mild Logout Button */
 .btn-logout-mild {
-	color: #ef4444 !important;
-	border: 1px solid #fee2e2 !important;
-	background-color: #fef2f2 !important;
+	color: var(--app-color-danger) !important;
+	border: 1px solid rgba(217, 83, 79, 0.2) !important;
+	background-color: rgba(217, 83, 79, 0.06) !important;
 	transition: all 0.2s ease !important;
 }
 
 .btn-logout-mild:hover {
-	background-color: #fee2e2 !important;
-	border-color: #fecaca !important;
-	color: #dc2626 !important;
+	background-color: rgba(217, 83, 79, 0.12) !important;
+	border-color: rgba(217, 83, 79, 0.35) !important;
+	color: var(--app-color-danger) !important;
 	transform: translateY(-1px) !important;
 }
 

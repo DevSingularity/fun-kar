@@ -22,18 +22,19 @@ const Sidebar = ({
 			} flex flex-col h-screen sticky top-0 ${className}`}
 		>
 			{/* Logo Section */}
-			<Link to='/' className={`flex items-center gap-3 p-6 hover:opacity-80 transition-opacity ${isCollapsed ? 'justify-center p-4' : ''}`}>
-				<img src='/logo.png' alt='Logo' className='h-10 w-10 object-contain' />
+			<Link to='/' className={`flex items-center gap-3 p-5 hover:opacity-90 transition-opacity ${isCollapsed ? 'justify-center p-4' : ''}`}>
+				<img src='/logo.svg' alt='DealFlow360' className='h-8 w-8 object-contain' />
 				{!isCollapsed && (
-					<span className='text-sm font-bold uppercase tracking-[0.2em] text-[var(--app-color-text)]'>
-						Your App
-					</span>
+					<div className='flex items-baseline font-bold tracking-tight text-sm'>
+						<span className='text-[var(--app-color-primary)]'>DealFlow</span>
+						<span className='text-[var(--app-color-accent)] font-extrabold ml-0.5'>360</span>
+					</div>
 				)}
 			</Link>
 
 			{/* Toggle Button Area */}
 			{collapsible && (
-				<div className='flex items-center justify-end px-4 py-2'>
+				<div className='flex items-center justify-end px-4 py-1.5'>
 					<button
 						onClick={() => setIsCollapsed(!isCollapsed)}
 						className='p-1.5 hover:bg-[var(--app-color-surface-elevated)] rounded-lg transition-colors border border-transparent hover:border-[var(--app-color-border)]'
@@ -47,7 +48,7 @@ const Sidebar = ({
 			)}
 
 			{/* Menu Items */}
-			<nav className='flex-1 overflow-y-auto px-4 py-6 space-y-2'>
+			<nav className='flex-1 overflow-y-auto px-3 py-4 space-y-1'>
 				{items.map((item) => (
 					<a
 						key={item.id}
@@ -58,14 +59,14 @@ const Sidebar = ({
 								onItemClick(item.id);
 							}
 						}}
-						className={`flex items-center gap-4 px-4 py-3 rounded-xl text-sm transition-all ${
+						className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs transition-all ${
 							activeItem === item.id
-								? 'bg-[var(--app-color-primary-soft)] text-[var(--app-color-primary)] font-bold'
+								? 'bg-[var(--app-color-primary)] text-white font-semibold shadow-sm'
 								: 'text-[var(--app-color-text)] hover:bg-[var(--app-color-surface-elevated)] font-medium'
 						} ${isCollapsed ? 'justify-center' : ''}`}
 						title={isCollapsed ? item.label : ''}
 					>
-						{item.icon && <span className='w-5 h-5 flex-shrink-0'>{item.icon}</span>}
+						{item.icon && <span className='w-4 h-4 flex-shrink-0'>{item.icon}</span>}
 						{!isCollapsed && <span className='flex-1 truncate'>{item.label}</span>}
 					</a>
 				))}
@@ -73,8 +74,8 @@ const Sidebar = ({
 
 			{/* Footer */}
 			{!isCollapsed && (
-				<div className='border-t border-[var(--app-color-border)] p-4 text-xs text-[var(--app-color-text-muted)]'>
-					<p>© 2026 Your App</p>
+				<div className='border-t border-[var(--app-color-border)] p-4 text-[11px] text-[var(--app-color-text-muted)] font-medium'>
+					<p>© 2026 DealFlow360</p>
 				</div>
 			)}
 		</aside>

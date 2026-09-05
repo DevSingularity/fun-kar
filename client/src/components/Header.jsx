@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
  */
 
 const Header = ({
-	logo = 'Your App',
+	logo = 'DealFlow360',
 	logoHref = '/',
 	navItems = [],
 	userMenu = null,
@@ -20,31 +20,31 @@ const Header = ({
 	const brand = onLogoClick ? (
 		<button
 			type='button'
-			className='flex items-center gap-3 logo-brand group'
+			className='flex items-center gap-2.5 logo-brand group'
 			onClick={onLogoClick}
 		>
-			<img src='/navlogo.png' alt='Your App' className='h-12 w-12 object-contain transition-transform duration-500 group-hover:scale-110' />
-			<div className="flex items-baseline gap-0.5">
-				<span className="text-(--app-color-text) text-2xl!">Sport</span>
-				<span className="logo-shield text-2xl!">Shield</span>
+			<img src='/logo.svg' alt='DealFlow360' className='h-8 w-8 object-contain transition-transform duration-300 group-hover:scale-105' />
+			<div className="flex items-baseline font-bold tracking-tight text-lg">
+				<span className="text-(--app-color-primary)">DealFlow</span>
+				<span className="text-(--app-color-accent) font-extrabold ml-0.5">360</span>
 			</div>
 		</button>
 	) : (
-		<Link to={logoHref} className='flex items-center gap-3 logo-brand group'>
-			<img src='/navlogo.png' alt='Your App' className='h-12 w-12 object-contain transition-transform duration-500 group-hover:scale-110' />
-			<div className="flex items-baseline gap-0.5">
-				<span className="text-(--app-color-text) text-2xl!">Sport</span>
-				<span className="logo-shield text-2xl!">Shield</span>
+		<Link to={logoHref} className='flex items-center gap-2.5 logo-brand group'>
+			<img src='/logo.svg' alt='DealFlow360' className='h-8 w-8 object-contain transition-transform duration-300 group-hover:scale-105' />
+			<div className="flex items-baseline font-bold tracking-tight text-lg">
+				<span className="text-(--app-color-primary)">DealFlow</span>
+				<span className="text-(--app-color-accent) font-extrabold ml-0.5">360</span>
 			</div>
 		</Link>
 	);
 
 	return (
 		<header
-			className={`${positionClass} z-50 border-b border-(--app-color-border) shadow-[0_10px_30px_rgba(11,20,34,0.04)] ${className}`}
+			className={`${positionClass} z-50 border-b border-(--app-color-border) shadow-xs ${className}`}
 			style={{
-				backdropFilter: 'blur(18px)',
-				backgroundColor: 'rgba(247, 250, 252, 0.84)',
+				backdropFilter: 'blur(16px)',
+				backgroundColor: 'rgba(255, 255, 255, 0.88)',
 				...style,
 			}}
 		>
@@ -58,9 +58,9 @@ const Header = ({
 							<a
 								key={item.label}
 								href={item.href}
-								className='nav-link-underline flex items-center gap-2 text-sm font-medium'
+								className='nav-link-underline flex items-center gap-2 text-xs font-semibold'
 							>
-								{Icon && <Icon size={16} className="text-(--app-color-success)/70" />}
+								{Icon && <Icon size={15} className="text-(--app-color-primary)" />}
 								{item.label}
 							</a>
 						);
