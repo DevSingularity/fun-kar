@@ -15,9 +15,7 @@ export async function findInvoiceById(invoiceId) {
       i.amount_paid,
       i.due_date,
       i.issued_at,
-      i.paid_at,
       i.created_at,
-      i.updated_at,
       q.sales_rep_id
     FROM invoices i
     INNER JOIN orders o ON o.id = i.order_id
@@ -43,9 +41,9 @@ export async function findInvoiceById(invoiceId) {
       amountPaid: row.amountPaid,
       dueDate: row.dueDate,
       issuedAt: row.issuedAt,
-      paidAt: row.paidAt,
+      paidAt: null,
       createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      updatedAt: null,
     },
     salesRepId: row.salesRepId,
   };
@@ -54,22 +52,23 @@ export async function findInvoiceById(invoiceId) {
 export async function insertPayment(data) {
   return await queryOne(
     `INSERT INTO payments (
-       invoice_id, amount, payment_method, reference, payment_date
+       invoice_id, amount, method, transaction_reference, status, paid_at
      ) VALUES (
-       $1, $2, $3, $4, $5
+       $1, $2, $3, $4, $5, $6
      ) RETURNING *`,
     [
       data.invoiceId,
       String(data.amount),
-      data.paymentMethod,
-      data.reference || null,
-      data.paymentDate || new Date(),
+      data.method || 'BANK_TRANSFER',
+      data.transactionReference || data.reference || null,
+      data.status || 'SUCCEEDED',
+      data.paidAt || new Date(),
     ]
   );
 }
 
 export async function updateInvoice(id, data) {
-  const setParts = ['updated_at = NOW()'];
+  const setParts = [];
   const params = [id];
   let idx = 2;
 
@@ -81,9 +80,9 @@ export async function updateInvoice(id, data) {
     setParts.push(`status = $${idx++}`);
     params.push(data.status);
   }
-  if (data.paidAt !== undefined) {
-    setParts.push(`paid_at = $${idx++}`);
-    params.push(data.paidAt);
+
+  if (setParts.length === 0) {
+    return await queryOne(`SELECT * FROM invoices WHERE id = $1`, [id]);
   }
 
   return await queryOne(
@@ -92,6 +91,24 @@ export async function updateInvoice(id, data) {
      WHERE id = $1
      RETURNING *`,
     params
+  );
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function insertAuditLog(data) {
+  const actorId = (data.actorId && UUID_REGEX.test(String(data.actorId))) ? data.actorId : null;
+  return await query(
+    `INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, reason, old_value, new_value)
+     VALUES ($1, 'INVOICE', $2, $3, $4, $5, $6)`,
+    [
+      actorId,
+      data.entityId,
+      data.action,
+      data.reason || null,
+      data.oldValue ? JSON.stringify(data.oldValue) : null,
+      data.newValue ? JSON.stringify(data.newValue) : null,
+    ]
   );
 }
 

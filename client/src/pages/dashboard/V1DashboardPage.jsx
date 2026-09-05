@@ -138,14 +138,16 @@ export default function V1DashboardPage() {
         {/* ── Action Buttons Row ── */}
         <div className="flex flex-wrap items-center gap-3">
           
-          {/* New Quotation Button */}
-          <button
-            onClick={() => navigate('/v1/quotations/new')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
-          >
-            <Plus className="h-4 w-4" />
-            <span>New Quotation</span>
-          </button>
+          {/* New Quotation Button (Strictly gated for Sales & Admin personas) */}
+          {['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role) && (
+            <button
+              onClick={() => navigate('/v1/quotations/new')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
+            >
+              <Plus className="h-4 w-4" />
+              <span>New Quotation</span>
+            </button>
+          )}
 
           {/* View Approvals Button */}
           <Link

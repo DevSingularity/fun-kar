@@ -52,31 +52,12 @@ function RoleRoute({ allowedRoles }) {
 }
 
 export default function AppRoutes() {
-  const location = useLocation();
   const hydrated = useAuthStore((s) => s.hydrated);
-  const isTransitioning = useAuthStore((s) => s.isTransitioning);
-  const isExiting = useAuthStore((s) => s.isExiting);
-  const transitionShowTagline = useAuthStore((s) => s.transitionShowTagline);
-  const setTransitioning = useAuthStore((s) => s.setTransitioning);
-  const setExiting = useAuthStore((s) => s.setExiting);
 
-  useEffect(() => {
-    if (isTransitioning && !isExiting) {
-      const t1 = setTimeout(() => {
-        setExiting(true);
-        setTimeout(() => setTransitioning(false), 600);
-      }, 300);
-      return () => clearTimeout(t1);
-    }
-  }, [location.pathname, isTransitioning, isExiting]);
-
-  if (!hydrated) return <GlobalLoader showTagline={false} />;
+  if (!hydrated) return <GlobalLoader />;
 
   return (
     <>
-      {(isTransitioning || isExiting) && (
-        <GlobalLoader showTagline={transitionShowTagline} isExiting={isExiting} />
-      )}
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />

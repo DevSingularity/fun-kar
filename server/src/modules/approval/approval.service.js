@@ -48,7 +48,7 @@ export async function listApprovalRequests(query, auth) {
   const offset = Math.max(0, Number(query.offset) || 0);
   const status = query.status !== undefined ? query.status : 'ALL';
 
-  const repScope = (auth?.role === 'SALES_MANAGER' || auth?.role === 'SALES_REP') ? await resolveRepScope(auth) : null;
+  const repScope = auth?.role === 'SALES_REP' ? await resolveRepScope(auth) : null;
 
   const { rows, total } = await repo.listApprovalRequests({
     role: auth?.role,
@@ -75,7 +75,7 @@ export async function getApprovalDetail(id, auth) {
     throw new NotFoundError(`Approval request with ID '${id}' not found.`, 'APPROVAL_REQUEST_NOT_FOUND');
   }
 
-  if (auth?.role === 'SALES_MANAGER' || auth?.role === 'SALES_REP') {
+  if (auth?.role === 'SALES_REP') {
     const repScope = await resolveRepScope(auth);
     if (repScope && !repScope.includes(joined.requesterId)) {
       throw new ForbiddenError(
@@ -159,13 +159,8 @@ export async function decideApproval(id, action, payload, auth) {
     );
   }
 
-  // Manager ownership validation
-  if (auth.role === 'SALES_MANAGER') {
-    const joined = await repo.findByIdJoined(id);
-    const repScope = await resolveRepScope(auth);
-    if (repScope && !repScope.includes(joined?.requesterId)) {
-      throw new ForbiddenError('You do not have permission to decide this approval request.', 'ACCESS_DENIED');
-    }
+  if (auth.role === 'SALES_REP') {
+    throw new ForbiddenError('Sales representatives cannot decide approval requests.', 'ACCESS_DENIED');
   }
 
   const priorActions = await repo.findActions(id);

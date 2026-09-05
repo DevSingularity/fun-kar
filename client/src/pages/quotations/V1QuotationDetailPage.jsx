@@ -31,6 +31,7 @@ import toast from 'react-hot-toast';
 import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
+import Spinner from '../../components/Spinner.jsx';
 
 const STATUS_BADGES = {
   DRAFT: 'bg-slate-100 text-slate-700 border-slate-300',
@@ -109,10 +110,11 @@ export default function V1QuotationDetailPage() {
     setLoading(true);
     try {
       const [prodRes, custRes] = await Promise.all([
-        api.get('/products', { params: { limit: 100 } }),
+        api.get('/products', { params: { limit: 100, isActive: true } }),
         api.get('/customers', { params: { limit: 100 } }),
       ]);
-      const prods = prodRes.data?.data || [];
+      const rawProds = prodRes.data?.data || [];
+      const prods = rawProds.filter((p) => p.isActive !== false);
       const custs = custRes.data?.data || [];
       setProducts(prods);
       setCustomers(custs);
@@ -191,8 +193,13 @@ export default function V1QuotationDetailPage() {
     ? 'Silver Preferential Matrix' 
     : 'Standard Enterprise Price List';
 
-  // State flags for strictly partitioned UI behavior
-  const isDraft = isNew || !quoteData?.status || quoteData?.status === 'DRAFT' || quoteData?.status === 'RETURNED' || quoteData?.status === 'CHANGES_REQUESTED';
+  // Enterprise RBAC Persona Permissions
+  const canEditQuote = ['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role);
+  const canConvertOrder = ['SALES_REP', 'SALES_MANAGER', 'OPERATIONS', 'ADMIN'].includes(user?.role);
+  const canWithdraw = ['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role);
+
+  // State flags for strictly partitioned UI behavior (gated by edit permissions)
+  const isDraft = (isNew || !quoteData?.status || quoteData?.status === 'DRAFT' || quoteData?.status === 'RETURNED' || quoteData?.status === 'CHANGES_REQUESTED') && canEditQuote;
   const isPendingApproval = quoteData?.status === 'PENDING_APPROVAL';
   const isApproved = quoteData?.status === 'APPROVED';
   const isUnderNegotiation = quoteData?.status === 'UNDER_NEGOTIATION' || quoteData?.status === 'SENT';
@@ -410,7 +417,12 @@ export default function V1QuotationDetailPage() {
         fetchData();
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save draft quotation');
+      const errorMsg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to save draft quotation';
+      toast.error(errorMsg);
     } finally {
       setSavingDraft(false);
     }
@@ -452,15 +464,26 @@ export default function V1QuotationDetailPage() {
       const submitRes = await api.post(`/quotations/${targetId}/submit`);
       const resultData = submitRes.data?.data;
       setSubmitResult(resultData);
-      toast.success(submitRes.data?.message || 'Quotation submitted successfully!');
+
+      const newStatus = resultData?.quotation?.status;
+      if (newStatus === 'APPROVED') {
+        toast.success('Quotation automatically approved within delegation threshold!');
+      } else {
+        toast.success('Quotation submitted for multi-tier approval!');
+      }
 
       if (isNew) {
         navigate(`/v1/quotations/${targetId}`, { replace: true });
       } else {
-        fetchData();
+        await fetchData();
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit quotation');
+      const errorMsg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to submit quotation';
+      toast.error(errorMsg);
     } finally {
       setSubmitting(false);
     }
@@ -474,7 +497,12 @@ export default function V1QuotationDetailPage() {
       toast.success('Quotation withdrawn to DRAFT for editing');
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to withdraw quotation');
+      const errorMsg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to withdraw quotation';
+      toast.error(errorMsg);
     } finally {
       setWithdrawing(false);
     }
@@ -566,8 +594,9 @@ export default function V1QuotationDetailPage() {
     return (
       <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
         <OdooTopNavbar activeTab="Quotations" />
-        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center">
-          <p className="text-xs font-semibold text-slate-400">Loading quotation details...</p>
+        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-24 flex flex-col items-center justify-center gap-3 text-center">
+          <Spinner size="lg" variant="primary" />
+          <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading quotation details...</p>
         </main>
       </div>
     );

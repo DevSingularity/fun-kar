@@ -125,7 +125,6 @@ export async function findSubscriptionLinesForOrder(orderId, tx = undefined) {
       sl.next_billing_date,
       sl.status,
       sl.created_at,
-      sl.updated_at,
       sl.cancelled_at,
       oi.id AS oi_order_item_id
     FROM subscription_lines sl
@@ -146,7 +145,7 @@ export async function findSubscriptionLinesForOrder(orderId, tx = undefined) {
       nextBillingDate: r.nextBillingDate,
       status: r.status,
       createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
+      updatedAt: null,
       cancelledAt: r.cancelledAt,
     },
     orderItemId: r.oiOrderItemId,
@@ -186,21 +185,16 @@ export async function insertInvoiceLines(rows, tx = undefined) {
   for (const r of rows) {
     const row = await queryOne(
       `INSERT INTO invoice_lines (
-         invoice_id, order_item_id, description, quantity, unit_price,
-         discount_amount, tax_amount, line_total, billing_line_type
+         invoice_id, order_item_id, billing_schedule_id, description, amount
        ) VALUES (
-         $1, $2, $3, $4, $5, $6, $7, $8, $9
+         $1, $2, $3, $4, $5
        ) RETURNING *`,
       [
         r.invoiceId,
         r.orderItemId || null,
-        r.description,
-        r.quantity,
-        String(r.unitPrice),
-        String(r.discountAmount || '0.00'),
-        String(r.taxAmount || '0.00'),
-        String(r.lineTotal || '0.00'),
-        r.billingLineType || 'ONE_TIME',
+        r.billingScheduleId || null,
+        r.description || 'Line item',
+        String(r.amount || r.lineTotal || '0.00'),
       ],
       tx
     );
@@ -212,7 +206,7 @@ export async function insertInvoiceLines(rows, tx = undefined) {
 export async function updateInvoiceTotals(invoiceId, { subtotal, taxTotal, total }, tx = undefined) {
   return await queryOne(
     `UPDATE invoices
-     SET subtotal = $2, tax_total = $3, total = $4, updated_at = NOW()
+     SET subtotal = $2, tax_total = $3, total = $4
      WHERE id = $1
      RETURNING *`,
     [invoiceId, String(subtotal), String(taxTotal), String(total)],
@@ -246,9 +240,7 @@ export async function findInvoiceByIdFull(id) {
       i.amount_paid,
       i.due_date,
       i.issued_at,
-      i.paid_at,
       i.created_at,
-      i.updated_at,
       c.name AS customer_name,
       c.tier AS customer_tier,
       o.order_number,
@@ -288,9 +280,9 @@ export async function findInvoiceByIdFull(id) {
       amountPaid: header.amountPaid,
       dueDate: header.dueDate,
       issuedAt: header.issuedAt,
-      paidAt: header.paidAt,
+      paidAt: null,
       createdAt: header.createdAt,
-      updatedAt: header.updatedAt,
+      updatedAt: null,
     },
     customerName: header.customerName,
     customerTier: header.customerTier,
@@ -398,7 +390,7 @@ export async function insertBillingSchedule(data, tx = undefined) {
   return await queryOne(
     `INSERT INTO billing_schedules (
        subscription_line_id, invoice_id, billing_period_start, billing_period_end,
-       status, scheduled_amount
+       status, amount
      ) VALUES (
        $1, $2, $3, $4, $5, $6
      ) RETURNING *`,
@@ -408,7 +400,7 @@ export async function insertBillingSchedule(data, tx = undefined) {
       data.billingPeriodStart,
       data.billingPeriodEnd,
       data.status || 'SCHEDULED',
-      String(data.scheduledAmount),
+      String(data.amount || data.scheduledAmount || '0.00'),
     ],
     tx
   );
@@ -515,7 +507,6 @@ export async function findSubscriptionLineById(id, tx = undefined) {
       sl.next_billing_date,
       sl.status,
       sl.created_at,
-      sl.updated_at,
       sl.cancelled_at,
       sp.id AS sp_id,
       sp.name AS sp_name,
@@ -549,7 +540,7 @@ export async function findSubscriptionLineById(id, tx = undefined) {
       nextBillingDate: row.nextBillingDate,
       status: row.status,
       createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+      updatedAt: null,
       cancelledAt: row.cancelledAt,
     },
     plan: {
@@ -670,6 +661,14 @@ export async function findSubscriptionDetailFull(id) {
   };
 }
 
+export async function findScheduleById(id, tx = undefined) {
+  return await queryOne(
+    `SELECT * FROM billing_schedules WHERE id = $1 LIMIT 1`,
+    [id],
+    tx
+  );
+}
+
 export async function findCurrentScheduleForLine(subscriptionLineId, tx = undefined) {
   return await queryOne(
     `SELECT * FROM billing_schedules
@@ -682,7 +681,7 @@ export async function findCurrentScheduleForLine(subscriptionLineId, tx = undefi
 }
 
 export async function updateSubscriptionLine(id, data, tx = undefined) {
-  const setParts = ['updated_at = NOW()'];
+  const setParts = [];
   const params = [id];
   let idx = 2;
 
@@ -703,6 +702,10 @@ export async function updateSubscriptionLine(id, data, tx = undefined) {
     params.push(data.endDate);
   }
 
+  if (setParts.length === 0) {
+    return await queryOne(`SELECT * FROM subscription_lines WHERE id = $1`, [id], tx);
+  }
+
   return await queryOne(
     `UPDATE subscription_lines
      SET ${setParts.join(', ')}
@@ -714,7 +717,7 @@ export async function updateSubscriptionLine(id, data, tx = undefined) {
 }
 
 export async function updateScheduleStatus(id, data, tx = undefined) {
-  const setParts = ['updated_at = NOW()'];
+  const setParts = [];
   const params = [id];
   let idx = 2;
 
@@ -725,6 +728,10 @@ export async function updateScheduleStatus(id, data, tx = undefined) {
   if (data.invoiceId !== undefined) {
     setParts.push(`invoice_id = $${idx++}`);
     params.push(data.invoiceId);
+  }
+
+  if (setParts.length === 0) {
+    return await queryOne(`SELECT * FROM billing_schedules WHERE id = $1`, [id], tx);
   }
 
   return await queryOne(
@@ -746,9 +753,8 @@ export async function findDueSchedules({ asOfDate, limit = 50 } = {}) {
       bs.billing_period_start AS bs_billing_period_start,
       bs.billing_period_end AS bs_billing_period_end,
       bs.status AS bs_status,
-      bs.scheduled_amount AS bs_scheduled_amount,
+      bs.amount AS bs_scheduled_amount,
       bs.created_at AS bs_created_at,
-      bs.updated_at AS bs_updated_at,
       sl.id AS subscription_line_id,
       oi.order_id,
       p.name AS product_name,
@@ -777,7 +783,7 @@ export async function findDueSchedules({ asOfDate, limit = 50 } = {}) {
       status: r.bsStatus,
       scheduledAmount: r.bsScheduledAmount,
       createdAt: r.bsCreatedAt,
-      updatedAt: r.bsUpdatedAt,
+      updatedAt: null,
     },
     subscriptionLineId: r.subscriptionLineId,
     orderId: r.orderId,
@@ -792,13 +798,12 @@ export async function findDueSchedules({ asOfDate, limit = 50 } = {}) {
 export async function insertCreditNote(data, tx = undefined) {
   return await queryOne(
     `INSERT INTO credit_notes (
-       credit_note_number, subscription_line_id, invoice_id, amount,
+       subscription_line_id, invoice_id, amount,
        reason, status, issued_at
      ) VALUES (
-       $1, $2, $3, $4, $5, $6, $7
+       $1, $2, $3, $4, $5, $6
      ) RETURNING *`,
     [
-      data.creditNoteNumber,
       data.subscriptionLineId,
       data.invoiceId || null,
       String(data.amount),
@@ -814,14 +819,13 @@ export async function findUnappliedCreditNotes({ limit = 50 } = {}) {
   const sql = `
     SELECT
       cn.id,
-      cn.credit_note_number,
       cn.subscription_line_id,
       cn.invoice_id,
       cn.amount,
       cn.reason,
       cn.status,
       cn.issued_at,
-      cn.applied_at,
+      cn.created_at,
       p.name AS product_name,
       c.name AS customer_name
     FROM credit_notes cn
@@ -839,14 +843,14 @@ export async function findUnappliedCreditNotes({ limit = 50 } = {}) {
   return rows.map((r) => ({
     creditNote: {
       id: r.id,
-      creditNoteNumber: r.creditNoteNumber,
+      creditNoteNumber: `CN-${r.id.slice(0, 8).toUpperCase()}`,
       subscriptionLineId: r.subscriptionLineId,
       invoiceId: r.invoiceId,
       amount: r.amount,
       reason: r.reason,
       status: r.status,
       issuedAt: r.issuedAt,
-      appliedAt: r.appliedAt,
+      appliedAt: null,
     },
     productName: r.productName,
     customerName: r.customerName,
@@ -870,9 +874,7 @@ export async function findOverdueInvoices({ asOfDate, limit = 50 } = {}) {
       i.amount_paid,
       i.due_date,
       i.issued_at,
-      i.paid_at,
       i.created_at,
-      i.updated_at,
       c.name AS customer_name,
       o.order_number
     FROM invoices i
@@ -898,9 +900,9 @@ export async function findOverdueInvoices({ asOfDate, limit = 50 } = {}) {
       amountPaid: r.amountPaid,
       dueDate: r.dueDate,
       issuedAt: r.issuedAt,
-      paidAt: r.paidAt,
+      paidAt: null,
       createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
+      updatedAt: null,
     },
     customerName: r.customerName,
     orderNumber: r.orderNumber,

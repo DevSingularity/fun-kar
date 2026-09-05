@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import api from '../../services/api.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
+import useAuthStore from '../../store/auth.store.js';
+import Spinner from '../../components/Spinner.jsx';
 
 const STATUS_STYLES = {
   DRAFT: 'bg-slate-100 text-slate-700 border-slate-200',
@@ -29,6 +31,9 @@ const STATUS_STYLES = {
 
 export default function V1InvoiceDetailPage() {
   const { id } = useParams();
+  const user = useAuthStore((s) => s.user);
+  const canRecordPayment = ['FINANCE', 'ADMIN'].includes(user?.role);
+
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState(null);
   const [amount, setAmount] = useState('');
@@ -79,8 +84,9 @@ export default function V1InvoiceDetailPage() {
     return (
       <div className="min-h-screen bg-[#f8f9fa] flex flex-col font-sans">
         <OdooTopNavbar activeTab="Invoices" />
-        <div className="flex-1 flex items-center justify-center text-xs text-slate-400 font-medium">
-          Loading invoice details...
+        <div className="flex-1 flex flex-col items-center justify-center py-24 gap-3 text-center">
+          <Spinner size="lg" variant="primary" />
+          <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading invoice details...</p>
         </div>
       </div>
     );
@@ -397,7 +403,7 @@ export default function V1InvoiceDetailPage() {
           </div>
 
           {/* Record Payment Form */}
-          {remaining > 0 && (
+          {remaining > 0 && canRecordPayment && (
             <div className="pt-6 border-t border-slate-100 space-y-3">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <CreditCard className="h-4 w-4 text-[#008784]" /> Record Payment

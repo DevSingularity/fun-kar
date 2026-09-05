@@ -21,6 +21,7 @@ import {
 import api from '../../services/api.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
 import useAuthStore from '../../store/auth.store.js';
+import Spinner from '../../components/Spinner.jsx';
 
 const STATUS_PILL_STYLES = {
   ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -32,6 +33,7 @@ export default function V1SubscriptionsPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'ADMIN';
+  const canManageSubscriptions = ['FINANCE', 'ADMIN'].includes(user?.role);
 
   const [loading, setLoading] = useState(true);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -254,7 +256,10 @@ export default function V1SubscriptionsPage() {
         {/* Wireframe 9 Subscriptions Table */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
           {loading ? (
-            <div className="py-16 text-center text-xs text-slate-400 font-medium">Loading subscriptions ledger...</div>
+            <div className="py-20 flex flex-col items-center justify-center gap-3 text-center">
+              <Spinner size="lg" variant="primary" />
+              <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading subscriptions ledger...</p>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center text-xs text-slate-400 font-medium space-y-1">
               <Repeat className="h-8 w-8 mx-auto text-slate-300 mb-2" />
@@ -312,35 +317,39 @@ export default function V1SubscriptionsPage() {
                       </td>
                       <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
-                          {sub.status === 'ACTIVE' && (
-                            <button
-                              disabled={actionState[sub.id]}
-                              onClick={(e) => handlePause(e, sub.id)}
-                              title="Pause Subscription"
-                              className="p-1.5 rounded hover:bg-amber-50 text-slate-400 hover:text-amber-700 transition-colors"
-                            >
-                              <PauseCircle className="h-4 w-4" />
-                            </button>
-                          )}
-                          {sub.status === 'PAUSED' && (
-                            <button
-                              disabled={actionState[sub.id]}
-                              onClick={(e) => handleResume(e, sub.id)}
-                              title="Resume Subscription"
-                              className="p-1.5 rounded hover:bg-emerald-50 text-slate-400 hover:text-emerald-700 transition-colors"
-                            >
-                              <PlayCircle className="h-4 w-4" />
-                            </button>
-                          )}
-                          {sub.status !== 'CANCELLED' && (
-                            <button
-                              disabled={actionState[sub.id]}
-                              onClick={(e) => handleCancel(e, sub.id, sub.productName)}
-                              title="Cancel & Issue Credit Note"
-                              className="p-1.5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-700 transition-colors"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </button>
+                          {canManageSubscriptions && (
+                            <>
+                              {sub.status === 'ACTIVE' && (
+                                <button
+                                  disabled={actionState[sub.id]}
+                                  onClick={(e) => handlePause(e, sub.id)}
+                                  title="Pause Subscription"
+                                  className="p-1.5 rounded hover:bg-amber-50 text-slate-400 hover:text-amber-700 transition-colors"
+                                >
+                                  <PauseCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                              {sub.status === 'PAUSED' && (
+                                <button
+                                  disabled={actionState[sub.id]}
+                                  onClick={(e) => handleResume(e, sub.id)}
+                                  title="Resume Subscription"
+                                  className="p-1.5 rounded hover:bg-emerald-50 text-slate-400 hover:text-emerald-700 transition-colors"
+                                >
+                                  <PlayCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                              {sub.status !== 'CANCELLED' && (
+                                <button
+                                  disabled={actionState[sub.id]}
+                                  onClick={(e) => handleCancel(e, sub.id, sub.productName)}
+                                  title="Cancel & Issue Credit Note"
+                                  className="p-1.5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-700 transition-colors"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                            </>
                           )}
                           <Link
                             to={`/v1/subscriptions/${sub.id}`}

@@ -404,11 +404,7 @@ export async function cancelSubscription(subscriptionLineId, { reason }, auth) {
 // ---------- Reconciliation ----------
 
 export async function invoiceBillingSchedule(scheduleId, auth) {
-  const db = getDb();
-  const [scheduleRow] = await db
-    .select()
-    .from(billingSchedules)
-    .where(eq(billingSchedules.id, scheduleId));
+  const scheduleRow = await repo.findScheduleById(scheduleId);
 
   if (!scheduleRow) throw new NotFoundError(`Billing schedule '${scheduleId}' not found.`, 'SCHEDULE_NOT_FOUND');
   if (scheduleRow.status !== 'SCHEDULED') {

@@ -35,7 +35,6 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const setTransitioning = useAuthStore((s) => s.setTransitioning);
 
   const handleChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -51,7 +50,6 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTransitioning(true, true);
     try {
       if (formData.email.includes('customer@') || formData.email.includes('apexlogistics.com')) {
         const res = await api.post('/portal/auth/login', formData);
@@ -80,7 +78,6 @@ export default function LoginPage() {
         error.response?.data?.message ||
         'Login failed. Check your credentials.';
       toast.error(msg);
-      setTransitioning(false);
       setIsSubmitting(false);
     }
   };

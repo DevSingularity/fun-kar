@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
+import Spinner from '../../components/Spinner.jsx';
 
 export default function V1ReconciliationPage() {
   const [loading, setLoading] = useState(true);
@@ -37,15 +38,15 @@ export default function V1ReconciliationPage() {
     fetchData();
   }, []);
 
-  const issueInvoice = async (scheduleId) => {
+  const handleInvoiceSchedule = async (scheduleId) => {
     setInvoicing((s) => ({ ...s, [scheduleId]: true }));
     try {
       const res = await api.post(`/billing-schedules/${scheduleId}/invoice`);
-      const invNum = res.data?.data?.invoice?.invoice?.invoiceNumber || 'Invoice';
+      const invNum = res.data?.data?.invoice?.invoiceNumber || 'New Invoice';
       toast.success(`Recurring billing cycle reconciled! Issued as ${invNum}.`);
       fetchData();
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || 'Could not issue invoice for schedule.');
+      toast.error(err?.response?.data?.error?.message || err?.response?.data?.message || 'Could not issue invoice for schedule.');
     } finally {
       setInvoicing((s) => ({ ...s, [scheduleId]: false }));
     }
@@ -55,12 +56,24 @@ export default function V1ReconciliationPage() {
     return (
       <div className="min-h-screen bg-[#f8f9fa] flex flex-col font-sans">
         <OdooTopNavbar activeTab="Reconciliation" />
-        <div className="flex-1 flex items-center justify-center text-xs text-slate-400 font-medium">
-          Loading billing reconciliation ledger...
+        <div className="flex-1 flex flex-col items-center justify-center py-24 gap-3 text-center">
+          <Spinner size="lg" variant="primary" />
+          <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading billing reconciliation ledger...</p>
         </div>
       </div>
     );
   }
+
+  const dueSchedules = data.dueSchedules || [];
+  const overdueInvoices = data.overdueInvoices || [];
+  const unappliedCreditNotes = data.unappliedCreditNotes || [];
+  const summary = data.summary || {
+    dueScheduleCount: dueSchedules.length,
+    dueScheduleTotal: 0,
+    overdueInvoiceCount: overdueInvoices.length,
+    overdueInvoiceTotal: 0,
+    unappliedCreditTotal: 0,
+  };
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
@@ -74,7 +87,7 @@ export default function V1ReconciliationPage() {
               <ClipboardCheck className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-800">Finance Billing & Reconciliation Ledger</h1>
+              <h1 className="text-lg font-bold text-slate-800">Finance Billing &amp; Reconciliation Ledger</h1>
               <p className="text-xs text-slate-500">
                 Cross-reference due recurring schedules, overdue commercial receivables, and issued credit notes
               </p>
@@ -82,7 +95,7 @@ export default function V1ReconciliationPage() {
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-            <Calendar className="h-3.5 w-3.5 text-slate-400" /> Ledger As of: <strong className="text-slate-800">{data.asOfDate}</strong>
+            <Calendar className="h-3.5 w-3.5 text-slate-400" /> Ledger As of: <strong className="text-slate-800">{data.asOfDate || new Date().toISOString().split('T')[0]}</strong>
             <button
               onClick={fetchData}
               className="ml-2 p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors shadow-xs"
@@ -100,9 +113,9 @@ export default function V1ReconciliationPage() {
               <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Due Billing Cycles</span>
               <FileWarning className="h-4 w-4 text-[#008784]" />
             </div>
-            <p className="text-2xl font-black text-slate-800">{data.summary.dueScheduleCount}</p>
+            <p className="text-2xl font-black text-slate-800">{summary.dueScheduleCount ?? dueSchedules.length}</p>
             <p className="text-xs font-semibold text-[#008784]">
-              ₹{data.summary.dueScheduleTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })} ready to invoice
+              ₹{Number(summary.dueScheduleTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ready to invoice
             </p>
           </div>
 
@@ -111,9 +124,9 @@ export default function V1ReconciliationPage() {
               <span className="text-[11px] text-rose-600 font-bold uppercase tracking-wider">Overdue Invoices</span>
               <AlertTriangle className="h-4 w-4 text-rose-500" />
             </div>
-            <p className="text-2xl font-black text-rose-700">{data.summary.overdueInvoiceCount}</p>
+            <p className="text-2xl font-black text-rose-700">{summary.overdueInvoiceCount ?? overdueInvoices.length}</p>
             <p className="text-xs font-semibold text-rose-600">
-              ₹{data.summary.overdueInvoiceTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })} outstanding receivables
+              ₹{Number(summary.overdueInvoiceTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} outstanding receivables
             </p>
           </div>
 
@@ -122,9 +135,9 @@ export default function V1ReconciliationPage() {
               <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider">Unapplied Credit Notes</span>
               <Undo2 className="h-4 w-4 text-amber-600" />
             </div>
-            <p className="text-2xl font-black text-amber-800">{data.unappliedCreditNotes.length}</p>
+            <p className="text-2xl font-black text-amber-800">{unappliedCreditNotes.length}</p>
             <p className="text-xs font-semibold text-amber-700">
-              ₹{data.summary.unappliedCreditTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })} customer credits
+              ₹{Number(summary.unappliedCreditTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} customer credits
             </p>
           </div>
         </div>
@@ -138,17 +151,17 @@ export default function V1ReconciliationPage() {
                 Recurring Cycles Ready to Invoice
               </h2>
             </div>
-            <span className="text-[11px] font-bold text-slate-500">{data.dueSchedules.length} Due</span>
+            <span className="text-[11px] font-bold text-slate-500">{dueSchedules.length} Due</span>
           </div>
 
-          {data.dueSchedules.length === 0 ? (
+          {dueSchedules.length === 0 ? (
             <div className="px-5 py-8 text-center text-xs text-slate-400 font-medium">
               <CheckCircle2 className="h-6 w-6 mx-auto mb-1 text-emerald-500" />
               All recurring subscription schedules are currently reconciled.
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {data.dueSchedules.map((row) => (
+              {dueSchedules.map((row) => (
                 <div key={row.schedule.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 px-5 hover:bg-slate-50/70 gap-3 transition-colors">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -159,15 +172,15 @@ export default function V1ReconciliationPage() {
                       Quote {row.quoteNumber} · Cycle Period: {row.schedule.billingPeriodStart} to {row.schedule.billingPeriodEnd}
                     </p>
                     <p className="text-xs font-bold text-[#008784]">
-                      Amount: ₹{Number(row.schedule.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      Amount: ₹{Number(row.schedule.amount || row.schedule.scheduledAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <button
                     disabled={invoicing[row.schedule.id]}
-                    onClick={() => issueInvoice(row.schedule.id)}
+                    onClick={() => handleInvoiceSchedule(row.schedule.id)}
                     className="px-4 py-2 rounded-lg text-xs font-bold bg-[#008784] text-white hover:bg-[#00706e] transition-colors shadow-xs disabled:opacity-50 shrink-0"
                   >
-                    Issue Invoice for This Cycle
+                    {invoicing[row.schedule.id] ? 'Issuing...' : 'Issue Invoice for This Cycle'}
                   </button>
                 </div>
               ))}
@@ -184,17 +197,17 @@ export default function V1ReconciliationPage() {
                 Overdue Receivables
               </h2>
             </div>
-            <span className="text-[11px] font-bold text-rose-700">{data.overdueInvoices.length} Overdue</span>
+            <span className="text-[11px] font-bold text-rose-700">{overdueInvoices.length} Overdue</span>
           </div>
 
-          {data.overdueInvoices.length === 0 ? (
+          {overdueInvoices.length === 0 ? (
             <div className="px-5 py-8 text-center text-xs text-slate-400 font-medium">
               <CheckCircle2 className="h-6 w-6 mx-auto mb-1 text-emerald-500" />
               No commercial invoices are currently overdue.
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {data.overdueInvoices.map((row) => (
+              {overdueInvoices.map((row) => (
                 <div key={row.invoice.id} className="flex items-center justify-between p-4 px-5 hover:bg-slate-50/70 text-xs">
                   <div>
                     <span className="font-bold text-slate-800">{row.invoice.invoiceNumber}</span>
@@ -203,7 +216,7 @@ export default function V1ReconciliationPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="font-bold text-rose-600">
-                      ₹{(Number(row.invoice.total) - Number(row.invoice.amountPaid)).toLocaleString('en-IN', { minimumFractionDigits: 2 })} overdue
+                      ₹{(Number(row.invoice.total || 0) - Number(row.invoice.amountPaid || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })} overdue
                     </span>
                     <Link
                       to={`/v1/invoices/${row.invoice.id}`}
@@ -227,16 +240,16 @@ export default function V1ReconciliationPage() {
                 Unapplied Credit Notes
               </h2>
             </div>
-            <span className="text-[11px] font-bold text-amber-700">{data.unappliedCreditNotes.length} Credit Notes</span>
+            <span className="text-[11px] font-bold text-amber-700">{unappliedCreditNotes.length} Credit Notes</span>
           </div>
 
-          {data.unappliedCreditNotes.length === 0 ? (
+          {unappliedCreditNotes.length === 0 ? (
             <div className="px-5 py-8 text-center text-xs text-slate-400 font-medium">
               No unapplied credit notes in ledger.
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {data.unappliedCreditNotes.map((row) => (
+              {unappliedCreditNotes.map((row) => (
                 <div key={row.creditNote.id} className="flex items-center justify-between p-4 px-5 hover:bg-slate-50/70 text-xs">
                   <div>
                     <span className="font-bold text-slate-800">{row.creditNote.creditNoteNumber || 'Credit Note'}</span>
@@ -244,7 +257,7 @@ export default function V1ReconciliationPage() {
                     <p className="text-[10px] text-slate-400">{row.creditNote.reason || 'Mid-cycle subscription modification'}</p>
                   </div>
                   <span className="font-bold text-amber-700">
-                    ₹{Number(row.creditNote.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    ₹{Number(row.creditNote.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               ))}

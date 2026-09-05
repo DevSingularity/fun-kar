@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Receipt, Search, ArrowUpRight, Clock, CheckCircle2, AlertCircle, IndianRupee, FileText } from 'lucide-react';
 import api from '../../services/api.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
+import Spinner from '../../components/Spinner.jsx';
 
 const STATUS_STYLES = {
   DRAFT: 'bg-slate-100 text-slate-700 border-slate-200',
@@ -108,7 +109,10 @@ export default function V1InvoicesPage() {
         {/* Invoices Table */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
           {loading ? (
-            <div className="py-16 text-center text-xs text-slate-400 font-medium">Loading invoices...</div>
+            <div className="py-20 flex flex-col items-center justify-center gap-3 text-center">
+              <Spinner size="lg" variant="primary" />
+              <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading invoices...</p>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center text-xs text-slate-400 font-medium">
               <FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />

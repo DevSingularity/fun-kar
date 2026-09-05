@@ -13,12 +13,7 @@ export async function resolveRepScope(authUser) {
     return [authUser.id];
   }
 
-  if (authUser.role === 'SALES_MANAGER') {
-    const managed = await getManagedRepIds(authUser.id);
-    return [authUser.id, ...managed];
-  }
-
-  // ADMIN, FINANCE, OPERATIONS: unscoped by design.
+  // SALES_MANAGER, ADMIN, FINANCE, OPERATIONS: unscoped by design for full operations and deal approvals
   return null;
 }
 

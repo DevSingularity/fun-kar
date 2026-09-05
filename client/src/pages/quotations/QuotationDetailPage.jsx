@@ -26,6 +26,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
 import PageHeader from '../../components/PageHeader.jsx';
+import useAuthStore from '../../store/auth.store.js';
 
 const STATUS_COLORS = {
   DRAFT: 'bg-slate-100 text-slate-700 border-slate-300',
@@ -42,6 +43,7 @@ const STATUS_COLORS = {
 export default function QuotationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
 
   const [data, setData] = useState(null);
   const [products, setProducts] = useState([]);
@@ -181,8 +183,10 @@ export default function QuotationDetailPage() {
   }
 
   const { quotation, customer, salesRep, items, marginHealth } = data;
-  const isDraft = quotation.status === 'DRAFT';
-  const isPendingApproval = quotation.status === 'PENDING_APPROVAL';
+  const canEditQuote = ['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role);
+  const canWithdraw = ['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role);
+  const isDraft = quotation.status === 'DRAFT' && canEditQuote;
+  const isPendingApproval = quotation.status === 'PENDING_APPROVAL' && canWithdraw;
   const subtotal = Number(quotation.subtotal || 0);
   const discountTotal = Number(quotation.discountTotal || 0);
   const taxTotal = Number(quotation.taxTotal || 0);

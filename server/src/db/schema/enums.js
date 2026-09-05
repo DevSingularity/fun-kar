@@ -29,7 +29,7 @@ export const quotationStatusEnum = pgEnum('quotation_status', [
 
 // NONE = no approval required; MANAGER = sales-manager sign-off only;
 // MANAGER_FINANCE = sales-manager followed by finance sign-off.
-export const approvalLevelEnum = pgEnum('approval_level', ['NONE', 'MANAGER', 'MANAGER_FINANCE']);
+export const approvalLevelEnum = pgEnum('approval_level', ['NONE', 'MANAGER', 'FINANCE', 'MANAGER_FINANCE']);
 
 export const approvalRequestStatusEnum = pgEnum('approval_request_status', [
   'PENDING',

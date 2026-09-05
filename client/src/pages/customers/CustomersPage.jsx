@@ -15,8 +15,10 @@ import toast from 'react-hot-toast';
 import api from '../../services/api.js';
 import PageHeader from '../../components/PageHeader.jsx';
 import StatCard from '../../components/StatCard.jsx';
+import useAuthStore from '../../store/auth.store.js';
 
 export default function CustomersPage() {
+  const user = useAuthStore((s) => s.user);
   const [customers, setCustomers] = useState([]);
   const [priceLists, setPriceLists] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,13 +111,15 @@ export default function CustomersPage() {
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-(--app-color-primary) px-4 py-2 text-xs font-semibold text-white shadow-xs hover:opacity-95 transition-opacity"
-          >
-            <Plus className="h-4 w-4" />
-            New Customer
-          </button>
+          {['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role) && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-(--app-color-primary) px-4 py-2 text-xs font-semibold text-white shadow-xs hover:opacity-95 transition-opacity"
+            >
+              <Plus className="h-4 w-4" />
+              New Customer
+            </button>
+          )}
         </div>
       </div>
 

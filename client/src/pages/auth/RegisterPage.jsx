@@ -24,7 +24,6 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const setTransitioning = useAuthStore((s) => s.setTransitioning);
 
   const handleChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
 
@@ -35,7 +34,6 @@ export default function RegisterPage() {
       return;
     }
     setIsSubmitting(true);
-    setTransitioning(true, true);
     try {
       const res = await api.post('/auth/register', formData);
       const authData = res.data?.data || res.data;
@@ -49,7 +47,6 @@ export default function RegisterPage() {
         error.response?.data?.message ||
         'Registration failed.';
       toast.error(msg);
-      setTransitioning(false);
       setIsSubmitting(false);
     }
   };

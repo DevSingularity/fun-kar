@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import api from '../../services/api.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
+import useAuthStore from '../../store/auth.store.js';
+import Spinner from '../../components/Spinner.jsx';
 
 const STATUS_PILL_STYLES = {
   ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -39,6 +41,9 @@ const SCHEDULE_STATUS_STYLES = {
 
 export default function V1SubscriptionDetailPage() {
   const { id } = useParams();
+  const user = useAuthStore((s) => s.user);
+  const canManageSubscriptions = ['FINANCE', 'ADMIN'].includes(user?.role);
+
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -147,8 +152,9 @@ export default function V1SubscriptionDetailPage() {
     return (
       <div className="min-h-screen bg-[#f8f9fa] flex flex-col font-sans">
         <OdooTopNavbar activeTab="Subscriptions" />
-        <div className="flex-1 flex items-center justify-center text-xs text-slate-400 font-medium">
-          Loading subscription contract details...
+        <div className="flex-1 flex flex-col items-center justify-center py-24 gap-3 text-center">
+          <Spinner size="lg" variant="primary" />
+          <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading subscription contract details...</p>
         </div>
       </div>
     );
@@ -293,47 +299,49 @@ export default function V1SubscriptionDetailPage() {
           </div>
 
           {/* Wireframe 10 Action Buttons */}
-          <div className="p-5 bg-slate-50/40 border-t border-slate-100 flex flex-wrap items-center gap-3">
-            {subscription.status !== 'CANCELLED' && (
-              <button
-                onClick={() => setShowChangeModal(true)}
-                disabled={actionLoading}
-                className="px-5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
-              >
-                <RefreshCcw className="h-3.5 w-3.5" /> Modify Subscription
-              </button>
-            )}
+          {canManageSubscriptions && (
+            <div className="p-5 bg-slate-50/40 border-t border-slate-100 flex flex-wrap items-center gap-3">
+              {subscription.status !== 'CANCELLED' && (
+                <button
+                  onClick={() => setShowChangeModal(true)}
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <RefreshCcw className="h-3.5 w-3.5" /> Modify Subscription
+                </button>
+              )}
 
-            {subscription.status === 'ACTIVE' && (
-              <button
-                onClick={handlePause}
-                disabled={actionLoading}
-                className="px-4 py-2 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
-              >
-                <PauseCircle className="h-3.5 w-3.5" /> Pause Subscription
-              </button>
-            )}
+              {subscription.status === 'ACTIVE' && (
+                <button
+                  onClick={handlePause}
+                  disabled={actionLoading}
+                  className="px-4 py-2 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <PauseCircle className="h-3.5 w-3.5" /> Pause Subscription
+                </button>
+              )}
 
-            {subscription.status === 'PAUSED' && (
-              <button
-                onClick={handleResume}
-                disabled={actionLoading}
-                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
-              >
-                <PlayCircle className="h-3.5 w-3.5" /> Resume Subscription
-              </button>
-            )}
+              {subscription.status === 'PAUSED' && (
+                <button
+                  onClick={handleResume}
+                  disabled={actionLoading}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <PlayCircle className="h-3.5 w-3.5" /> Resume Subscription
+                </button>
+              )}
 
-            {subscription.status !== 'CANCELLED' && (
-              <button
-                onClick={handleCancel}
-                disabled={actionLoading}
-                className="px-5 py-2 rounded-lg border border-rose-400 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
-              >
-                <XCircle className="h-3.5 w-3.5" /> Cancel Subscription
-              </button>
-            )}
-          </div>
+              {subscription.status !== 'CANCELLED' && (
+                <button
+                  onClick={handleCancel}
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-lg border border-rose-400 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <XCircle className="h-3.5 w-3.5" /> Cancel Subscription
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Billing Schedules Ledger */}

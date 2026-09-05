@@ -1,6 +1,4 @@
 import * as repo from './payments.repository.js';
-import { getDb } from '../../config/database.js';
-import { auditLogs } from '../../db/schema/index.js';
 import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../../common/errors.js';
 import { parseListQuery, buildMeta } from '../../common/pagination.util.js';
 
@@ -50,17 +48,16 @@ export async function recordPayment(invoiceId, { amount, method, transactionRefe
     updatedAt: new Date(),
   });
 
-  const db = getDb();
-  await db.insert(auditLogs).values({
-    actorId: authUser.id,
+  await repo.insertAuditLog({
+    actorId: authUser?.id || authUser?.userId,
     entityType: 'INVOICE',
     entityId: invoiceId,
     action: 'PAYMENT_RECORDED',
-    newValue: JSON.stringify({
+    newValue: {
       paymentId: payment.id,
       amount: payment.amount,
       newStatus: updatedInvoice.status,
-    }),
+    },
   });
 
   return { payment, invoice: updatedInvoice };

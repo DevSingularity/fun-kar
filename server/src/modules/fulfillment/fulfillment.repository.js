@@ -97,9 +97,9 @@ export async function insertOrderItems(items = []) {
     const row = await queryOne(
       `INSERT INTO order_items (
          order_id, quotation_item_id, product_id, quantity, unit_price,
-         discount_pct, discount_amount, tax_amount, line_total, estimated_cost, billing_line_type
+         discount_pct, discount_amount, line_total, billing_line_type
        ) VALUES (
-         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+         $1, $2, $3, $4, $5, $6, $7, $8, $9
        ) RETURNING *`,
       [
         item.orderId,
@@ -109,9 +109,7 @@ export async function insertOrderItems(items = []) {
         String(item.unitPrice),
         String(item.discountPct || '0.00'),
         String(item.discountAmount || '0.00'),
-        String(item.taxAmount || '0.00'),
         String(item.lineTotal || '0.00'),
-        item.estimatedCost ? String(item.estimatedCost) : null,
         item.billingLineType || 'ONE_TIME',
       ]
     );
@@ -317,24 +315,26 @@ export async function upsertBackorder(orderItemId, { quantityRequested, quantity
     [orderItemId]
   );
 
+  const resolvedAt = status === 'FULFILLED' ? new Date() : null;
+
   if (existing) {
     return await queryOne(
       `UPDATE backorders
        SET quantity_fulfilled = $2,
            quantity_backordered = $3,
            status = $4,
-           resolved_at = CASE WHEN $4 = 'FULFILLED' THEN NOW() ELSE NULL END
+           resolved_at = $5
        WHERE id = $1
        RETURNING *`,
-      [existing.id, quantityFulfilled, quantityBackordered, status]
+      [existing.id, quantityFulfilled, quantityBackordered, status, resolvedAt]
     );
   }
 
   return await queryOne(
     `INSERT INTO backorders (order_item_id, quantity_requested, quantity_fulfilled, quantity_backordered, status, resolved_at)
-     VALUES ($1, $2, $3, $4, $5, CASE WHEN $5 = 'FULFILLED' THEN NOW() ELSE NULL END)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [orderItemId, quantityRequested, quantityFulfilled, quantityBackordered, status]
+    [orderItemId, quantityRequested, quantityFulfilled, quantityBackordered, status, resolvedAt]
   );
 }
 
@@ -422,17 +422,20 @@ export async function updateOrderStatus(orderId, status) {
   );
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function insertAuditLog(data) {
+  const actorId = (data.actorId && UUID_REGEX.test(String(data.actorId))) ? data.actorId : null;
   return await query(
     `INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, reason, old_value, new_value)
      VALUES ($1, 'ORDER', $2, $3, $4, $5, $6)`,
     [
-      data.actorId || null,
+      actorId,
       data.entityId,
       data.action,
       data.reason || null,
-      data.oldValue || null,
-      data.newValue || null,
+      data.oldValue ? JSON.stringify(data.oldValue) : null,
+      data.newValue ? JSON.stringify(data.newValue) : null,
     ]
   );
 }
