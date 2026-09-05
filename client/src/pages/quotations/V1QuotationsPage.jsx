@@ -133,21 +133,11 @@ export default function V1QuotationsPage() {
       <OdooTopNavbar activeTab="Quotations" />
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-8 py-6 space-y-6">
         
-        {/* Page Title & Subtitle */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Quotations (List)
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">
-              Every quotation in the system, one row per quotation, click a row to open it
-            </p>
-          </div>
-
-          {/* Search Bar */}
-          <div className="relative w-full sm:w-64">
+        {/* Top Search Toolbar */}
+        <div className="flex items-center justify-end">
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               type="text"

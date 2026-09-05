@@ -111,40 +111,28 @@ export default function V1FulfillmentPage() {
       <OdooTopNavbar activeTab="Fulfillment" />
 
       <main className="max-w-[1440px] w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 flex-1">
-        {/* ── Page Header (From Wireframe 7) ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <Boxes className="h-6 w-6 text-[#714b67]" />
-              <span>Fulfillment and Stock (List)</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-              Live stock per warehouse, plus every order that still needs fulfilling
-            </p>
+        {/* Top Controls: Search & Refresh Toolbar */}
+        <div className="flex items-center justify-end gap-2">
+          {/* Search Input */}
+          <div className="relative w-56 sm:w-64">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search products or orders..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 placeholder-slate-400 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] shadow-2xs transition-all"
+            />
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Search Input */}
-            <div className="relative w-56 sm:w-64">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search products or orders..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 placeholder-slate-400 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] shadow-2xs transition-all"
-              />
-            </div>
-
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              title="Refresh inventory and orders"
-              className="p-2 rounded-lg border border-slate-300 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            title="Refresh inventory and orders"
+            className="p-2 rounded-lg border border-slate-300 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* ── Section 1: Live Stock Per Warehouse (Table 1 from Wireframe 7) ── */}

@@ -103,18 +103,7 @@ export default function V1DashboardPage() {
       <OdooTopNavbar activeTab="Dashboard" />
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-8 space-y-8">
-        
-        {/* Page Title & Subtitle */}
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Sales Dashboard / Home
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Central hub, links out to every module below
-          </p>
-        </div>
-
+      <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-6 space-y-6">
         {/* ── 3 Big KPI Status Summary Cards ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           

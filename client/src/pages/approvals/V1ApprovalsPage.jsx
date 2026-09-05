@@ -74,17 +74,25 @@ export default function V1ApprovalsPage() {
       <OdooTopNavbar activeTab="Approvals" />
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-6 space-y-6">
         
-        {/* Page Title & Subtitle */}
+        {/* Top Controls: 3 Summary Pill Badges & Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Approvals (List)
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">
-              Every quotation that needed, needs, or is going through discount approval
-            </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Pending Pill */}
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white shadow-xs">
+              <span>{pendingCount} Pending</span>
+            </div>
+
+            {/* Returned Pill */}
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-400 text-white shadow-xs">
+              <span>{returnedCount} Returned</span>
+            </div>
+
+            {/* Approved Pill */}
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-xs">
+              <span>{approvedCount} Approved</span>
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -97,25 +105,6 @@ export default function V1ApprovalsPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 rounded-lg text-xs font-medium border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all shadow-xs"
             />
-          </div>
-        </div>
-
-        {/* ── 3 Summary Pill Badges (From Wireframe 5) ── */}
-        <div className="flex flex-wrap items-center gap-3">
-          
-          {/* Pending Pill */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white shadow-xs">
-            <span>{pendingCount} Pending</span>
-          </div>
-
-          {/* Returned Pill */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-400 text-white shadow-xs">
-            <span>{returnedCount} Returned</span>
-          </div>
-
-          {/* Approved Pill */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-xs">
-            <span>{approvedCount} Approved</span>
           </div>
         </div>
 

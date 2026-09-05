@@ -186,9 +186,6 @@ export default function V1FulfillmentDetailPage() {
                   {order.status || 'SPLIT PENDING'}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-                Opened by clicking an order row on the Fulfillment list
-              </p>
             </div>
 
             <Link

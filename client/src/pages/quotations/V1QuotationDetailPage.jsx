@@ -215,27 +215,22 @@ export default function V1QuotationDetailPage() {
       {/* ── Main Content Area ── */}
       <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
         
-        {/* Page Title & Subtitle */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Quotation Detail: {data.quoteNumber} ({data.customerName || 'Customer'})
-            </h1>
-            {data.status && (
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                data.status === 'APPROVED' 
-                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                  : data.status === 'PENDING_APPROVAL'
-                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                  : 'bg-slate-100 text-slate-700 border border-slate-300'
-              }`}>
-                {data.status.replace('_', ' ')}
-              </span>
-            )}
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Opened by clicking a row on the Quotations list. Add products, apply discounts, review upsells.
-          </p>
+        {/* Quotation Header Title */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            Quotation Detail: {data.quoteNumber} ({data.customerName || 'Customer'})
+          </h1>
+          {data.status && (
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+              data.status === 'APPROVED' 
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                : data.status === 'PENDING_APPROVAL'
+                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                : 'bg-slate-100 text-slate-700 border border-slate-300'
+            }`}>
+              {data.status.replace('_', ' ')}
+            </span>
+          )}
         </div>
 
         {/* ── Customer & Price List Header Boxes ── */}
