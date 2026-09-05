@@ -120,7 +120,7 @@ export default function V1DashboardPage() {
           
           {/* Card 1: Pending Approvals */}
           <Link
-            to="/dashboard/governance"
+            to="/v1/approvals"
             className="group block p-6 rounded-xl border border-slate-200 bg-white hover:border-[#714b67] hover:shadow-md transition-all duration-200 shadow-xs"
           >
             <div className="flex items-start justify-between">
@@ -160,7 +160,7 @@ export default function V1DashboardPage() {
 
           {/* Card 3: At-Risk Deals */}
           <Link
-            to="/dashboard/governance"
+            to="/v1/approvals"
             className="group block p-6 rounded-xl border border-slate-200 bg-white hover:border-rose-400 hover:shadow-md transition-all duration-200 shadow-xs"
           >
             <div className="flex items-start justify-between">
@@ -182,18 +182,23 @@ export default function V1DashboardPage() {
         {/* ── Action Buttons Row ── */}
         <div className="flex flex-wrap items-center gap-3">
           
-          {/* + New Quotation Button */}
+          {/* New Quotation Button */}
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (customers.length > 0 && !formData.customerId) {
+                setFormData((prev) => ({ ...prev, customerId: customers[0].id }));
+              }
+              setShowCreateModal(true);
+            }}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
           >
             <Plus className="h-4 w-4" />
-            + New Quotation
+            <span>New Quotation</span>
           </button>
 
           {/* View Approvals Button */}
           <Link
-            to="/dashboard/governance"
+            to="/v1/approvals"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-xs"
           >
             View Approvals

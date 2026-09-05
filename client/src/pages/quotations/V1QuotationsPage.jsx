@@ -284,13 +284,18 @@ export default function V1QuotationsPage() {
         {/* ── Action Buttons Row ── */}
         <div className="flex flex-wrap items-center gap-3 pt-2">
           
-          {/* + New Quotation Button */}
+          {/* New Quotation Button */}
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (customers.length > 0 && !formData.customerId) {
+                setFormData((prev) => ({ ...prev, customerId: customers[0].id }));
+              }
+              setShowCreateModal(true);
+            }}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
           >
             <Plus className="h-4 w-4" />
-            + New Quotation
+            <span>New Quotation</span>
           </button>
 
           {/* Switch to Table / Pipeline View Button */}
