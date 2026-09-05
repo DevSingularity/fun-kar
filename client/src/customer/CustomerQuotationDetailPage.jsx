@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import customerApi from './services/customerApi.js';
@@ -15,7 +15,6 @@ const statusStyles = {
 
 export default function CustomerQuotationDetailPage() {
   const { quotationId } = useParams();
-  const [searchParams] = useSearchParams();
   const [portalUser, setPortalUser] = useState(null);
   const [quotation, setQuotation] = useState(null);
   const [commentsByLine, setCommentsByLine] = useState({});
@@ -28,10 +27,8 @@ export default function CustomerQuotationDetailPage() {
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) localStorage.setItem('quoteShareToken', token);
     loadQuotation();
-  }, [quotationId, searchParams]);
+  }, [quotationId]);
 
   const loadQuotation = async () => {
     setLoading(true);

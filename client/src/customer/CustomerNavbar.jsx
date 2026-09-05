@@ -9,9 +9,9 @@ export default function CustomerNavbar({ customerUser }) {
 
   const handlePortalLogout = () => {
     localStorage.removeItem('portalToken');
+    localStorage.removeItem('customer_portal_token');
     toast.success('Signed out from Customer Portal');
     navigate('/v1/customer');
-    window.location.reload();
   };
 
   const navLinks = [{ label: 'My Quotations', path: '/v1/customer' }];
