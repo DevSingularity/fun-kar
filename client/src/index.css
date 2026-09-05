@@ -35,6 +35,34 @@ a {
 	text-decoration: none;
 }
 
+a.text-white,
+button.text-white,
+.text-white,
+[class*="text-white"] {
+	color: #ffffff !important;
+}
+
+button[class*="bg-[#714b67]"],
+button[class*="bg-slate-900"],
+button[class*="bg-slate-800"],
+button[class*="bg-emerald-600"],
+button[class*="bg-emerald-700"],
+button[class*="bg-rose-600"],
+button[class*="bg-rose-700"],
+button[class*="bg-amber-600"],
+button[class*="bg-purple-600"],
+a[class*="bg-[#714b67]"],
+a[class*="bg-slate-900"],
+a[class*="bg-slate-800"],
+a[class*="bg-emerald-600"],
+a[class*="bg-emerald-700"],
+a[class*="bg-rose-600"],
+a[class*="bg-rose-700"],
+a[class*="bg-(--app-color-primary)"],
+button[class*="bg-(--app-color-primary)"] {
+	color: #ffffff !important;
+}
+
 button,
 input,
 textarea,

@@ -21,11 +21,11 @@ const Button = ({
 
 	const variantStyles = {
 		primary:
-			'bg-[var(--app-color-primary)] text-white hover:bg-[var(--app-color-primary-hover)] active:scale-95',
+			'bg-[#714b67] !text-white font-bold hover:bg-[#56324e] active:scale-95 shadow-xs',
 		secondary: 'bg-[var(--app-color-surface-elevated)] text-[var(--app-color-text)] border border-[var(--app-color-border)] hover:bg-[var(--app-color-canvas-glow)]',
 		tertiary: 'text-[var(--app-color-primary)] hover:bg-[var(--app-color-primary-soft)]',
-		danger: 'bg-red-600 text-white hover:bg-red-700 active:scale-95',
-		success: 'bg-green-600 text-white hover:bg-green-700 active:scale-95',
+		danger: 'bg-rose-600 !text-white font-bold hover:bg-rose-700 active:scale-95 shadow-xs',
+		success: 'bg-emerald-600 !text-white font-bold hover:bg-emerald-700 active:scale-95 shadow-xs',
 		ghost: 'bg-transparent text-(--app-color-text-muted) hover:bg-(--app-color-surface-elevated)',
 	};
 
