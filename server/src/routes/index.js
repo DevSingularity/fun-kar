@@ -21,6 +21,14 @@ import { quotationNegotiationRouter, requestActionsRouter } from '../modules/neg
 import paymentsRoutes from '../modules/payments/payments.routes.js';
 import dealHealthRoutes from '../modules/dealHealth/dealHealth.routes.js';
 import usersRoutes from '../modules/users/users.routes.js';
+import subscriptionPlansRoutes from '../modules/subscriptionPlans/subscriptionPlans.routes.js';
+import {
+  billingOrderRoutes,
+  invoicesRoutes,
+  subscriptionsRoutes,
+  billingSchedulesRoutes,
+  reconciliationRoutes,
+} from '../modules/billing/billing.routes.js';
 
 const router = Router();
 
@@ -45,6 +53,14 @@ router.use('/orders', fulfillmentRoutes);
 router.use('/fulfillment', fulfillmentRoutes);
 router.use('/deal-health', dealHealthRoutes);
 router.use('/users', usersRoutes);
+
+// Billing & Subscriptions Modules
+router.use('/subscription-plans', subscriptionPlansRoutes);
+router.use('/orders', billingOrderRoutes);
+router.use('/invoices', invoicesRoutes);
+router.use('/subscriptions', subscriptionsRoutes);
+router.use('/billing-schedules', billingSchedulesRoutes);
+router.use('/reconciliation', reconciliationRoutes);
 
 // Phase 7 Modules
 router.use('/portal/auth', portalAuthRoutes);

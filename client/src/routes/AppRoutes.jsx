@@ -19,6 +19,10 @@ import V1DealDetailPage from '../pages/dealHealth/V1DealDetailPage.jsx';
 import V1FulfillmentPage from '../pages/fulfillment/V1FulfillmentPage.jsx';
 import V1FulfillmentDetailPage from '../pages/fulfillment/V1FulfillmentDetailPage.jsx';
 import V1GovernancePage from '../pages/governance/V1GovernancePage.jsx';
+import V1InvoicesPage from '../pages/billing/V1InvoicesPage.jsx';
+import V1InvoiceDetailPage from '../pages/billing/V1InvoiceDetailPage.jsx';
+import V1SubscriptionsPage from '../pages/billing/V1SubscriptionsPage.jsx';
+import V1ReconciliationPage from '../pages/billing/V1ReconciliationPage.jsx';
 import ProductsPage from '../pages/catalog/ProductsPage.jsx';
 import PricingPage from '../pages/catalog/PricingPage.jsx';
 import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
@@ -115,10 +119,22 @@ export default function AppRoutes() {
             <Route path="/v1/discounts" element={<V1GovernancePage />} />
           </Route>
 
-          {/* Fulfillment: Operations, Admin */}
-          <Route element={<RoleRoute allowedRoles={['OPERATIONS', 'ADMIN']} />}>
+          {/* Fulfillment: Operations, Finance, Admin */}
+          <Route element={<RoleRoute allowedRoles={['OPERATIONS', 'FINANCE', 'ADMIN']} />}>
             <Route path="/v1/fulfillment" element={<V1FulfillmentPage />} />
             <Route path="/v1/fulfillment/:id" element={<V1FulfillmentDetailPage />} />
+          </Route>
+
+          {/* Invoices & Subscriptions: Sales Manager, Finance, Operations, Admin */}
+          <Route element={<RoleRoute allowedRoles={['ADMIN', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS']} />}>
+            <Route path="/v1/invoices" element={<V1InvoicesPage />} />
+            <Route path="/v1/invoices/:id" element={<V1InvoiceDetailPage />} />
+            <Route path="/v1/subscriptions" element={<V1SubscriptionsPage />} />
+          </Route>
+
+          {/* Reconciliation: Finance, Admin Only */}
+          <Route element={<RoleRoute allowedRoles={['ADMIN', 'FINANCE']} />}>
+            <Route path="/v1/reconciliation" element={<V1ReconciliationPage />} />
           </Route>
 
           {/* Standard Shell Layout */}

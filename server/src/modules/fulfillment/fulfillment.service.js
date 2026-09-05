@@ -1,6 +1,7 @@
 import * as repo from './fulfillment.repository.js';
 import * as quotationsRepo from '../quotations/quotations.repository.js';
 import * as engine from './fulfillment.allocationEngine.js';
+import * as billingService from '../billing/billing.service.js';
 import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../../common/errors.js';
 
 function assertOwnership(orderRow, auth) {
@@ -107,6 +108,13 @@ export async function createOrderFromQuotation(quotationId, auth) {
     await allocateOrder(order.id, auth);
   } catch (err) {
     console.warn('[FULFILLMENT] Initial allocation notice:', err.message);
+  }
+
+  // Generate one-time invoice + subscription lines/schedules for the order
+  try {
+    await billingService.generateBillingForOrder(order.id, auth);
+  } catch (err) {
+    console.warn('[BILLING] Initial billing generation notice:', err.message);
   }
 
   const detail = await getOrderFulfillmentDetail(order.id, auth);

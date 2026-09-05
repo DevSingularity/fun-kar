@@ -1,6 +1,7 @@
 import { eq, sql, ilike, and, count } from 'drizzle-orm';
 import { getDb } from '../../config/database.js';
 import { products, productCategories, productVariants } from '../../db/schema/catalog.js';
+import { subscriptionPlans } from '../../db/schema/billing.js';
 
 export async function findProducts({
   search,
@@ -35,6 +36,8 @@ export async function findProducts({
       estimatedCost: products.estimatedCost,
       taxRate: products.taxRate,
       productType: products.productType,
+      subscriptionPlanId: products.subscriptionPlanId,
+      subscriptionPlanName: subscriptionPlans.name,
       isActive: products.isActive,
       categoryId: products.categoryId,
       categoryName: productCategories.name,
@@ -43,6 +46,7 @@ export async function findProducts({
     })
     .from(products)
     .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+    .leftJoin(subscriptionPlans, eq(products.subscriptionPlanId, subscriptionPlans.id))
     .where(whereClause)
     .limit(limit)
     .offset(offset)
@@ -69,6 +73,8 @@ export async function findProductById(id, tx = undefined) {
       estimatedCost: products.estimatedCost,
       taxRate: products.taxRate,
       productType: products.productType,
+      subscriptionPlanId: products.subscriptionPlanId,
+      subscriptionPlanName: subscriptionPlans.name,
       isActive: products.isActive,
       categoryId: products.categoryId,
       categoryName: productCategories.name,
@@ -77,6 +83,7 @@ export async function findProductById(id, tx = undefined) {
     })
     .from(products)
     .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+    .leftJoin(subscriptionPlans, eq(products.subscriptionPlanId, subscriptionPlans.id))
     .where(eq(products.id, id))
     .limit(1);
 
@@ -114,6 +121,7 @@ export async function createProduct(data, tx = undefined) {
       estimatedCost: String(data.estimatedCost || '0'),
       taxRate: String(data.taxRate || '0'),
       productType: data.productType || 'ONE_TIME',
+      subscriptionPlanId: data.productType === 'SUBSCRIPTION' ? data.subscriptionPlanId : null,
       isActive: data.isActive !== undefined ? data.isActive : true,
     })
     .returning();
@@ -133,6 +141,12 @@ export async function updateProduct(id, data, tx = undefined) {
   if (data.estimatedCost !== undefined) updateData.estimatedCost = String(data.estimatedCost);
   if (data.taxRate !== undefined) updateData.taxRate = String(data.taxRate);
   if (data.productType !== undefined) updateData.productType = data.productType;
+  if (data.subscriptionPlanId !== undefined) {
+    updateData.subscriptionPlanId = data.subscriptionPlanId || null;
+  }
+  if (data.productType === 'ONE_TIME' || data.productType === 'SERVICE') {
+    updateData.subscriptionPlanId = null;
+  }
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
   const [updated] = await db

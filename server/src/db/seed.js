@@ -22,6 +22,7 @@ import {
   warehouses,
   warehouseStock,
 } from './schema/warehouses.js';
+import { subscriptionPlans } from './schema/billing.js';
 import { hashPassword } from '../common/password.util.js';
 import { sql, eq } from 'drizzle-orm';
 
@@ -343,6 +344,34 @@ async function runSeed() {
       console.log(`[SEED] Updated product: ${prod.sku}`);
     }
   }
+
+  // 6b. Seed Subscription Plans, then backfill the two SUBSCRIPTION products
+  console.log('[SEED] Upserting subscription plans...');
+  const SEED_PLANS = [
+    { name: 'Standard Monthly', frequency: 'MONTHLY', price: '0.00', cancellationNoticeDays: 0 },
+    { name: 'Standard Quarterly', frequency: 'QUARTERLY', price: '0.00', cancellationNoticeDays: 15 },
+    { name: 'Standard Yearly', frequency: 'YEARLY', price: '0.00', cancellationNoticeDays: 30 },
+  ];
+
+  const insertedPlans = {};
+  for (const plan of SEED_PLANS) {
+    const existing = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.name, plan.name));
+    if (existing.length > 0) {
+      insertedPlans[plan.name] = existing[0];
+    } else {
+      const [created] = await db.insert(subscriptionPlans).values(plan).returning();
+      insertedPlans[plan.name] = created;
+    }
+    console.log(`[SEED] Subscription plan ready: ${plan.name} (${plan.frequency})`);
+  }
+
+  // Backfill all SUBSCRIPTION products with the Monthly plan
+  const monthlyPlan = insertedPlans['Standard Monthly'];
+  await db
+    .update(products)
+    .set({ subscriptionPlanId: monthlyPlan.id })
+    .where(eq(products.productType, 'SUBSCRIPTION'));
+  console.log(`[SEED] Linked all SUBSCRIPTION products -> Standard Monthly plan`);
 
   // 7. Seed Price Lists
   console.log('[SEED] Upserting price lists...');
