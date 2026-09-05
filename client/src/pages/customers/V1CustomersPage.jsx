@@ -102,10 +102,6 @@ export default function V1CustomersPage() {
     return matchesSearch && matchesTier;
   });
 
-  const goldCount = customers.filter((c) => c.tier === 'GOLD').length;
-  const silverCount = customers.filter((c) => c.tier === 'SILVER').length;
-  const bronzeCount = customers.filter((c) => c.tier === 'BRONZE').length;
-
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
       {/* ── Enterprise Global Navbar ── */}
@@ -141,53 +137,6 @@ export default function V1CustomersPage() {
               <Plus className="h-4 w-4" />
               <span>New Customer</span>
             </button>
-          </div>
-        </div>
-
-        {/* ── Summary Stat Cards ── */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Accounts</p>
-              <h3 className="text-2xl font-extrabold text-slate-900 mt-1">{customers.length}</h3>
-              <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">Active Client Base</p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-[#714b67]/10 flex items-center justify-center text-[#714b67]">
-              <Building2 className="h-5 w-5" />
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Gold Tier (30% Cap)</p>
-              <h3 className="text-2xl font-extrabold text-amber-800 mt-1">{goldCount}</h3>
-              <p className="text-[11px] text-amber-600 font-semibold mt-0.5">Key Enterprise Deals</p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
-              <Award className="h-5 w-5" />
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Silver Tier (20% Cap)</p>
-              <h3 className="text-2xl font-extrabold text-slate-800 mt-1">{silverCount}</h3>
-              <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Growth Accounts</p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
-              <Award className="h-5 w-5" />
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-orange-700">Bronze Tier (10% Cap)</p>
-              <h3 className="text-2xl font-extrabold text-orange-800 mt-1">{bronzeCount}</h3>
-              <p className="text-[11px] text-orange-600 font-semibold mt-0.5">Standard Entry Tiers</p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-700">
-              <Award className="h-5 w-5" />
-            </div>
           </div>
         </div>
 

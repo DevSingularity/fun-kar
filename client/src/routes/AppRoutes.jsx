@@ -86,6 +86,7 @@ export default function AppRoutes() {
             <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
             <Route path="/v1/customers" element={<V1CustomersPage />} />
             <Route path="/v1/products" element={<V1ProductsPage />} />
+            <Route path="/v1/product" element={<V1ProductsPage />} />
           </Route>
 
           {/* Approvals: Sales Manager, Finance, Admin */}
