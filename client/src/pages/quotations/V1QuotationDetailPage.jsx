@@ -16,12 +16,36 @@ import {
   Tag,
   Save,
   ChevronDown,
-  RotateCcw
+  RotateCcw,
+  ExternalLink,
+  Copy,
+  Check,
+  PackageCheck,
+  Printer,
+  FileCheck,
+  Clock,
+  UserCheck,
+  DollarSign
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
+
+const STATUS_BADGES = {
+  DRAFT: 'bg-slate-100 text-slate-700 border-slate-300',
+  PENDING_APPROVAL: 'bg-amber-100 text-amber-800 border-amber-300',
+  APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  UNDER_NEGOTIATION: 'bg-blue-100 text-blue-800 border-blue-300',
+  SENT: 'bg-blue-100 text-blue-800 border-blue-300',
+  CONFIRMED: 'bg-teal-100 text-teal-800 border-teal-300',
+  ORDER_CREATED: 'bg-teal-100 text-teal-800 border-teal-300',
+  FULFILLING: 'bg-purple-100 text-purple-800 border-purple-300',
+  COMPLETED: 'bg-green-100 text-green-800 border-green-300',
+  REJECTED: 'bg-rose-100 text-rose-800 border-rose-300',
+  RETURNED: 'bg-amber-100 text-amber-800 border-amber-300',
+  CHANGES_REQUESTED: 'bg-amber-100 text-amber-800 border-amber-300',
+};
 
 export default function V1QuotationDetailPage() {
   const { id } = useParams();
@@ -34,13 +58,18 @@ export default function V1QuotationDetailPage() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [convertingOrder, setConvertingOrder] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Data lists
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
 
-  // Quotation header state
+  // Quotation header & customer state
   const [quoteData, setQuoteData] = useState(null);
+  const [customerInfo, setCustomerInfo] = useState(null);
+  const [salesRepInfo, setSalesRepInfo] = useState(null);
+  const [latestApprovalRequest, setLatestApprovalRequest] = useState(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [promisedDeliveryDate, setPromisedDeliveryDate] = useState('');
 
@@ -60,11 +89,20 @@ export default function V1QuotationDetailPage() {
   const [deleteModal, setDeleteModal] = useState({ open: false, itemId: null, itemName: '' });
   const [deletingLine, setDeletingLine] = useState(false);
 
+  // Approver decision modal state
+  const [decisionModal, setDecisionModal] = useState({ open: false, action: null }); // 'APPROVE' | 'REJECT' | 'RETURN'
+  const [decisionReason, setDecisionReason] = useState('');
+  const [submittingDecision, setSubmittingDecision] = useState(false);
+
   // Submission result modal
   const [submitResult, setSubmitResult] = useState(null);
 
   // Debounce ref for persisting item edits to backend
   const patchTimerRef = useRef({});
+
+  // Roles check
+  const isApprover = ['SALES_MANAGER', 'FINANCE', 'ADMIN'].includes(user?.role);
+  const isSalesRep = user?.role === 'SALES_REP';
 
   // Fetch initial data
   const fetchData = async () => {
@@ -82,6 +120,7 @@ export default function V1QuotationDetailPage() {
       if (isNew) {
         const defaultCust = custs[0] || null;
         setSelectedCustomerId(defaultCust?.id || '');
+        setCustomerInfo(defaultCust);
         setQuoteData({
           id: 'new',
           quoteNumber: 'New Draft',
@@ -89,7 +128,6 @@ export default function V1QuotationDetailPage() {
           customerName: defaultCust?.name || 'Select Customer',
           customerTier: defaultCust?.tier || 'BRONZE',
         });
-        // Default with 1 starter item if catalog is available
         if (prods.length > 0) {
           const firstProd = prods[0];
           setItems([
@@ -110,12 +148,17 @@ export default function V1QuotationDetailPage() {
         }
       } else {
         const quoteRes = await api.get(`/quotations/${id}`);
-        const quote = quoteRes.data?.data;
-        if (!quote) throw new Error('Quotation not found');
+        const raw = quoteRes.data?.data;
+        if (!raw) throw new Error('Quotation not found');
+
+        const quote = raw.quotation || raw;
         setQuoteData(quote);
-        setSelectedCustomerId(quote.customerId || '');
+        setCustomerInfo(raw.customer || { name: quote.customerName, tier: quote.customerTier, email: quote.customerEmail });
+        setSalesRepInfo(raw.salesRep || { name: quote.salesRepName, email: quote.salesRepEmail });
+        setLatestApprovalRequest(raw.latestApprovalRequest || null);
+        setSelectedCustomerId(quote.customerId || raw.customer?.id || '');
         setPromisedDeliveryDate(quote.promisedDeliveryDate ? quote.promisedDeliveryDate.slice(0, 10) : '');
-        setItems(quote.items || []);
+        setItems(raw.items || quote.items || []);
       }
 
       if (prods.length > 0 && !newLine.productId) {
@@ -134,8 +177,8 @@ export default function V1QuotationDetailPage() {
 
   // Selected customer metadata
   const selectedCustomer = useMemo(() => {
-    return customers.find((c) => c.id === selectedCustomerId) || null;
-  }, [customers, selectedCustomerId]);
+    return customers.find((c) => c.id === selectedCustomerId) || customerInfo || null;
+  }, [customers, selectedCustomerId, customerInfo]);
 
   const customerTier = selectedCustomer?.tier || quoteData?.customerTier || 'BRONZE';
   const customerName = selectedCustomer?.name || quoteData?.customerName || 'Customer';
@@ -148,10 +191,17 @@ export default function V1QuotationDetailPage() {
     ? 'Silver Preferential Matrix' 
     : 'Standard Enterprise Price List';
 
-  const isDraft = !quoteData?.status || quoteData?.status === 'DRAFT';
+  // State flags for strictly partitioned UI behavior
+  const isDraft = isNew || !quoteData?.status || quoteData?.status === 'DRAFT' || quoteData?.status === 'RETURNED' || quoteData?.status === 'CHANGES_REQUESTED';
+  const isPendingApproval = quoteData?.status === 'PENDING_APPROVAL';
+  const isApproved = quoteData?.status === 'APPROVED';
+  const isUnderNegotiation = quoteData?.status === 'UNDER_NEGOTIATION' || quoteData?.status === 'SENT';
+  const isConfirmed = quoteData?.status === 'CONFIRMED' || quoteData?.status === 'ORDER_CREATED' || quoteData?.status === 'FULFILLING' || quoteData?.status === 'COMPLETED';
+  const isRejected = quoteData?.status === 'REJECTED';
 
-  // Handle Customer Account Change
+  // Handle Customer Account Change (only allowed in draft)
   const handleCustomerChange = async (newCustId) => {
+    if (!isDraft) return;
     setSelectedCustomerId(newCustId);
     const newCust = customers.find((c) => c.id === newCustId);
     if (!newCust) return;
@@ -162,6 +212,7 @@ export default function V1QuotationDetailPage() {
       customerName: newCust.name,
       customerTier: newCust.tier,
     }));
+    setCustomerInfo(newCust);
 
     if (!isNew && quoteData?.id) {
       try {
@@ -173,8 +224,9 @@ export default function V1QuotationDetailPage() {
     }
   };
 
-  // Handle inline changes for quantity and discount
+  // Handle inline changes for quantity and discount (only allowed in draft)
   const handleItemFieldChange = (itemId, field, value) => {
+    if (!isDraft) return;
     const numVal = field === 'quantity' ? Math.max(1, parseInt(value) || 1) : Math.min(100, Math.max(0, parseFloat(value) || 0));
 
     setItems((prevItems) =>
@@ -184,7 +236,7 @@ export default function V1QuotationDetailPage() {
       })
     );
 
-    // If existing persistent quotation, debounce update to backend
+    // Debounce save to backend
     if (!isNew && quoteData?.id && !String(itemId).startsWith('temp-')) {
       if (patchTimerRef.current[itemId]) {
         clearTimeout(patchTimerRef.current[itemId]);
@@ -201,15 +253,10 @@ export default function V1QuotationDetailPage() {
     }
   };
 
-  // Check if any line discount exceeds allowed limit
-  const hasAnyOverLimit = items.some((item) => {
-    const limit = item.lineLimitPct || tierLimitPct;
-    return Number(item.discountPct) > limit;
-  });
-
   // Add Item to Quotation
   const handleAddLine = async (e) => {
     e.preventDefault();
+    if (!isDraft) return;
     if (!newLine.productId) {
       toast.error('Please select a product');
       return;
@@ -250,9 +297,7 @@ export default function V1QuotationDetailPage() {
         toast.success(`Added ${prod.name} to quotation`);
         setShowAddLineModal(false);
         setNewLine({ productId: products[0]?.id || '', quantity: 1, discountPct: 0 });
-        const quoteRes = await api.get(`/quotations/${id}`);
-        setQuoteData(quoteRes.data?.data);
-        setItems(quoteRes.data?.data?.items || []);
+        fetchData();
       } catch (err) {
         toast.error(err.response?.data?.message || 'Failed to add product');
       } finally {
@@ -263,6 +308,7 @@ export default function V1QuotationDetailPage() {
 
   // 1-Click Add Upsell SKU
   const handleAddUpsell = async (skuName, defaultDiscount = 0) => {
+    if (!isDraft) return;
     const matched = products.find((p) => 
       p.name.toLowerCase().includes(skuName.toLowerCase()) ||
       p.sku.toLowerCase().includes(skuName.toLowerCase())
@@ -297,9 +343,7 @@ export default function V1QuotationDetailPage() {
           discountPct: defaultDiscount,
         });
         toast.success(`Added ${matched.name} to quotation`);
-        const quoteRes = await api.get(`/quotations/${id}`);
-        setQuoteData(quoteRes.data?.data);
-        setItems(quoteRes.data?.data?.items || []);
+        fetchData();
       } catch (err) {
         toast.error(err.response?.data?.message || 'Failed to add upsell');
       }
@@ -308,7 +352,7 @@ export default function V1QuotationDetailPage() {
 
   // Delete line item
   const confirmDeleteItem = async () => {
-    if (!deleteModal.itemId) return;
+    if (!isDraft || !deleteModal.itemId) return;
 
     if (isNew || String(deleteModal.itemId).startsWith('temp-')) {
       setItems((prev) => prev.filter((it) => it.id !== deleteModal.itemId));
@@ -322,9 +366,7 @@ export default function V1QuotationDetailPage() {
       await api.delete(`/quotations/${id}/items/${deleteModal.itemId}`);
       toast.success('Line item removed successfully');
       setDeleteModal({ open: false, itemId: null, itemName: '' });
-      const quoteRes = await api.get(`/quotations/${id}`);
-      setQuoteData(quoteRes.data?.data);
-      setItems(quoteRes.data?.data?.items || []);
+      fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to remove item');
     } finally {
@@ -332,7 +374,7 @@ export default function V1QuotationDetailPage() {
     }
   };
 
-  // Save Draft handler
+  // Save Draft handler (only allowed in draft)
   const handleSaveDraft = async () => {
     if (!selectedCustomerId) {
       toast.error('Please select a customer account');
@@ -342,7 +384,6 @@ export default function V1QuotationDetailPage() {
     setSavingDraft(true);
     try {
       if (isNew) {
-        // 1. Create quotation header
         const res = await api.post('/quotations', {
           customerId: selectedCustomerId,
           promisedDeliveryDate: promisedDeliveryDate || undefined,
@@ -350,7 +391,6 @@ export default function V1QuotationDetailPage() {
         const createdQuote = res.data?.data?.quotation || res.data?.data;
         const newId = createdQuote.id;
 
-        // 2. Add all configured line items
         for (const it of items) {
           await api.post(`/quotations/${newId}/items`, {
             productId: it.productId,
@@ -362,7 +402,6 @@ export default function V1QuotationDetailPage() {
         toast.success(`Quotation ${createdQuote.quoteNumber || 'Draft'} created & saved!`);
         navigate(`/v1/quotations/${newId}`, { replace: true });
       } else {
-        // Update header fields
         await api.patch(`/quotations/${id}`, {
           customerId: selectedCustomerId,
           promisedDeliveryDate: promisedDeliveryDate || null,
@@ -377,7 +416,7 @@ export default function V1QuotationDetailPage() {
     }
   };
 
-  // Submit for Approval handler
+  // Submit for Approval handler (only allowed in draft)
   const handleSubmitQuotation = async () => {
     if (items.length === 0) {
       toast.error('Please add at least one line item before submitting.');
@@ -394,7 +433,6 @@ export default function V1QuotationDetailPage() {
       let targetId = id;
 
       if (isNew) {
-        // Save first
         const res = await api.post('/quotations', {
           customerId: selectedCustomerId,
           promisedDeliveryDate: promisedDeliveryDate || undefined,
@@ -411,7 +449,6 @@ export default function V1QuotationDetailPage() {
         }
       }
 
-      // Submit
       const submitRes = await api.post(`/quotations/${targetId}/submit`);
       const resultData = submitRes.data?.data;
       setSubmitResult(resultData);
@@ -442,6 +479,88 @@ export default function V1QuotationDetailPage() {
       setWithdrawing(false);
     }
   };
+
+  // Approver decision (Approve / Reject / Return)
+  const handleDecision = async (e) => {
+    e.preventDefault();
+    if ((decisionModal.action === 'REJECT' || decisionModal.action === 'RETURN') && !decisionReason.trim()) {
+      toast.error('A detailed reason is required for rejection or returning for changes.');
+      return;
+    }
+    setSubmittingDecision(true);
+    try {
+      let approvalId = latestApprovalRequest?.id;
+
+      if (!approvalId) {
+        const appRes = await api.get('/approvals', { params: { limit: 50 } });
+        const matched = appRes.data?.data?.find((a) => a.quotationId === quoteData.id && a.status === 'PENDING');
+        if (matched) approvalId = matched.id;
+      }
+
+      if (!approvalId) {
+        toast.error('No pending approval record found for this quotation.');
+        return;
+      }
+
+      if (decisionModal.action === 'APPROVE') {
+        await api.post(`/approvals/${approvalId}/approve`, { reason: decisionReason });
+        toast.success('Quotation approved successfully!');
+      } else if (decisionModal.action === 'REJECT') {
+        await api.post(`/approvals/${approvalId}/reject`, { reason: decisionReason });
+        toast.success('Quotation rejected.');
+      } else if (decisionModal.action === 'RETURN') {
+        await api.post(`/approvals/${approvalId}/return`, { reason: decisionReason });
+        toast.success('Quotation returned to Sales Rep for revision.');
+      }
+
+      setDecisionModal({ open: false, action: null });
+      setDecisionReason('');
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.response?.data?.error?.message || 'Failed to submit approval decision');
+    } finally {
+      setSubmittingDecision(false);
+    }
+  };
+
+  // Convert approved quotation to order
+  const handleConvertToOrder = async () => {
+    setConvertingOrder(true);
+    try {
+      const res = await api.post(`/fulfillment/from-quotation/${id}`);
+      toast.success('Quotation converted to Order! Fulfillment split generated.');
+      const order = res.data?.data?.order;
+      if (order?.id) {
+        navigate(`/v1/fulfillment/${order.id}`);
+      } else {
+        fetchData();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.response?.data?.error?.message || 'Failed to convert quotation to order');
+    } finally {
+      setConvertingOrder(false);
+    }
+  };
+
+  // Copy Customer Negotiation Link
+  const handleCopyCustomerLink = () => {
+    const url = `${window.location.origin}/v1/customer/${id}`;
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    toast.success('Customer negotiation portal link copied to clipboard!');
+    setTimeout(() => setCopiedLink(false), 3000);
+  };
+
+  // Calculations for financial summary
+  const subtotal = items.reduce((acc, it) => acc + (Number(it.unitPrice || 0) * Number(it.quantity || 1)), 0);
+  const discountTotal = items.reduce((acc, it) => {
+    const lineGross = Number(it.unitPrice || 0) * Number(it.quantity || 1);
+    const discPct = Number(it.discountPct || 0);
+    return acc + (lineGross * (discPct / 100));
+  }, 0);
+  const taxableSubtotal = Math.max(0, subtotal - discountTotal);
+  const taxTotal = taxableSubtotal * 0.18;
+  const grandTotal = taxableSubtotal + taxTotal;
 
   if (loading) {
     return (
@@ -479,21 +598,180 @@ export default function V1QuotationDetailPage() {
       {/* ── Main Content Area ── */}
       <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
         
-        {/* Quotation Header Title */}
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Quotation Detail: {quoteData?.quoteNumber || (isNew ? 'New Draft' : 'Quotation')} ({customerName})
-          </h1>
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-            quoteData?.status === 'APPROVED' 
-              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-              : quoteData?.status === 'PENDING_APPROVAL'
-              ? 'bg-amber-100 text-amber-800 border border-amber-300'
-              : 'bg-slate-100 text-slate-700 border border-slate-300'
-          }`}>
-            {(quoteData?.status || 'DRAFT').replace('_', ' ')}
-          </span>
+        {/* Top Breadcrumb & Status Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <Link
+              to="/v1/quotations"
+              className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors mb-1"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to Quotations List
+            </Link>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+                {quoteData?.quoteNumber || (isNew ? 'New Draft Quotation' : 'Quotation')}
+              </h1>
+              <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${STATUS_BADGES[quoteData?.status] || STATUS_BADGES.DRAFT}`}>
+                {(quoteData?.status || 'DRAFT').replace(/_/g, ' ')}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">
+              Customer: <span className="font-bold text-slate-800">{customerName}</span> ({customerTier} Tier) 
+              {salesRepInfo?.name && (
+                <> &bull; Rep: <span className="font-semibold text-slate-700">{salesRepInfo.name}</span></>
+              )}
+            </p>
+          </div>
+
+          {/* Top Quick Actions (Link sharing / Portal view) */}
+          <div className="flex items-center gap-2">
+            {!isNew && (
+              <button
+                onClick={() => window.print()}
+                className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+                title="Print or Export as PDF"
+              >
+                <Printer className="h-3.5 w-3.5" /> Print / PDF
+              </button>
+            )}
+
+            {!isNew && (isApproved || isUnderNegotiation) && (
+              <button
+                onClick={handleCopyCustomerLink}
+                className="px-3.5 py-2 rounded-lg border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+              >
+                {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedLink ? 'Copied Link!' : 'Copy Negotiation Link'}
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* ── ENTERPRISE STATE-BASED STATUS BANNERS ── */}
+        
+        {/* Banner 1: PENDING_APPROVAL */}
+        {isPendingApproval && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 sm:p-5 text-xs text-amber-900 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-amber-100 text-amber-700 shrink-0 mt-0.5">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-amber-900">
+                  Quotation Locked Under Approval Review (Level: {quoteData.requiredApprovalLevel || 'SALES_MANAGER'})
+                </h3>
+                <p className="text-amber-800 font-medium mt-0.5 leading-relaxed">
+                  Line items, quantities, and pricing are strictly locked in read-only mode while management evaluates blended risk scores and discount governance thresholds.
+                </p>
+              </div>
+            </div>
+
+            {/* If user is an Approver, display inline decision buttons */}
+            {isApprover && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => { setDecisionModal({ open: true, action: 'APPROVE' }); setDecisionReason(''); }}
+                  className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                </button>
+                <button
+                  onClick={() => { setDecisionModal({ open: true, action: 'RETURN' }); setDecisionReason(''); }}
+                  className="px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Return
+                </button>
+                <button
+                  onClick={() => { setDecisionModal({ open: true, action: 'REJECT' }); setDecisionReason(''); }}
+                  className="px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <X className="h-3.5 w-3.5" /> Reject
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Banner 2: APPROVED */}
+        {isApproved && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 sm:p-5 text-xs text-emerald-900 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 shrink-0 mt-0.5">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-emerald-900">
+                  Quotation Approved & Terms Validated
+                </h3>
+                <p className="text-emerald-800 font-medium mt-0.5 leading-relaxed">
+                  All discount limits and margins are approved. Quotation is locked from editing. You can share the self-service negotiation portal or convert directly to an order.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleConvertToOrder}
+                disabled={convertingOrder}
+                className="px-4 py-2 rounded-lg bg-[#008784] hover:bg-[#00706e] text-white font-bold text-xs shadow-xs transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <PackageCheck className="h-3.5 w-3.5" />
+                {convertingOrder ? 'Creating Order...' : 'Convert to Confirmed Order'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Banner 3: RETURNED / CHANGES_REQUESTED */}
+        {(quoteData?.status === 'RETURNED' || quoteData?.status === 'CHANGES_REQUESTED') && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 sm:p-5 text-xs text-amber-900 shadow-xs flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-amber-200 text-amber-800 shrink-0 mt-0.5">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-sm text-amber-900">
+                Quotation Returned for Revision
+              </h3>
+              <p className="text-amber-800 font-medium mt-0.5 leading-relaxed">
+                An approver requested changes to this quotation. You can modify the products, quantities, or discount percentages below and re-submit for approval.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Banner 4: CONFIRMED */}
+        {isConfirmed && (
+          <div className="rounded-xl border border-teal-200 bg-teal-50/80 p-4 sm:p-5 text-xs text-teal-900 shadow-xs flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-teal-100 text-teal-700 shrink-0 mt-0.5">
+              <PackageCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-sm text-teal-900">
+                Quotation Confirmed & Converted to Active Order
+              </h3>
+              <p className="text-teal-800 font-medium mt-0.5 leading-relaxed">
+                This quotation has concluded its negotiation and transitioned into fulfillment, invoicing, and subscription schedule ledgers.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Banner 5: REJECTED */}
+        {isRejected && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-4 sm:p-5 text-xs text-rose-900 shadow-xs flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-rose-100 text-rose-700 shrink-0 mt-0.5">
+              <X className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-sm text-rose-900">
+                Quotation Rejected
+              </h3>
+              <p className="text-rose-800 font-medium mt-0.5 leading-relaxed">
+                This quotation was rejected during governance evaluation. It cannot be converted to an order.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ── Customer & Price List Dynamic Header Boxes ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -502,7 +780,11 @@ export default function V1QuotationDetailPage() {
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
               <span>Customer Account</span>
-              {isDraft && <span className="text-[10px] font-semibold text-[#714b67]">Editable</span>}
+              {isDraft ? (
+                <span className="text-[10px] font-semibold text-[#714b67]">Editable in Draft</span>
+              ) : (
+                <span className="text-[10px] font-semibold text-slate-400">Locked</span>
+              )}
             </label>
 
             {isDraft ? (
@@ -529,7 +811,7 @@ export default function V1QuotationDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="p-3.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold flex items-center justify-between shadow-xs">
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold flex items-center justify-between shadow-xs">
                 <div className="flex items-center gap-2 truncate">
                   <Building2 className="h-4 w-4 text-[#714b67]" />
                   <span className="truncate text-slate-900 font-bold">{customerName}</span>
@@ -537,6 +819,9 @@ export default function V1QuotationDetailPage() {
                     {customerTier} Tier
                   </span>
                 </div>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {selectedCustomer?.email || 'Account verified'}
+                </span>
               </div>
             )}
           </div>
@@ -546,7 +831,7 @@ export default function V1QuotationDetailPage() {
             <label className="text-xs font-bold text-slate-700">
               Assigned Price List
             </label>
-            <div className="p-3.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold flex items-center justify-between shadow-xs">
+            <div className="p-3.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold flex items-center justify-between shadow-xs">
               <div className="flex items-center gap-2 truncate">
                 <Tag className="h-4 w-4 text-[#008784]" />
                 <span className="truncate text-slate-900 font-bold">
@@ -556,39 +841,51 @@ export default function V1QuotationDetailPage() {
                   (Auto-Resolved)
                 </span>
               </div>
+              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                Max {tierLimitPct}% Auto-Disc
+              </span>
             </div>
           </div>
         </div>
 
-        {/* ── Dynamic Editable Line Items Table ── */}
+        {/* ── Line Items Table ── */}
         <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              Line Items & Commercial Terms
+            </h2>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">{items.length} Items</span>
+              {isDraft && (
+                <button
+                  onClick={() => setShowAddLineModal(true)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Item
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-600 font-bold uppercase tracking-wider">
+              <thead className="border-b border-slate-200 bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="py-3 px-4">Product</th>
-                  <th className="py-3 px-4 w-28">Qty</th>
-                  <th className="py-3 px-4">Price</th>
-                  <th className="py-3 px-4 w-32">Discount</th>
-                  <th className="py-3 px-4">Limit</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">
-                    {isDraft && (
-                      <button
-                        onClick={() => setShowAddLineModal(true)}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-[11px] font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs transition-colors"
-                      >
-                        <Plus className="h-3 w-3" />
-                        Add Item
-                      </button>
-                    )}
-                  </th>
+                  <th className="py-3.5 px-5">Product SKU / Name</th>
+                  <th className="py-3.5 px-4 w-28 text-center">Qty</th>
+                  <th className="py-3.5 px-4 text-right">Unit Price</th>
+                  <th className="py-3.5 px-4 w-36 text-center">Discount %</th>
+                  <th className="py-3.5 px-4 text-center">Tier Limit</th>
+                  <th className="py-3.5 px-4 text-right">Line Total</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  {isDraft && <th className="py-3.5 px-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-xs text-slate-400 font-medium">
+                    <td colSpan={isDraft ? 8 : 7} className="py-12 text-center text-xs text-slate-400 font-medium">
                       No line items configured. Click &quot;+ Add Item&quot; or select an upsell SKU below.
                     </td>
                   </tr>
@@ -596,36 +893,41 @@ export default function V1QuotationDetailPage() {
                   items.map((item) => {
                     const lineLimit = item.lineLimitPct || tierLimitPct;
                     const isOverLimit = Number(item.discountPct) > lineLimit;
+                    const lineGross = Number(item.unitPrice || 0) * Number(item.quantity || 1);
+                    const lineTotal = lineGross * (1 - (Number(item.discountPct || 0) / 100));
 
                     return (
                       <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                         {/* Product SKU / Title */}
-                        <td className="py-3 px-4 font-semibold text-slate-900">
-                          {item.productName || item.sku || 'Product Item'}
+                        <td className="py-3.5 px-5">
+                          <span className="font-bold text-slate-900 block">{item.productName || item.sku || 'Product Item'}</span>
+                          {item.sku && <span className="text-[10px] font-mono text-slate-400">{item.sku}</span>}
                         </td>
 
-                        {/* Editable Quantity */}
-                        <td className="py-3 px-4">
+                        {/* Quantity (Editable ONLY in Draft) */}
+                        <td className="py-3.5 px-4 text-center">
                           {isDraft ? (
                             <input
                               type="number"
                               min="1"
                               value={item.quantity}
                               onChange={(e) => handleItemFieldChange(item.id, 'quantity', e.target.value)}
-                              className="w-20 px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-900 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"
+                              className="w-16 px-2 py-1 text-xs font-bold text-center rounded-lg border border-slate-300 bg-white text-slate-900 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"
                             />
                           ) : (
-                            <span className="font-bold">{item.quantity}</span>
+                            <span className="font-bold text-slate-800">{item.quantity}</span>
                           )}
                         </td>
 
                         {/* Unit Price */}
-                        <td className="py-3 px-4">₹{Number(item.unitPrice || 0).toLocaleString()}</td>
+                        <td className="py-3.5 px-4 text-right font-semibold text-slate-800">
+                          ₹{Number(item.unitPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
 
-                        {/* Editable Discount % */}
-                        <td className="py-3 px-4">
+                        {/* Discount % (Editable ONLY in Draft) */}
+                        <td className="py-3.5 px-4 text-center">
                           {isDraft ? (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center justify-center gap-1">
                               <input
                                 type="number"
                                 min="0"
@@ -633,7 +935,7 @@ export default function V1QuotationDetailPage() {
                                 step="0.5"
                                 value={item.discountPct}
                                 onChange={(e) => handleItemFieldChange(item.id, 'discountPct', e.target.value)}
-                                className={`w-20 px-2.5 py-1 text-xs font-extrabold rounded-lg border outline-hidden transition-all ${
+                                className={`w-16 px-2 py-1 text-xs font-extrabold text-center rounded-lg border outline-hidden transition-all ${
                                   isOverLimit
                                     ? 'border-amber-400 bg-amber-50/50 text-amber-800 focus:border-amber-600 focus:ring-1 focus:ring-amber-500'
                                     : 'border-slate-300 bg-white text-slate-900 focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67]'
@@ -642,35 +944,42 @@ export default function V1QuotationDetailPage() {
                               <span className="font-bold text-slate-500">%</span>
                             </div>
                           ) : (
-                            <span className={`font-extrabold ${isOverLimit ? 'text-amber-700' : 'text-slate-800'}`}>
+                            <span className={`font-extrabold px-2.5 py-0.5 rounded ${
+                              isOverLimit ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'text-slate-800'
+                            }`}>
                               {item.discountPct}%
                             </span>
                           )}
                         </td>
 
                         {/* Allowed Limit */}
-                        <td className="py-3 px-4 font-semibold text-slate-500">
+                        <td className="py-3.5 px-4 text-center font-semibold text-slate-500">
                           {lineLimit}%
                         </td>
 
+                        {/* Calculated Line Total */}
+                        <td className="py-3.5 px-4 text-right font-bold text-slate-900">
+                          ₹{Number(lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+
                         {/* Real-time Status Badge */}
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           {isOverLimit ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
                               <AlertTriangle className="h-3 w-3 text-amber-600" />
-                              Approval Required
+                              Approval Req.
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                               <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                               Auto-Approved
                             </span>
                           )}
                         </td>
 
-                        {/* Actions */}
-                        <td className="py-3 px-4 text-right">
-                          {isDraft && (
+                        {/* Actions (Delete ONLY in Draft) */}
+                        {isDraft && (
+                          <td className="py-3.5 px-4 text-right">
                             <button
                               onClick={() => setDeleteModal({ open: true, itemId: item.id, itemName: item.productName || item.sku })}
                               title="Remove Line Item"
@@ -678,8 +987,8 @@ export default function V1QuotationDetailPage() {
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
-                          )}
-                        </td>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -687,9 +996,38 @@ export default function V1QuotationDetailPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Financial Totals Ledger */}
+          <div className="p-5 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row items-end justify-between gap-4">
+            <div className="text-xs text-slate-500 space-y-1">
+              <p className="font-semibold flex items-center gap-1.5">
+                <Info className="h-3.5 w-3.5 text-slate-400" /> Automatic Commercial Calculation Applied
+              </p>
+              <p>Prices adhere to assigned {assignedPriceList} with standard GST tax calculation.</p>
+            </div>
+
+            <div className="w-full sm:w-72 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-600 font-medium">
+                <span>Subtotal (Gross):</span>
+                <span>₹{Number(subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between text-amber-700 font-semibold">
+                <span>Total Discount:</span>
+                <span>-₹{Number(discountTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between text-slate-600 font-medium">
+                <span>Tax Total (18% GST):</span>
+                <span>₹{Number(taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="pt-2 border-t border-slate-200 flex justify-between text-sm font-black text-slate-900">
+                <span>Grand Total:</span>
+                <span className="text-[#008784]">₹{Number(grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ── Upsell and Cross-Sell Suggestions (Real Products from Catalog) ── */}
+        {/* ── Upsell and Cross-Sell Suggestions (Shown ONLY in Draft) ── */}
         {isDraft && (
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
@@ -711,7 +1049,7 @@ export default function V1QuotationDetailPage() {
                   <button
                     key={p.id}
                     onClick={() => handleAddUpsell(p.name, defaultDiscount)}
-                    className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md text-left transition-all duration-150 group shadow-xs active:scale-98"
+                    className="p-4 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md text-left transition-all duration-150 group shadow-xs active:scale-98 cursor-pointer"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -734,43 +1072,139 @@ export default function V1QuotationDetailPage() {
           </div>
         )}
 
-        {/* ── Bottom Action Buttons ── */}
-        <div className="flex flex-wrap items-center gap-3 pt-4">
+        {/* ── ENTERPRISE ACTION BAR (STRICTLY STATE-SCOPED) ── */}
+        <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-200">
           
-          {/* Save Draft Button */}
+          {/* Action Set 1: DRAFT or RETURNED (Editable Mode) */}
           {isDraft && (
-            <button
-              onClick={handleSaveDraft}
-              disabled={savingDraft}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-xs disabled:opacity-50"
-            >
-              <Save className="h-3.5 w-3.5 text-slate-600" />
-              <span>{savingDraft ? 'Saving...' : 'Save Draft'}</span>
-            </button>
+            <>
+              <button
+                onClick={handleSaveDraft}
+                disabled={savingDraft}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-xs disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5 text-slate-600" />
+                <span>{savingDraft ? 'Saving...' : 'Save Draft'}</span>
+              </button>
+
+              <button
+                onClick={handleSubmitQuotation}
+                disabled={submitting}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>{submitting ? 'Submitting...' : 'Submit for Approval'}</span>
+              </button>
+            </>
           )}
 
-          {/* Submit for Approval Button */}
-          {isDraft && (
-            <button
-              onClick={handleSubmitQuotation}
-              disabled={submitting}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span>{submitting ? 'Submitting...' : 'Submit for Approval'}</span>
-            </button>
+          {/* Action Set 2: PENDING_APPROVAL */}
+          {isPendingApproval && (
+            <>
+              {/* Sales Rep can withdraw */}
+              <button
+                onClick={handleWithdrawQuotation}
+                disabled={withdrawing}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-all shadow-xs disabled:opacity-50"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
+                <span>{withdrawing ? 'Withdrawing...' : 'Withdraw to Draft'}</span>
+              </button>
+
+              {/* Approvers can Approve / Return / Reject directly */}
+              {isApprover && (
+                <>
+                  <button
+                    onClick={() => { setDecisionModal({ open: true, action: 'APPROVE' }); setDecisionReason(''); }}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Approve Quotation</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setDecisionModal({ open: true, action: 'RETURN' }); setDecisionReason(''); }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-all"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Return for Changes</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setDecisionModal({ open: true, action: 'REJECT' }); setDecisionReason(''); }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    <span>Reject</span>
+                  </button>
+                </>
+              )}
+            </>
           )}
 
-          {/* Withdraw to Draft Button (if PENDING_APPROVAL) */}
-          {quoteData?.status === 'PENDING_APPROVAL' && (
-            <button
-              onClick={handleWithdrawQuotation}
-              disabled={withdrawing}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-all shadow-xs disabled:opacity-50"
+          {/* Action Set 3: APPROVED (No Submit for Approval or Edit buttons!) */}
+          {isApproved && (
+            <>
+              <button
+                onClick={handleConvertToOrder}
+                disabled={convertingOrder}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold bg-[#008784] hover:bg-[#00706e] text-white shadow-xs transition-all disabled:opacity-50"
+              >
+                <PackageCheck className="h-4 w-4" />
+                <span>{convertingOrder ? 'Creating Order...' : 'Convert to Confirmed Order'}</span>
+              </button>
+
+              <button
+                onClick={handleCopyCustomerLink}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-xs"
+              >
+                {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-slate-500" />}
+                <span>{copiedLink ? 'Link Copied' : 'Copy Customer Link'}</span>
+              </button>
+
+              <Link
+                to={`/v1/customer/${id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-xs"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-slate-500" />
+                <span>Open Negotiation Portal</span>
+              </Link>
+            </>
+          )}
+
+          {/* Action Set 4: CONFIRMED */}
+          {isConfirmed && (
+            <>
+              <Link
+                to="/v1/fulfillment"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold bg-[#008784] hover:bg-[#00706e] text-white shadow-xs transition-all"
+              >
+                <PackageCheck className="h-3.5 w-3.5" />
+                <span>View Fulfillment Status</span>
+              </Link>
+
+              <Link
+                to="/v1/invoices"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-xs"
+              >
+                <span>View Invoices</span>
+              </Link>
+            </>
+          )}
+
+          {/* Action Set 5: UNDER_NEGOTIATION */}
+          {isUnderNegotiation && (
+            <Link
+              to={`/v1/customer/${id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] text-white hover:bg-[#5a3a52] transition-all shadow-xs"
             >
-              <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
-              <span>{withdrawing ? 'Withdrawing...' : 'Withdraw to Draft'}</span>
-            </button>
+              <ExternalLink className="h-3.5 w-3.5" />
+              <span>View Customer Negotiation Portal</span>
+            </Link>
           )}
 
           <Link
@@ -783,7 +1217,7 @@ export default function V1QuotationDetailPage() {
         </div>
       </main>
 
-      {/* ── Modal: Add Line Item ── */}
+      {/* ── Modal: Add Line Item (Draft only) ── */}
       {showAddLineModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-5 text-slate-900">
@@ -871,7 +1305,74 @@ export default function V1QuotationDetailPage() {
         </div>
       )}
 
-      {/* ── Submission Result Modal ── */}
+      {/* ── Modal: Approver Decision (Approve / Reject / Return) ── */}
+      {decisionModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                {decisionModal.action === 'APPROVE' && <CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+                {decisionModal.action === 'REJECT' && <X className="h-5 w-5 text-rose-600" />}
+                {decisionModal.action === 'RETURN' && <RotateCcw className="h-5 w-5 text-amber-600" />}
+                {decisionModal.action === 'APPROVE' ? 'Approve Quotation' : decisionModal.action === 'REJECT' ? 'Reject Quotation' : 'Return Quotation for Changes'}
+              </h3>
+              <button
+                onClick={() => setDecisionModal({ open: false, action: null })}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDecision} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold mb-1 text-slate-700">
+                  {decisionModal.action === 'APPROVE' ? 'Decision Notes (Optional)' : 'Reason / Revision Requirements *'}
+                </label>
+                <textarea
+                  rows={3}
+                  required={decisionModal.action !== 'APPROVE'}
+                  value={decisionReason}
+                  onChange={(e) => setDecisionReason(e.target.value)}
+                  placeholder={
+                    decisionModal.action === 'APPROVE'
+                      ? 'Approved per commercial margin policies...'
+                      : decisionModal.action === 'RETURN'
+                      ? 'Please lower discount on line 1 to under 15%...'
+                      : 'Unacceptable margin risk...'
+                  }
+                  className="w-full rounded-lg border border-slate-300 p-3 font-medium text-slate-800 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setDecisionModal({ open: false, action: null })}
+                  className="px-4 py-2 rounded-lg text-slate-600 font-bold hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingDecision}
+                  className={`px-5 py-2 rounded-lg text-white font-bold shadow-xs disabled:opacity-50 ${
+                    decisionModal.action === 'APPROVE'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : decisionModal.action === 'REJECT'
+                      ? 'bg-rose-600 hover:bg-rose-700'
+                      : 'bg-amber-600 hover:bg-amber-700'
+                  }`}
+                >
+                  {submittingDecision ? 'Processing...' : `Confirm ${decisionModal.action === 'APPROVE' ? 'Approval' : decisionModal.action === 'REJECT' ? 'Rejection' : 'Return'}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Submission Result ── */}
       {submitResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
@@ -908,7 +1409,7 @@ export default function V1QuotationDetailPage() {
         </div>
       )}
 
-      {/* ── Custom Modal: Delete Item Confirmation ── */}
+      {/* ── Modal: Delete Item Confirmation ── */}
       {deleteModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-2xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">

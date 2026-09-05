@@ -97,17 +97,41 @@ export default function V1QuotationsPage() {
       {/* ── Main Content Area ── */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-8 py-6 space-y-6">
         
-        {/* Top Search Toolbar */}
-        <div className="flex items-center justify-end">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search deals or accounts..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-lg text-xs font-medium border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all shadow-xs"
-            />
+        {/* Top Header & Search Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Quotations & Commercial Pipeline</h1>
+            <p className="text-xs text-slate-500 font-medium">
+              Manage draft deals, pending approvals, and confirmed enterprise orders
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search deals or accounts..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs font-medium border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all shadow-xs"
+              />
+            </div>
+
+            <button
+              onClick={() => setViewMode(viewMode === 'kanban' ? 'table' : 'kanban')}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-xs transition-colors inline-flex items-center gap-1.5"
+            >
+              {viewMode === 'kanban' ? <TableIcon className="h-3.5 w-3.5 text-[#714b67]" /> : <Kanban className="h-3.5 w-3.5 text-[#714b67]" />}
+              <span>{viewMode === 'kanban' ? 'Table' : 'Kanban'}</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/v1/quotations/new')}
+              className="px-4 py-1.5 rounded-lg bg-[#714b67] hover:bg-[#5a3a52] text-white text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" /> + New Quote
+            </button>
           </div>
         </div>
 
