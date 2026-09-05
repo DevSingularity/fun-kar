@@ -27,20 +27,21 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
     navigate('/login');
   };
 
-  // Standard modules as per PS wireframe
-  const navTabs = [
-    { label: 'Dashboard', path: '/v1/dashboard', id: 'Dashboard' },
-    { label: 'Quotations', path: '/v1/quotations', id: 'Quotations' },
-    { label: 'Approvals', path: '/v1/approvals', id: 'Approvals' },
-    { label: 'Fulfillment', path: '/v1/fulfillment', id: 'Fulfillment' },
-    { label: 'Subscriptions', path: '/dashboard/pricing', id: 'Subscriptions' },
-    { label: 'Invoices', path: '/dashboard/pricing', id: 'Invoices' },
-    { label: 'Deal Health', path: '/dashboard/governance', id: 'Deal Health' },
-    { label: 'Reports', path: '/dashboard/customers', id: 'Reports' },
-    { label: 'Product', path: '/dashboard/products', id: 'Product' },
+  const userRole = user?.role || 'SALES_REP';
+
+  // Standard modules as per PS wireframe & RBAC matrix
+  const allNavTabs = [
+    { label: 'Dashboard', path: '/v1/dashboard', id: 'Dashboard', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
+    { label: 'Quotations', path: '/v1/quotations', id: 'Quotations', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
+    { label: 'Customers', path: '/dashboard/customers', id: 'Customers', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
+    { label: 'Approvals', path: '/v1/approvals', id: 'Approvals', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
+    { label: 'Fulfillment', path: '/v1/fulfillment', id: 'Fulfillment', roles: ['ADMIN', 'OPERATIONS'] },
+    { label: 'Pricing Matrix', path: '/dashboard/pricing', id: 'Pricing', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
+    { label: 'Deal Health', path: '/dashboard/governance', id: 'Deal Health', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
+    { label: 'Catalog SKUs', path: '/dashboard/products', id: 'Product', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'OPERATIONS'] },
   ];
 
-  const userRole = user?.role || 'SALES_REP';
+  const navTabs = allNavTabs.filter((tab) => tab.roles.includes(userRole));
 
   return (
     <header className="bg-[#714b67] text-white shadow-sm select-none sticky top-0 z-40 border-b border-[#5a3a52]">

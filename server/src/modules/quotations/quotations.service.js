@@ -21,6 +21,7 @@ import { getProduct } from '../products/products.service.js';
 import { resolvePrice } from '../priceLists/priceLists.service.js';
 import { resolveAllowedDiscount, evaluateQuoteRisk } from '../risk/risk.service.js';
 import { createIfRequired } from '../approval/approval.service.js';
+import { getPendingByQuotationId, resolveRequest } from '../approval/approval.repository.js';
 import { findCustomerById } from '../customers/customers.repository.js';
 import { findUserById } from '../auth/auth.repository.js';
 import { nextQuoteNumber } from '../../common/sequence.util.js';
@@ -127,6 +128,10 @@ export async function createQuotation(data, authUser) {
     throw new NotFoundError(`Customer with ID '${data.customerId}' not found.`, 'CUSTOMER_NOT_FOUND');
   }
 
+  if (authUser?.role === 'SALES_REP' && customer.assignedRepId !== authUser.id) {
+    throw new ForbiddenError('You can only create quotations for customers assigned to you.');
+  }
+
   let assignedRepId = authUser?.id;
   if (data.salesRepId) {
     if (authUser && !['ADMIN', 'SALES_MANAGER'].includes(authUser.role) && data.salesRepId !== authUser.id) {
@@ -161,6 +166,16 @@ export async function updateQuotation(id, data, authUser) {
 
   if (existing.status !== 'DRAFT') {
     throw new ConflictError('Only DRAFT quotations can be edited.', 'INVALID_STATE');
+  }
+
+  if (data.customerId && data.customerId !== existing.customerId) {
+    const newCustomer = await findCustomerById(data.customerId);
+    if (!newCustomer) {
+      throw new NotFoundError(`Customer with ID '${data.customerId}' not found.`, 'CUSTOMER_NOT_FOUND');
+    }
+    if (authUser?.role === 'SALES_REP' && newCustomer.assignedRepId !== authUser.id) {
+      throw new ForbiddenError('You can only move this quotation to a customer assigned to you.');
+    }
   }
 
   if (data.salesRepId && data.salesRepId !== existing.salesRepId) {
@@ -391,4 +406,40 @@ export async function submitQuotation(quotationId, authUser) {
     approvalRequest,
     idempotentReplay: false,
   };
+}
+
+// --- Self-service Withdraw (rep pulls a pending quote back to DRAFT) ---
+
+export async function withdrawQuotation(quotationId, authUser) {
+  const quotation = await lockById(quotationId);
+  if (!quotation) {
+    throw new NotFoundError(`Quotation with ID '${quotationId}' not found.`, 'QUOTATION_NOT_FOUND');
+  }
+
+  assertOwnership(quotation, authUser);
+
+  if (quotation.status !== 'PENDING_APPROVAL') {
+    throw new ConflictError('Only PENDING_APPROVAL quotations can be withdrawn to DRAFT.', 'INVALID_STATE');
+  }
+
+  const pendingRequest = await getPendingByQuotationId(quotationId);
+  if (pendingRequest) {
+    await resolveRequest(pendingRequest.id, 'RETURNED');
+  }
+
+  await updateHeaderFields(quotationId, {
+    status: 'DRAFT',
+  });
+
+  await insertAuditLog({
+    actorId: authUser?.id || null,
+    entityType: 'QUOTATION',
+    entityId: quotationId,
+    action: 'WITHDRAWN_TO_DRAFT',
+    reason: 'Quotation withdrawn to DRAFT for modification.',
+    oldValue: { status: 'PENDING_APPROVAL' },
+    newValue: { status: 'DRAFT' },
+  });
+
+  return getQuotation(quotationId, authUser);
 }

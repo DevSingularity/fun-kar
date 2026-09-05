@@ -19,7 +19,8 @@ import {
   DollarSign,
   Zap,
   Info,
-  Award
+  Award,
+  RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
@@ -45,6 +46,7 @@ export default function QuotationDetailPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [showPdfView, setShowPdfView] = useState(false);
 
   // New Item Line State
@@ -156,6 +158,19 @@ export default function QuotationDetailPage() {
     }
   };
 
+  const handleWithdrawQuotation = async () => {
+    setWithdrawing(true);
+    try {
+      const res = await api.post(`/quotations/${id}/withdraw`);
+      setData(res.data?.data || null);
+      toast.success('Quotation withdrawn to DRAFT for editing');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to withdraw quotation');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   if (loading || !data) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -166,6 +181,7 @@ export default function QuotationDetailPage() {
 
   const { quotation, customer, salesRep, items, marginHealth } = data;
   const isDraft = quotation.status === 'DRAFT';
+  const isPendingApproval = quotation.status === 'PENDING_APPROVAL';
   const subtotal = Number(quotation.subtotal || 0);
   const discountTotal = Number(quotation.discountTotal || 0);
   const taxTotal = Number(quotation.taxTotal || 0);
@@ -220,6 +236,17 @@ export default function QuotationDetailPage() {
             >
               <Send className="h-3.5 w-3.5" />
               {submitting ? 'Evaluating Risk...' : 'Submit for Approval'}
+            </button>
+          )}
+
+          {isPendingApproval && (
+            <button
+              onClick={handleWithdrawQuotation}
+              disabled={withdrawing}
+              className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition-colors shadow-xs"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              {withdrawing ? 'Withdrawing...' : 'Withdraw to Draft'}
             </button>
           )}
         </div>

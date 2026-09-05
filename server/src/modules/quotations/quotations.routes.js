@@ -19,6 +19,7 @@ import {
   handleUpdateLineItem,
   handleRemoveLineItem,
   handleSubmitQuotation,
+  handleWithdrawQuotation,
 } from './quotations.controller.js';
 
 const router = Router();
@@ -43,4 +44,8 @@ router.delete('/:id/items/:itemId', authorize('SALES_REP', 'SALES_MANAGER', 'ADM
 // Submit Trigger & Risk Check
 router.post('/:id/submit', authorize('SALES_REP', 'SALES_MANAGER', 'ADMIN'), asyncHandler(handleSubmitQuotation));
 
+// Self-service Withdraw back to DRAFT
+router.post('/:id/withdraw', authorize('SALES_REP', 'SALES_MANAGER', 'ADMIN'), asyncHandler(handleWithdrawQuotation));
+
 export default router;
+

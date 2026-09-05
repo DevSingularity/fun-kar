@@ -4,7 +4,7 @@ import { customers } from '../../db/schema/customers.js';
 import { products } from '../../db/schema/catalog.js';
 import { approvalRequests, auditLogs } from '../../db/schema/governance.js';
 import { users } from '../../db/schema/users.js';
-import { desc, eq, sql, inArray } from 'drizzle-orm';
+import { desc, eq, sql, inArray, and } from 'drizzle-orm';
 
 export async function getDashboardOverview(currentUser) {
   const db = getDb();
@@ -59,21 +59,51 @@ export async function getDashboardOverview(currentUser) {
   };
 
   // 4. Fetch Real Audit Logs & Activity Feed
-  const dbLogs = await db
-    .select({
-      id: auditLogs.id,
-      action: auditLogs.action,
-      entityType: auditLogs.entityType,
-      entityId: auditLogs.entityId,
-      reason: auditLogs.reason,
-      createdAt: auditLogs.createdAt,
-      actorName: users.name,
-      actorRole: users.role,
-    })
-    .from(auditLogs)
-    .leftJoin(users, eq(auditLogs.actorId, users.id))
-    .orderBy(desc(auditLogs.createdAt))
-    .limit(10);
+  // A SALES_REP must only ever see activity tied to their own quotations —
+  // never the raw, org-wide audit trail (that leaked every rep's deals to
+  // every other rep's dashboard).
+  const scopedQuoteIds = scopedQuotes.map((q) => q.id);
+
+  let dbLogs = [];
+  if (currentUser.role !== 'SALES_REP' || scopedQuoteIds.length > 0) {
+    const logConditions = [eq(auditLogs.entityType, 'QUOTATION')];
+    if (currentUser.role === 'SALES_REP') {
+      logConditions.push(inArray(auditLogs.entityId, scopedQuoteIds));
+    }
+
+    dbLogs = currentUser.role === 'SALES_REP'
+      ? await db
+          .select({
+            id: auditLogs.id,
+            action: auditLogs.action,
+            entityType: auditLogs.entityType,
+            entityId: auditLogs.entityId,
+            reason: auditLogs.reason,
+            createdAt: auditLogs.createdAt,
+            actorName: users.name,
+            actorRole: users.role,
+          })
+          .from(auditLogs)
+          .leftJoin(users, eq(auditLogs.actorId, users.id))
+          .where(and(...logConditions))
+          .orderBy(desc(auditLogs.createdAt))
+          .limit(10)
+      : await db
+          .select({
+            id: auditLogs.id,
+            action: auditLogs.action,
+            entityType: auditLogs.entityType,
+            entityId: auditLogs.entityId,
+            reason: auditLogs.reason,
+            createdAt: auditLogs.createdAt,
+            actorName: users.name,
+            actorRole: users.role,
+          })
+          .from(auditLogs)
+          .leftJoin(users, eq(auditLogs.actorId, users.id))
+          .orderBy(desc(auditLogs.createdAt))
+          .limit(10);
+  }
 
   // Format activity feed combining audit logs & recent quote status changes
   const formattedActivities = dbLogs.map((log) => {

@@ -1,9 +1,3 @@
-/**
- * AppRoutes
- *
- * TODO: Add/remove routes to match your PS features.
- * Private routes (behind PrivateRoute) require a valid JWT session.
- */
 import { useEffect } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -34,6 +28,15 @@ import useAuthStore from '../store/auth.store.js';
 function PrivateRoute() {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   return isLoggedIn ? <Outlet /> : <Navigate to="/login" replace />;
+}
+
+function RoleRoute({ allowedRoles }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user) return <Navigate to="/login" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/v1/dashboard" replace />;
+  }
+  return <Outlet />;
 }
 
 export default function AppRoutes() {
@@ -72,22 +75,43 @@ export default function AppRoutes() {
         <Route path="/v1/customer/:quotationId" element={<CustomerQuotationDetailPage />} />
 
         <Route element={<PrivateRoute />}>
-          {/* Standalone Official Wireframe V1 Enterprise Pages */}
+          {/* Universal Authenticated Pages */}
           <Route path="/v1/dashboard" element={<V1DashboardPage />} />
-          <Route path="/v1/quotations" element={<V1QuotationsPage />} />
-          <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
-          <Route path="/v1/approvals" element={<V1ApprovalsPage />} />
-          <Route path="/v1/approvals/:id" element={<V1ApprovalDetailPage />} />
-          <Route path="/v1/fulfillment" element={<V1FulfillmentPage />} />
-          <Route path="/v1/fulfillment/:id" element={<V1FulfillmentDetailPage />} />
+
+          {/* Quotations: Sales Rep, Sales Manager, Admin */}
+          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'SALES_MANAGER', 'ADMIN']} />}>
+            <Route path="/v1/quotations" element={<V1QuotationsPage />} />
+            <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
+          </Route>
+
+          {/* Approvals: Sales Manager, Finance, Admin */}
+          <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'FINANCE', 'ADMIN']} />}>
+            <Route path="/v1/approvals" element={<V1ApprovalsPage />} />
+            <Route path="/v1/approvals/:id" element={<V1ApprovalDetailPage />} />
+          </Route>
+
+          {/* Fulfillment: Operations, Admin */}
+          <Route element={<RoleRoute allowedRoles={['OPERATIONS', 'ADMIN']} />}>
+            <Route path="/v1/fulfillment" element={<V1FulfillmentPage />} />
+            <Route path="/v1/fulfillment/:id" element={<V1FulfillmentDetailPage />} />
+          </Route>
+
+          {/* Standard Shell Layout */}
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardHomePage />} />
             <Route path="/dashboard/products" element={<ProductsPage />} />
-            <Route path="/dashboard/pricing" element={<PricingPage />} />
-            <Route path="/dashboard/governance" element={<DiscountsPage />} />
-            <Route path="/dashboard/customers" element={<CustomersPage />} />
-            <Route path="/dashboard/quotations" element={<QuotationsPage />} />
-            <Route path="/dashboard/quotations/:id" element={<QuotationDetailPage />} />
+            
+            {/* Scoped Sub-pages */}
+            <Route element={<RoleRoute allowedRoles={['SALES_REP', 'SALES_MANAGER', 'ADMIN']} />}>
+              <Route path="/dashboard/customers" element={<CustomersPage />} />
+              <Route path="/dashboard/quotations" element={<QuotationsPage />} />
+              <Route path="/dashboard/quotations/:id" element={<QuotationDetailPage />} />
+            </Route>
+
+            <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'FINANCE', 'ADMIN']} />}>
+              <Route path="/dashboard/pricing" element={<PricingPage />} />
+              <Route path="/dashboard/governance" element={<DiscountsPage />} />
+            </Route>
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -95,4 +119,5 @@ export default function AppRoutes() {
     </>
   );
 }
+
 

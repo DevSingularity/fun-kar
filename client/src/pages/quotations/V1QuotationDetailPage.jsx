@@ -15,7 +15,8 @@ import {
   PlusCircle,
   Tag,
   Save,
-  ChevronDown
+  ChevronDown,
+  RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
@@ -32,6 +33,7 @@ export default function V1QuotationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   // Data lists
   const [products, setProducts] = useState([]);
@@ -427,6 +429,20 @@ export default function V1QuotationDetailPage() {
     }
   };
 
+  // Withdraw Quotation (from PENDING_APPROVAL back to DRAFT)
+  const handleWithdrawQuotation = async () => {
+    setWithdrawing(true);
+    try {
+      await api.post(`/quotations/${id}/withdraw`);
+      toast.success('Quotation withdrawn to DRAFT for editing');
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to withdraw quotation');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
@@ -439,34 +455,6 @@ export default function V1QuotationDetailPage() {
   }
 
   if (!quoteData && !isNew) {
-    return (
-      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
-        <OdooTopNavbar activeTab="Quotations" />
-        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center space-y-4">
-          <p className="text-sm font-bold text-slate-700">Quotation not found</p>
-          <Link
-            to="/v1/quotations"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#714b67] text-white"
-          >
-            ← Return to Quotations List
-          </Link>
-        </main>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
-        <OdooTopNavbar activeTab="Quotations" />
-        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center">
-          <p className="text-xs font-semibold text-slate-400">Loading quotation details...</p>
-        </main>
-      </div>
-    );
-  }
-
-  if (!data) {
     return (
       <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
         <OdooTopNavbar activeTab="Quotations" />
@@ -770,6 +758,18 @@ export default function V1QuotationDetailPage() {
             >
               <Send className="h-3.5 w-3.5" />
               <span>{submitting ? 'Submitting...' : 'Submit for Approval'}</span>
+            </button>
+          )}
+
+          {/* Withdraw to Draft Button (if PENDING_APPROVAL) */}
+          {quoteData?.status === 'PENDING_APPROVAL' && (
+            <button
+              onClick={handleWithdrawQuotation}
+              disabled={withdrawing}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-all shadow-xs disabled:opacity-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
+              <span>{withdrawing ? 'Withdrawing...' : 'Withdraw to Draft'}</span>
             </button>
           )}
 
