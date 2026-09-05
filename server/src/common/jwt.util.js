@@ -31,6 +31,14 @@ export function buildTokenPair(user) {
   };
 }
 
+export function signPortalToken(payload) {
+  return jwt.sign(
+    { ...payload, type: 'customer_portal' },
+    env.JWT_SECRET,
+    { expiresIn: '2h' }
+  );
+}
+
 export function verifyToken(token, expectedType = 'access') {
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET);
@@ -46,3 +54,4 @@ export function verifyToken(token, expectedType = 'access') {
     throw new UnauthenticatedError('Invalid token', 'INVALID_TOKEN');
   }
 }
+

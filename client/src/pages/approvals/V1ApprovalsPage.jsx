@@ -27,7 +27,7 @@ export default function V1ApprovalsPage() {
 
   const [loading, setLoading] = useState(true);
   const [approvalRequests, setApprovalRequests] = useState([]);
-  const [pendingOnly, setPendingOnly] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'RETURNED' | 'APPROVED'
   const [search, setSearch] = useState('');
 
   const fetchData = async () => {
@@ -35,11 +35,13 @@ export default function V1ApprovalsPage() {
     try {
       const res = await api.get('/approval-requests', {
         params: {
-          status: pendingOnly ? 'PENDING' : 'ALL',
+          status: 'ALL',
           limit: 100,
         },
       });
-      setApprovalRequests(res.data?.data || []);
+      const data = res.data?.data;
+      const list = Array.isArray(data) ? data : (data?.items || []);
+      setApprovalRequests(list);
     } catch (err) {
       console.warn('Approvals list fetch note:', err);
     } finally {
@@ -49,49 +51,15 @@ export default function V1ApprovalsPage() {
 
   useEffect(() => {
     fetchData();
-  }, [pendingOnly]);
+  }, []);
 
-  // Fallback demo data for initial wireframe rendering
-  const DEMO_APPROVALS = [
-    {
-      id: 'app-demo-1',
-      quotationId: 'q-demo-1',
-      quoteNumber: 'Q-1042',
-      customerName: 'Acme Corp',
-      blendedRiskScore: '18.5',
-      requiredLevel: 'MANAGER',
-      currentStep: 'Sales Manager',
-      salesRepName: 'M. Shah',
-      status: 'PENDING',
-    },
-    {
-      id: 'app-demo-2',
-      quotationId: 'q-demo-2',
-      quoteNumber: 'Q-1039',
-      customerName: 'Beta Industries',
-      blendedRiskScore: '32.0',
-      requiredLevel: 'MANAGER_FINANCE',
-      currentStep: 'Finance',
-      salesRepName: 'R. Iyer',
-      status: 'PENDING',
-    },
-    {
-      id: 'app-demo-3',
-      quotationId: 'q-demo-3',
-      quoteNumber: 'Q-1035',
-      customerName: 'Nova Retail',
-      blendedRiskScore: '4.0',
-      requiredLevel: 'NONE',
-      currentStep: 'Auto-Approved',
-      salesRepName: '-',
-      status: 'APPROVED',
-    },
-  ];
+  const pendingCount = approvalRequests.filter((a) => a.status === 'PENDING').length;
+  const returnedCount = approvalRequests.filter((a) => a.status === 'RETURNED').length;
+  const approvedCount = approvalRequests.filter((a) => a.status === 'APPROVED').length;
+  const rejectedCount = approvalRequests.filter((a) => a.status === 'REJECTED').length;
 
-  const displayList = approvalRequests.length > 0 ? approvalRequests : DEMO_APPROVALS;
-
-  const filteredList = displayList.filter((item) => {
-    if (pendingOnly && item.status !== 'PENDING') return false;
+  const filteredList = approvalRequests.filter((item) => {
+    if (activeFilter !== 'ALL' && item.status !== activeFilter) return false;
     if (!search) return true;
     const term = search.toLowerCase();
     return (
@@ -101,27 +69,73 @@ export default function V1ApprovalsPage() {
     );
   });
 
-  const pendingCount = displayList.filter((a) => a.status === 'PENDING').length || 3;
-  const returnedCount = displayList.filter((a) => a.status === 'RETURNED').length || 1;
-  const approvedCount = displayList.filter((a) => a.status === 'APPROVED').length || 12;
-
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
       {/* ── Enterprise Global Navbar ── */}
       <OdooTopNavbar activeTab="Approvals" />
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-6 space-y-6">
         
-        {/* Page Title & Subtitle */}
+        {/* Top Controls: 4 Summary Pill Badges & Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Approvals (List)
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">
-              Every quotation that needed, needs, or is going through discount approval
-            </p>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Pending Pill */}
+            <button
+              onClick={() => setActiveFilter(activeFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                activeFilter === 'PENDING'
+                  ? 'bg-amber-600 text-white ring-2 ring-amber-400 ring-offset-1 scale-105'
+                  : 'bg-amber-500 hover:bg-amber-600 text-white opacity-90 hover:opacity-100'
+              }`}
+            >
+              <span>{pendingCount} Pending</span>
+            </button>
+
+            {/* Returned Pill */}
+            <button
+              onClick={() => setActiveFilter(activeFilter === 'RETURNED' ? 'ALL' : 'RETURNED')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                activeFilter === 'RETURNED'
+                  ? 'bg-pink-600 text-white ring-2 ring-pink-400 ring-offset-1 scale-105'
+                  : 'bg-rose-400 hover:bg-rose-500 text-white opacity-90 hover:opacity-100'
+              }`}
+            >
+              <span>{returnedCount} Returned</span>
+            </button>
+
+            {/* Approved Pill */}
+            <button
+              onClick={() => setActiveFilter(activeFilter === 'APPROVED' ? 'ALL' : 'APPROVED')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                activeFilter === 'APPROVED'
+                  ? 'bg-emerald-600 text-white ring-2 ring-emerald-400 ring-offset-1 scale-105'
+                  : 'bg-emerald-500 hover:bg-emerald-600 text-white opacity-90 hover:opacity-100'
+              }`}
+            >
+              <span>{approvedCount} Approved</span>
+            </button>
+
+            {/* Rejected Pill */}
+            <button
+              onClick={() => setActiveFilter(activeFilter === 'REJECTED' ? 'ALL' : 'REJECTED')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                activeFilter === 'REJECTED'
+                  ? 'bg-rose-700 text-white ring-2 ring-rose-500 ring-offset-1 scale-105'
+                  : 'bg-red-600 hover:bg-red-700 text-white opacity-90 hover:opacity-100'
+              }`}
+            >
+              <span>{rejectedCount} Rejected</span>
+            </button>
+
+            {activeFilter !== 'ALL' && (
+              <button
+                onClick={() => setActiveFilter('ALL')}
+                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 underline ml-1"
+              >
+                Clear Filter ({approvalRequests.length} Total)
+              </button>
+            )}
           </div>
 
           {/* Search Bar */}
@@ -134,25 +148,6 @@ export default function V1ApprovalsPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 rounded-lg text-xs font-medium border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all shadow-xs"
             />
-          </div>
-        </div>
-
-        {/* ── 3 Summary Pill Badges (From Wireframe 5) ── */}
-        <div className="flex flex-wrap items-center gap-3">
-          
-          {/* Pending Pill */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white shadow-xs">
-            <span>{pendingCount} Pending</span>
-          </div>
-
-          {/* Returned Pill */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-400 text-white shadow-xs">
-            <span>{returnedCount} Returned</span>
-          </div>
-
-          {/* Approved Pill */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-xs">
-            <span>{approvedCount} Approved</span>
           </div>
         </div>
 
@@ -171,54 +166,68 @@ export default function V1ApprovalsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800 font-medium">
-                {filteredList.map((item) => {
-                  const riskScore = Number(item.blendedRiskScore || 0);
-                  const riskLabel = riskScore >= 25 ? 'HIGH' : riskScore >= 10 ? 'MEDIUM' : 'LOW';
-                  const riskBadgeClass =
-                    riskLabel === 'HIGH'
-                      ? 'bg-rose-50 text-rose-700 border-rose-200'
-                      : riskLabel === 'MEDIUM'
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs text-slate-400 font-medium">
+                      Loading discount approval requests...
+                    </td>
+                  </tr>
+                ) : filteredList.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs text-slate-400 font-medium">
+                      No approval requests found matching your filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredList.map((item) => {
+                    const riskScore = Number(item.blendedRiskScore || 0);
+                    const riskLabel = riskScore >= 25 ? 'HIGH' : riskScore >= 10 ? 'MEDIUM' : 'LOW';
+                    const riskBadgeClass =
+                      riskLabel === 'HIGH'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : riskLabel === 'MEDIUM'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
-                  const stageDisplay =
-                    item.status === 'APPROVED'
-                      ? 'Auto-Approved'
-                      : item.currentStep === 'FINANCE'
-                      ? 'Finance'
-                      : 'Sales Manager';
+                    const stageDisplay =
+                      item.status === 'APPROVED'
+                        ? 'Auto-Approved'
+                        : item.currentStep === 'FINANCE'
+                        ? 'Finance'
+                        : 'Sales Manager';
 
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => navigate(`/v1/approvals/${item.id}`)}
-                      className="cursor-pointer hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="py-3.5 px-4 font-mono font-bold text-[#714b67]">
-                        {item.quoteNumber || 'Q-1042'}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-900">
-                        {item.customerName || 'Acme Corp'}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border ${riskBadgeClass}`}>
-                          {riskLabel} ({riskScore}%)
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        {stageDisplay}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600 font-medium">
-                        {item.salesRepName || 'M. Shah'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <span className="text-[#008784] hover:underline inline-flex items-center gap-1 font-bold">
-                          Review <ArrowRight className="h-3 w-3" />
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr
+                        key={item.id}
+                        onClick={() => navigate(`/v1/approvals/${item.id}`)}
+                        className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                      >
+                        <td className="py-3.5 px-4 font-mono font-bold text-[#714b67]">
+                          {item.quoteNumber}
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-900">
+                          {item.customerName || 'Customer'}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border ${riskBadgeClass}`}>
+                            {riskLabel} ({riskScore}%)
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-700">
+                          {stageDisplay}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 font-medium">
+                          {item.salesRepName || 'Sales Rep'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <span className="text-[#008784] hover:underline inline-flex items-center gap-1 font-bold">
+                            Review <ArrowRight className="h-3 w-3" />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -234,18 +243,18 @@ export default function V1ApprovalsPage() {
           </div>
         </div>
 
-        {/* ── Filter Button (From Wireframe 5) ── */}
+        {/* ── Filter Button ── */}
         <div className="flex items-center gap-3 pt-1">
           <button
-            onClick={() => setPendingOnly(!pendingOnly)}
+            onClick={() => setActiveFilter(activeFilter === 'PENDING' ? 'ALL' : 'PENDING')}
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold border transition-all shadow-xs ${
-              pendingOnly
+              activeFilter === 'PENDING'
                 ? 'bg-[#714b67] text-white border-[#714b67]'
                 : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
             }`}
           >
             <Filter className="h-3.5 w-3.5" />
-            <span>Filter: Pending Only</span>
+            <span>Filter: {activeFilter === 'PENDING' ? 'Showing Pending Only' : 'Pending Only'}</span>
           </button>
 
           <Link

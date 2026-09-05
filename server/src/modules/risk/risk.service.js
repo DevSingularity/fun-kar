@@ -160,27 +160,10 @@ export async function evaluateQuoteRisk({ customerId, lines }) {
   // Map blended overage to required approval level
   let requiredApprovalLevel = 'NONE';
   if (blendedOveragePct > 0) {
-    let matchedRule = null;
-    for (const rule of activeApprovalRules) {
-      const min = Number(rule.minOveragePct);
-      const max = rule.maxOveragePct !== null ? Number(rule.maxOveragePct) : Infinity;
-      if (blendedOveragePct >= min && blendedOveragePct < max) {
-        matchedRule = rule;
-        break;
-      }
-    }
-
-    if (matchedRule) {
-      requiredApprovalLevel = matchedRule.requiredLevel;
+    if (blendedOveragePct > 15) {
+      requiredApprovalLevel = 'MANAGER_FINANCE';
     } else {
-      // Fallback standard band
-      if (blendedOveragePct <= 10) {
-        requiredApprovalLevel = 'NONE';
-      } else if (blendedOveragePct <= 20) {
-        requiredApprovalLevel = 'MANAGER';
-      } else {
-        requiredApprovalLevel = 'MANAGER_FINANCE';
-      }
+      requiredApprovalLevel = 'MANAGER';
     }
   }
 

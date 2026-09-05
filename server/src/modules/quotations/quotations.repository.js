@@ -248,6 +248,7 @@ export async function applyAggregateTotals(id, totals, tx = undefined) {
 export async function updateHeaderFields(id, fields, tx = undefined) {
   const db = tx || getDb();
   const payload = { updatedAt: new Date(), lastActivityAt: new Date() };
+  if (fields.customerId !== undefined) payload.customerId = fields.customerId;
   if (fields.status !== undefined) payload.status = fields.status;
   if (fields.requiredApprovalLevel !== undefined) payload.requiredApprovalLevel = fields.requiredApprovalLevel;
   if (fields.blendedRiskScore !== undefined) payload.blendedRiskScore = String(fields.blendedRiskScore);

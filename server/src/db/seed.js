@@ -1,7 +1,11 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ path: './server/.env' });
+dotenv.config();
+
 import { connectDatabase, getDb } from '../config/database.js';
-import { users } from './schema/users.js';
+import { users, customerUsers } from './schema/users.js';
 import {
+
   productCategories,
   products,
   productVariants,
@@ -14,6 +18,10 @@ import {
   categoryDiscountLimits,
   approvalRules,
 } from './schema/governance.js';
+import {
+  warehouses,
+  warehouseStock,
+} from './schema/warehouses.js';
 import { hashPassword } from '../common/password.util.js';
 import { sql, eq } from 'drizzle-orm';
 
@@ -440,9 +448,146 @@ async function runSeed() {
     }
   }
 
-  console.log('[SEED] ✅ Phase 1 & Phase 2 master data seed completed successfully.');
+  // 9. Seed Warehouses & Stock (Phase 5)
+  console.log('[SEED] Upserting warehouses and live inventory...');
+  const SEED_WAREHOUSES = [
+    { name: 'Main Warehouse', location: 'Mumbai Central Logistics Hub', shippingCostWeight: '1.00', isActive: true },
+    { name: 'East Depot', location: 'Kolkata Port Terminal', shippingCostWeight: '1.50', isActive: true },
+    { name: 'North DC', location: 'Delhi NCR Fulfillment Hub', shippingCostWeight: '1.20', isActive: true },
+  ];
+
+  const warehouseMap = {};
+  for (const wh of SEED_WAREHOUSES) {
+    const existing = await db
+      .select()
+      .from(warehouses)
+      .where(eq(warehouses.name, wh.name))
+      .limit(1);
+
+    if (existing.length === 0) {
+      const inserted = await db.insert(warehouses).values(wh).returning();
+      warehouseMap[wh.name] = inserted[0];
+      console.log(`[SEED] Created warehouse: ${wh.name} (${wh.location})`);
+    } else {
+      warehouseMap[wh.name] = existing[0];
+    }
+  }
+
+  // Stock quantities per product and warehouse
+  const mainWh = warehouseMap['Main Warehouse'];
+  const eastWh = warehouseMap['East Depot'];
+  const northWh = warehouseMap['North DC'];
+
+  if (mainWh && eastWh && northWh) {
+    const allProds = Object.values(productMap);
+    for (const prod of allProds) {
+      // Main Warehouse stock
+      await db
+        .insert(warehouseStock)
+        .values({
+          warehouseId: mainWh.id,
+          productId: prod.id,
+          quantityOnHand: prod.productType === 'ONE_TIME' ? 40 : 100,
+          reorderThreshold: 10,
+        })
+        .onConflictDoUpdate({
+          target: [warehouseStock.warehouseId, warehouseStock.productId],
+          set: { quantityOnHand: prod.productType === 'ONE_TIME' ? 40 : 100 },
+        });
+
+      // East Depot stock
+      await db
+        .insert(warehouseStock)
+        .values({
+          warehouseId: eastWh.id,
+          productId: prod.id,
+          quantityOnHand: prod.productType === 'ONE_TIME' ? 10 : 50,
+          reorderThreshold: 5,
+        })
+        .onConflictDoUpdate({
+          target: [warehouseStock.warehouseId, warehouseStock.productId],
+          set: { quantityOnHand: prod.productType === 'ONE_TIME' ? 10 : 50 },
+        });
+
+      // North DC stock
+      await db
+        .insert(warehouseStock)
+        .values({
+          warehouseId: northWh.id,
+          productId: prod.id,
+          quantityOnHand: prod.productType === 'ONE_TIME' ? 25 : 75,
+          reorderThreshold: 8,
+        })
+        .onConflictDoUpdate({
+          target: [warehouseStock.warehouseId, warehouseStock.productId],
+          set: { quantityOnHand: prod.productType === 'ONE_TIME' ? 25 : 75 },
+        });
+    }
+    console.log('[SEED] Seeded multi-warehouse inventory stock levels.');
+  }
+  
+  // 10. Seed Customer Portal Contacts (customer_users)
+  console.log('[SEED] Upserting Customer Portal user contacts...');
+  const customerList = await db.select().from(customers);
+  const customerMap = {};
+  for (const c of customerList) {
+    customerMap[c.email.toLowerCase()] = c;
+  }
+
+  const SEED_CUSTOMER_USERS = [
+    {
+      customerEmail: 'procurement@apexlogistics.com',
+      email: 'customer@apexlogistics.com',
+      name: 'Vikram Malhotra (Procurement Head)',
+    },
+    {
+      customerEmail: 'it-purchasing@starlightfin.io',
+      email: 'customer@starlightfin.io',
+      name: 'Priya Sharma (IT Purchasing)',
+    },
+    {
+      customerEmail: 'enterprise-deals@omnicorp.com',
+      email: 'customer@omnicorp.com',
+      name: 'David Vance (OmniCorp VP)',
+    },
+  ];
+
+  for (const cu of SEED_CUSTOMER_USERS) {
+    const parentCustomer = customerMap[cu.customerEmail.toLowerCase()] || customerList[0];
+    if (parentCustomer) {
+      const existing = await db
+        .select()
+        .from(customerUsers)
+        .where(sql`lower(${customerUsers.email}) = ${cu.email.toLowerCase()}`)
+        .limit(1);
+
+      if (existing.length === 0) {
+        await db.insert(customerUsers).values({
+          customerId: parentCustomer.id,
+          name: cu.name,
+          email: cu.email.toLowerCase(),
+          passwordHash,
+          isActive: true,
+        });
+        console.log(`[SEED] Created Customer Portal user: ${cu.email} (${cu.name})`);
+      } else {
+        await db
+          .update(customerUsers)
+          .set({
+            name: cu.name,
+            passwordHash,
+            isActive: true,
+            updatedAt: new Date(),
+          })
+          .where(sql`lower(${customerUsers.email}) = ${cu.email.toLowerCase()}`);
+        console.log(`[SEED] Updated Customer Portal user: ${cu.email}`);
+      }
+    }
+  }
+  console.log('[SEED] ✅ Master data seed (Phases 1–5) & Customer Portal seed completed successfully.');
   process.exit(0);
 }
+
 
 runSeed().catch((err) => {
   console.error('[SEED] ❌ Failed to seed database:', err);

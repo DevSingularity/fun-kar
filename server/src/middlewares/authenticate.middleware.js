@@ -1,5 +1,5 @@
 import { verifyToken } from '../common/jwt.util.js';
-import { UnauthenticatedError } from '../common/errors.js';
+import { UnauthenticatedError, ForbiddenError } from '../common/errors.js';
 
 export function authenticate(req, res, next) {
   let token = null;
@@ -21,6 +21,10 @@ export function authenticate(req, res, next) {
 
   try {
     const decoded = verifyToken(token, 'access');
+    if (decoded.scope === 'customer_portal' || decoded.type === 'customer_portal') {
+      return next(new ForbiddenError('RBAC Violation: Customer portal tokens cannot access internal staff APIs.', 'RBAC_DENIED'));
+    }
+
     req.user = {
       id: decoded.userId,
       email: decoded.email,
@@ -32,3 +36,4 @@ export function authenticate(req, res, next) {
     next(err);
   }
 }
+

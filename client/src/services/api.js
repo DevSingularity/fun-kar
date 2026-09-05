@@ -22,9 +22,26 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      useAuthStore.getState().clearAuth();
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest?._retry) {
+      originalRequest._retry = true;
+      try {
+        const refreshRes = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1'}/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
+        const newToken = refreshRes.data?.data?.accessToken;
+        if (newToken) {
+          useAuthStore.getState().setTokens({ accessToken: newToken });
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        }
+      } catch (refreshErr) {
+        useAuthStore.getState().clearAuth();
+      }
     }
     return Promise.reject(error);
   },
