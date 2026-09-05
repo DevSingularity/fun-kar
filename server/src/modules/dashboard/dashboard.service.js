@@ -160,7 +160,7 @@ export async function getDashboardOverview(currentUser) {
       UNDER_NEGOTIATION: pipelineSummary.UNDER_NEGOTIATION.length,
       CONFIRMED: pipelineSummary.CONFIRMED.length,
     },
-    recentActivities,
+    recentActivities: formattedActivities,
     quotations: scopedQuotes.slice(0, 20),
     upsellSuggestions,
   };

@@ -155,27 +155,22 @@ export default function V1ApprovalDetailPage() {
       {/* ── Main Content Area ── */}
       <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
         
-        {/* Page Title & Subtitle (From Wireframe 6) */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Approval Detail: {quotation.quoteNumber} ({customerName})
-            </h1>
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-              currentStatus === 'APPROVED'
-                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                : currentStatus === 'REJECTED'
-                ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                : currentStatus === 'RETURNED'
-                ? 'bg-orange-100 text-orange-800 border border-orange-300'
-                : 'bg-amber-100 text-amber-800 border border-amber-300'
-            }`}>
-              {currentStatus}
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Opened by clicking a row on the Approvals list
-          </p>
+        {/* Page Title */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            Approval Detail: {quotation.quoteNumber} ({customerName})
+          </h1>
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+            currentStatus === 'APPROVED'
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+              : currentStatus === 'REJECTED'
+              ? 'bg-rose-100 text-rose-800 border border-rose-300'
+              : currentStatus === 'RETURNED'
+              ? 'bg-orange-100 text-orange-800 border border-orange-300'
+              : 'bg-amber-100 text-amber-800 border border-amber-300'
+          }`}>
+            {currentStatus}
+          </span>
         </div>
 
         {/* ── Top Pill Badges (From Wireframe 6) ── */}

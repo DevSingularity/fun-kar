@@ -128,42 +128,26 @@ export async function allocateOrder(orderId, auth) {
   const allItems = await repo.findOrderItemsJoined(orderId);
   const existingAllocations = await repo.existingAllocationsForOrder(orderId);
 
-  // Group existing allocations by orderItemId
-  const manualItemIds = new Set(
-    existingAllocations.filter((a) => a.isManualOverride).map((a) => a.orderItemId)
-  );
-
-  // Target items that do not have manual override
-  const targetItems = allItems.filter((i) => !manualItemIds.has(i.id));
-  const targetItemIds = targetItems.map((i) => i.id);
-
-  // Release prior auto allocations for target items
-  const autoAllocationsToRelease = existingAllocations.filter(
-    (a) => !a.isManualOverride && targetItemIds.includes(a.orderItemId)
-  );
-
-  for (const alloc of autoAllocationsToRelease) {
+  // Release all prior allocations for the order
+  for (const alloc of existingAllocations) {
     const item = allItems.find((i) => i.id === alloc.orderItemId);
     if (item) {
       await repo.restoreStock(alloc.warehouseId, item.productId, alloc.quantityAllocated);
     }
   }
 
-  if (autoAllocationsToRelease.length > 0) {
-    await repo.deleteAllocationsForItems(autoAllocationsToRelease.map((a) => a.orderItemId));
+  if (existingAllocations.length > 0) {
+    await repo.deleteAllocationsForItems(existingAllocations.map((a) => a.orderItemId));
   }
 
-  // Read live stock candidates for products on target items
-  const distinctProductIds = [...new Set(targetItems.map((i) => i.productId))];
+  // Read live stock candidates for products on all order items
+  const distinctProductIds = [...new Set(allItems.map((i) => i.productId))];
   const stockMap = await repo.batchedStockCandidates(distinctProductIds);
 
-  const runningTouchedWarehouseIds = new Set(
-    existingAllocations.filter((a) => a.isManualOverride).map((a) => a.warehouseId)
-  );
-
+  const runningTouchedWarehouseIds = new Set();
   const newAllocationsToInsert = [];
 
-  for (const item of targetItems) {
+  for (const item of allItems) {
     const candidates = stockMap[item.productId] || [];
     const plan = engine.planAllocation({
       requestedQty: item.quantity,
@@ -215,7 +199,7 @@ export async function allocateOrder(orderId, auth) {
     actorId: auth?.id || auth?.userId,
     entityId: orderId,
     action: 'AUTO_ALLOCATED',
-    newValue: { status: newStatus, itemsAllocated: targetItems.length },
+    newValue: { status: newStatus, itemsAllocated: allItems.length },
   });
 
   return {

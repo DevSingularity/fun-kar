@@ -93,11 +93,11 @@ export async function findActions(requestId) {
     .orderBy(asc(approvalActions.createdAt));
 }
 
-export async function listApprovalRequests({ role, status = 'PENDING', offset = 0, limit = 20 } = {}) {
+export async function listApprovalRequests({ role, status, offset = 0, limit = 20 } = {}) {
   const db = getDb();
   const conditions = [];
 
-  if (status) {
+  if (status && status !== 'ALL') {
     conditions.push(eq(approvalRequests.status, status));
   }
 

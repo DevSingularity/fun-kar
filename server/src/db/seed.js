@@ -525,7 +525,7 @@ async function runSeed() {
     }
     console.log('[SEED] Seeded multi-warehouse inventory stock levels.');
   }
-
+  
   // 10. Seed Customer Portal Contacts (customer_users)
   console.log('[SEED] Upserting Customer Portal user contacts...');
   const customerList = await db.select().from(customers);
