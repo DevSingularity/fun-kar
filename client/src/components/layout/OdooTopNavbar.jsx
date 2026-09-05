@@ -40,7 +40,7 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
     { label: 'Invoices', path: '/v1/invoices', id: 'Invoices', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
     { label: 'Subscriptions', path: '/v1/subscriptions', id: 'Subscriptions', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
     { label: 'Reconciliation', path: '/v1/reconciliation', id: 'Reconciliation', roles: ['ADMIN', 'FINANCE'] },
-    { label: 'Pricing Matrix', path: '/dashboard/pricing', id: 'Pricing', roles: ['ADMIN', 'FINANCE'] },
+    { label: 'Pricing Matrix', path: '/v1/pricing', id: 'Pricing', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
     { label: 'Governance', path: '/v1/governance', id: 'Governance', roles: ['ADMIN'] },
     { label: 'Catalog SKUs', path: '/v1/products', id: 'Product', roles: ['ADMIN', 'SALES_REP', 'OPERATIONS'] },
   ];

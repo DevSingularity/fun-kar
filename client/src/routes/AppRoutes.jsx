@@ -22,7 +22,9 @@ import V1GovernancePage from '../pages/governance/V1GovernancePage.jsx';
 import V1InvoicesPage from '../pages/billing/V1InvoicesPage.jsx';
 import V1InvoiceDetailPage from '../pages/billing/V1InvoiceDetailPage.jsx';
 import V1SubscriptionsPage from '../pages/billing/V1SubscriptionsPage.jsx';
+import V1SubscriptionDetailPage from '../pages/billing/V1SubscriptionDetailPage.jsx';
 import V1ReconciliationPage from '../pages/billing/V1ReconciliationPage.jsx';
+import V1PricingPage from '../pages/catalog/V1PricingPage.jsx';
 import ProductsPage from '../pages/catalog/ProductsPage.jsx';
 import PricingPage from '../pages/catalog/PricingPage.jsx';
 import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
@@ -130,11 +132,17 @@ export default function AppRoutes() {
             <Route path="/v1/invoices" element={<V1InvoicesPage />} />
             <Route path="/v1/invoices/:id" element={<V1InvoiceDetailPage />} />
             <Route path="/v1/subscriptions" element={<V1SubscriptionsPage />} />
+            <Route path="/v1/subscriptions/:id" element={<V1SubscriptionDetailPage />} />
           </Route>
 
           {/* Reconciliation: Finance, Admin Only */}
           <Route element={<RoleRoute allowedRoles={['ADMIN', 'FINANCE']} />}>
             <Route path="/v1/reconciliation" element={<V1ReconciliationPage />} />
+          </Route>
+
+          {/* Pricing Matrix: Admin, Sales Manager, Finance */}
+          <Route element={<RoleRoute allowedRoles={['ADMIN', 'SALES_MANAGER', 'FINANCE']} />}>
+            <Route path="/v1/pricing" element={<V1PricingPage />} />
           </Route>
 
           {/* Standard Shell Layout */}

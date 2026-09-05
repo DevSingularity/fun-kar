@@ -27,6 +27,18 @@ invoicesRoutes.get('/:id', authorize(...BILLING_READ_ROLES), asyncHandler(ctrl.g
 // Mounted at /subscriptions
 export const subscriptionsRoutes = Router();
 subscriptionsRoutes.use(authenticate);
+subscriptionsRoutes.get('/', authorize(...BILLING_READ_ROLES), asyncHandler(ctrl.listSubscriptions));
+subscriptionsRoutes.get('/:id', authorize(...BILLING_READ_ROLES), asyncHandler(ctrl.getSubscriptionDetail));
+subscriptionsRoutes.post(
+  '/:id/pause',
+  authorize(...BILLING_WRITE_ROLES),
+  asyncHandler(ctrl.pauseSubscription)
+);
+subscriptionsRoutes.post(
+  '/:id/resume',
+  authorize(...BILLING_WRITE_ROLES),
+  asyncHandler(ctrl.resumeSubscription)
+);
 subscriptionsRoutes.post(
   '/:id/change',
   authorize(...BILLING_WRITE_ROLES),

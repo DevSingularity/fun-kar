@@ -17,14 +17,29 @@ import {
   customerTierDiscountLimits,
   categoryDiscountLimits,
   approvalRules,
+  approvalRequests,
+  approvalActions,
+  auditLogs,
 } from './schema/governance.js';
 import {
   warehouses,
   warehouseStock,
+  fulfillmentAllocations,
+  backorders,
 } from './schema/warehouses.js';
-import { subscriptionPlans } from './schema/billing.js';
+import {
+  subscriptionPlans,
+  subscriptionLines,
+  billingSchedules,
+  invoices,
+  invoiceLines,
+  payments,
+  creditNotes,
+} from './schema/billing.js';
+import { quotations, quotationItems } from './schema/quotations.js';
+import { orders, orderItems } from './schema/orders.js';
 import { hashPassword } from '../common/password.util.js';
-import { sql, eq } from 'drizzle-orm';
+import { sql, eq, and } from 'drizzle-orm';
 
 const SEED_USERS = [
   { name: 'System Administrator', email: 'admin@dealflow.io', role: 'ADMIN' },
@@ -634,7 +649,450 @@ async function runSeed() {
       }
     }
   }
-  console.log('[SEED] ✅ Master data seed (Phases 1–5) & Customer Portal seed completed successfully.');
+
+  // 11. Seed Rich Simulation Data for Elena Rostova (Operations Head) & David Miller (Finance Lead)
+  console.log('[SEED] Upserting rich simulation scenarios for Elena Rostova & David Miller...');
+
+  const dbUsers = await db.select().from(users);
+  const userByEmail = {};
+  for (const u of dbUsers) userByEmail[u.email.toLowerCase()] = u;
+
+  const userAdmin = userByEmail['admin@dealflow.io'];
+  const userRep = userByEmail['rep@dealflow.io'];
+  const userManager = userByEmail['manager@dealflow.io'];
+  const userFinance = userByEmail['finance@dealflow.io']; // David Miller
+  const userOps = userByEmail['ops@dealflow.io']; // Elena Rostova
+
+  const dbCustomers = await db.select().from(customers);
+  const customerByEmail = {};
+  for (const c of dbCustomers) customerByEmail[c.email.toLowerCase()] = c;
+
+  const custApex = customerByEmail['procurement@apexlogistics.com'] || dbCustomers[0];
+  const custStarlight = customerByEmail['it-purchasing@starlightfin.io'] || dbCustomers[1] || dbCustomers[0];
+  const custBlueWave = customerByEmail['orders@bluewavedist.com'] || dbCustomers[2] || dbCustomers[0];
+  const custOmni = customerByEmail['enterprise-deals@omnicorp.com'] || dbCustomers[3] || dbCustomers[0];
+
+  const dbProducts = await db.select().from(products);
+  const productBySku = {};
+  for (const p of dbProducts) productBySku[p.sku] = p;
+
+  const prodSoftware = productBySku['DF-ENT-01'];
+  const prodAnalytics = productBySku['DF-ANL-02'];
+  const prodCloud = productBySku['CLD-POD-32'];
+  const prodDb = productBySku['CLD-DB-HA'];
+  const prodHardware = productBySku['HW-EDGE-G4'];
+  const prodSecurityKey = productBySku['HW-SEC-T10'];
+  const prodService = productBySku['SRV-IMP-40'];
+
+  const dbWarehouses = await db.select().from(warehouses);
+  const whByName = {};
+  for (const w of dbWarehouses) whByName[w.name] = w;
+
+  const whMain = whByName['Main Warehouse'] || dbWarehouses[0];
+  const whEast = whByName['East Depot'] || dbWarehouses[1] || dbWarehouses[0];
+  const whNorth = whByName['North DC'] || dbWarehouses[2] || dbWarehouses[0];
+
+  const dbPlans = await db.select().from(subscriptionPlans);
+  const planByName = {};
+  for (const pl of dbPlans) planByName[pl.name] = pl;
+  const demoMonthlyPlan = planByName['Standard Monthly'] || dbPlans[0];
+
+  // ==========================================
+  // SCENARIO 1 (Elena Rostova / Operations):
+  // Order Awaiting Warehouse Fulfillment Split (ORD-OPS-SPLIT-01)
+  // ==========================================
+  const quoteOpsSplitNum = 'Q-OPS-SPLIT-01';
+  let [quoteOpsSplit] = await db.select().from(quotations).where(eq(quotations.quoteNumber, quoteOpsSplitNum));
+  if (!quoteOpsSplit) {
+    [quoteOpsSplit] = await db.insert(quotations).values({
+      quoteNumber: quoteOpsSplitNum,
+      customerId: custApex.id,
+      salesRepId: userRep.id,
+      status: 'APPROVED',
+      subtotal: '5550000.00',
+      discountTotal: '0.00',
+      taxTotal: '999000.00',
+      grandTotal: '6549000.00',
+    }).returning();
+
+    await db.insert(quotationItems).values([
+      {
+        quotationId: quoteOpsSplit.id,
+        productId: prodHardware.id,
+        quantity: 60,
+        unitPrice: '85000.00',
+        allowedDiscountPct: '20.00',
+        discountPct: '0.00',
+        discountAmount: '0.00',
+        lineTotal: '6018000.00',
+      },
+      {
+        quotationId: quoteOpsSplit.id,
+        productId: prodSecurityKey.id,
+        quantity: 30,
+        unitPrice: '15000.00',
+        allowedDiscountPct: '20.00',
+        discountPct: '0.00',
+        discountAmount: '0.00',
+        lineTotal: '531000.00',
+      }
+    ]);
+  }
+
+  const orderOpsSplitNum = 'ORD-OPS-SPLIT-01';
+  let [orderOpsSplit] = await db.select().from(orders).where(eq(orders.orderNumber, orderOpsSplitNum));
+  if (!orderOpsSplit) {
+    [orderOpsSplit] = await db.insert(orders).values({
+      orderNumber: orderOpsSplitNum,
+      quotationId: quoteOpsSplit.id,
+      customerId: custApex.id,
+      status: 'PENDING_FULFILLMENT',
+      subtotal: quoteOpsSplit.subtotal,
+      discountTotal: quoteOpsSplit.discountTotal,
+      taxTotal: quoteOpsSplit.taxTotal,
+      grandTotal: quoteOpsSplit.grandTotal,
+      estimatedDeliveryDate: '2026-09-18',
+    }).returning();
+
+    const qItems = await db.select().from(quotationItems).where(eq(quotationItems.quotationId, quoteOpsSplit.id));
+    for (const qi of qItems) {
+      await db.insert(orderItems).values({
+        orderId: orderOpsSplit.id,
+        quotationItemId: qi.id,
+        productId: qi.productId,
+        quantity: qi.quantity,
+        unitPrice: qi.unitPrice,
+        discountPct: qi.discountPct,
+        discountAmount: qi.discountAmount,
+        lineTotal: qi.lineTotal,
+        billingLineType: 'ONE_TIME',
+      });
+    }
+  }
+  console.log(`[SEED] Elena Simulation: Created Order awaiting split ${orderOpsSplitNum}`);
+
+  // ==========================================
+  // SCENARIO 2 (Elena Rostova / Operations & Finance Backorder Privilege):
+  // Order with Open Backorder & Partial Fulfillment (ORD-OPS-BACKORDER-02)
+  // ==========================================
+  const quoteOpsBackorderNum = 'Q-OPS-BACKORDER-02';
+  let [quoteOpsBackorder] = await db.select().from(quotations).where(eq(quotations.quoteNumber, quoteOpsBackorderNum));
+  if (!quoteOpsBackorder) {
+    [quoteOpsBackorder] = await db.insert(quotations).values({
+      quoteNumber: quoteOpsBackorderNum,
+      customerId: custStarlight.id,
+      salesRepId: userRep.id,
+      status: 'APPROVED',
+      subtotal: '7650000.00',
+      discountTotal: '0.00',
+      taxTotal: '1377000.00',
+      grandTotal: '9027000.00',
+    }).returning();
+
+    await db.insert(quotationItems).values([
+      {
+        quotationId: quoteOpsBackorder.id,
+        productId: prodHardware.id,
+        quantity: 90,
+        unitPrice: '85000.00',
+        allowedDiscountPct: '20.00',
+        discountPct: '0.00',
+        discountAmount: '0.00',
+        lineTotal: '9027000.00',
+      }
+    ]);
+  }
+
+  const orderOpsBackorderNum = 'ORD-OPS-BACKORDER-02';
+  let [orderOpsBackorder] = await db.select().from(orders).where(eq(orders.orderNumber, orderOpsBackorderNum));
+  if (!orderOpsBackorder) {
+    [orderOpsBackorder] = await db.insert(orders).values({
+      orderNumber: orderOpsBackorderNum,
+      quotationId: quoteOpsBackorder.id,
+      customerId: custStarlight.id,
+      status: 'PARTIALLY_FULFILLED',
+      subtotal: quoteOpsBackorder.subtotal,
+      discountTotal: quoteOpsBackorder.discountTotal,
+      taxTotal: quoteOpsBackorder.taxTotal,
+      grandTotal: quoteOpsBackorder.grandTotal,
+      estimatedDeliveryDate: '2026-09-20',
+    }).returning();
+
+    const [qItem] = await db.select().from(quotationItems).where(eq(quotationItems.quotationId, quoteOpsBackorder.id));
+    const [oItem] = await db.insert(orderItems).values({
+      orderId: orderOpsBackorder.id,
+      quotationItemId: qItem.id,
+      productId: qItem.productId,
+      quantity: 90,
+      unitPrice: qItem.unitPrice,
+      discountPct: qItem.discountPct,
+      discountAmount: qItem.discountAmount,
+      lineTotal: qItem.lineTotal,
+      billingLineType: 'ONE_TIME',
+    }).returning();
+
+    // Partial fulfillment allocations: 40 from Mumbai, 25 from Delhi, 10 from Kolkata = 75 total allocated
+    await db.insert(fulfillmentAllocations).values([
+      { orderId: orderOpsBackorder.id, orderItemId: oItem.id, warehouseId: whMain.id, quantityAllocated: 40, shippingCost: '40.00' },
+      { orderId: orderOpsBackorder.id, orderItemId: oItem.id, warehouseId: whNorth.id, quantityAllocated: 25, shippingCost: '30.00' },
+      { orderId: orderOpsBackorder.id, orderItemId: oItem.id, warehouseId: whEast.id, quantityAllocated: 10, shippingCost: '15.00' },
+    ]);
+
+    // Remaining 15 units backordered
+    await db.insert(backorders).values({
+      orderItemId: oItem.id,
+      quantityRequested: 90,
+      quantityFulfilled: 75,
+      quantityBackordered: 15,
+      status: 'OPEN',
+    });
+  }
+  console.log(`[SEED] Elena Simulation: Created Order with open Backorders ${orderOpsBackorderNum}`);
+
+  // ==========================================
+  // SCENARIO 3 (David Miller / Finance):
+  // 2nd-Level Approval Forwarded to Finance (Q-FIN-2ND-APPR-01)
+  // ==========================================
+  const quoteFinApprNum = 'Q-FIN-2ND-APPR-01';
+  let [quoteFinAppr] = await db.select().from(quotations).where(eq(quotations.quoteNumber, quoteFinApprNum));
+  if (!quoteFinAppr) {
+    [quoteFinAppr] = await db.insert(quotations).values({
+      quoteNumber: quoteFinApprNum,
+      customerId: custOmni.id,
+      salesRepId: userRep.id,
+      status: 'PENDING_APPROVAL',
+      subtotal: '1200000.00',
+      discountTotal: '360000.00', // 30% discount -> blended risk > 25% requires MANAGER_FINANCE
+      taxTotal: '151200.00',
+      grandTotal: '991200.00',
+    }).returning();
+
+    await db.insert(quotationItems).values([
+      {
+        quotationId: quoteFinAppr.id,
+        productId: prodSoftware.id,
+        quantity: 10,
+        unitPrice: '120000.00',
+        allowedDiscountPct: '35.00',
+        discountPct: '30.00',
+        discountAmount: '360000.00',
+        lineTotal: '991200.00',
+      }
+    ]);
+
+    // Create approval request with requiredLevel = MANAGER_FINANCE
+    const [apprReq] = await db.insert(approvalRequests).values({
+      quotationId: quoteFinAppr.id,
+      blendedRiskScore: '31.50',
+      requiredLevel: 'MANAGER_FINANCE',
+      status: 'PENDING',
+    }).returning();
+
+    // Sarah Chen (Sales Manager) has already approved the 1st step!
+    await db.insert(approvalActions).values({
+      approvalRequestId: apprReq.id,
+      actorId: userManager.id,
+      level: 'MANAGER',
+      action: 'APPROVED',
+      reason: 'Strategic annual deal discount recommended for enterprise expansion.',
+    });
+  }
+  console.log(`[SEED] David Simulation: Created 2nd-Level Approval pending Finance ${quoteFinApprNum}`);
+
+  // ==========================================
+  // SCENARIO 4 (David Miller / Finance):
+  // Reconciliation Ledger: Due Recurring Cycle Ready to Invoice
+  // ==========================================
+  const quoteFinDueNum = 'Q-FIN-RECON-DUE-02';
+  let [quoteFinDue] = await db.select().from(quotations).where(eq(quotations.quoteNumber, quoteFinDueNum));
+  if (!quoteFinDue) {
+    [quoteFinDue] = await db.insert(quotations).values({
+      quoteNumber: quoteFinDueNum,
+      customerId: custApex.id,
+      salesRepId: userRep.id,
+      status: 'APPROVED',
+      subtotal: '96000.00',
+      discountTotal: '0.00',
+      taxTotal: '17280.00',
+      grandTotal: '113280.00',
+    }).returning();
+
+    await db.insert(quotationItems).values([
+      {
+        quotationId: quoteFinDue.id,
+        productId: prodCloud.id,
+        quantity: 2,
+        unitPrice: '48000.00',
+        allowedDiscountPct: '15.00',
+        discountPct: '0.00',
+        discountAmount: '0.00',
+        lineTotal: '113280.00',
+      }
+    ]);
+  }
+
+  const orderFinDueNum = 'ORD-FIN-RECON-DUE-02';
+  let [orderFinDue] = await db.select().from(orders).where(eq(orders.orderNumber, orderFinDueNum));
+  if (!orderFinDue) {
+    [orderFinDue] = await db.insert(orders).values({
+      orderNumber: orderFinDueNum,
+      quotationId: quoteFinDue.id,
+      customerId: custApex.id,
+      status: 'FULFILLED',
+      subtotal: quoteFinDue.subtotal,
+      discountTotal: quoteFinDue.discountTotal,
+      taxTotal: quoteFinDue.taxTotal,
+      grandTotal: quoteFinDue.grandTotal,
+    }).returning();
+
+    const [qi] = await db.select().from(quotationItems).where(eq(quotationItems.quotationId, quoteFinDue.id));
+    const [oi] = await db.insert(orderItems).values({
+      orderId: orderFinDue.id,
+      quotationItemId: qi.id,
+      productId: qi.productId,
+      quantity: qi.quantity,
+      unitPrice: qi.unitPrice,
+      discountPct: qi.discountPct,
+      discountAmount: qi.discountAmount,
+      lineTotal: qi.lineTotal,
+      billingLineType: 'RECURRING',
+    }).returning();
+
+    const [subLine] = await db.insert(subscriptionLines).values({
+      orderItemId: oi.id,
+      subscriptionPlanId: demoMonthlyPlan.id,
+      quantity: 2,
+      recurringAmount: '113280.00',
+      startDate: '2026-08-01',
+      nextBillingDate: '2026-09-01',
+      status: 'ACTIVE',
+    }).returning();
+
+    // Schedule start date set to past month (2026-08-01) -> due for reconciliation!
+    await db.insert(billingSchedules).values({
+      subscriptionLineId: subLine.id,
+      billingPeriodStart: '2026-08-01',
+      billingPeriodEnd: '2026-09-01',
+      amount: '113280.00',
+      isProrated: false,
+      status: 'SCHEDULED',
+    });
+  }
+  console.log(`[SEED] David Simulation: Created Due Recurring Cycle ${orderFinDueNum}`);
+
+  // ==========================================
+  // SCENARIO 5 (David Miller / Finance):
+  // Reconciliation Ledger: Overdue Receivables Commercial Invoice
+  // ==========================================
+  const quoteFinOverdueNum = 'Q-FIN-OVERDUE-03';
+  let [quoteFinOverdue] = await db.select().from(quotations).where(eq(quotations.quoteNumber, quoteFinOverdueNum));
+  if (!quoteFinOverdue) {
+    [quoteFinOverdue] = await db.insert(quotations).values({
+      quoteNumber: quoteFinOverdueNum,
+      customerId: custBlueWave.id,
+      salesRepId: userRep.id,
+      status: 'APPROVED',
+      subtotal: '200000.00',
+      discountTotal: '0.00',
+      taxTotal: '36000.00',
+      grandTotal: '236000.00',
+    }).returning();
+
+    await db.insert(quotationItems).values([
+      {
+        quotationId: quoteFinOverdue.id,
+        productId: prodService.id,
+        quantity: 2,
+        unitPrice: '100000.00',
+        allowedDiscountPct: '25.00',
+        discountPct: '0.00',
+        discountAmount: '0.00',
+        lineTotal: '236000.00',
+      }
+    ]);
+  }
+
+  const orderFinOverdueNum = 'ORD-FIN-OVERDUE-03';
+  let [orderFinOverdue] = await db.select().from(orders).where(eq(orders.orderNumber, orderFinOverdueNum));
+  if (!orderFinOverdue) {
+    [orderFinOverdue] = await db.insert(orders).values({
+      orderNumber: orderFinOverdueNum,
+      quotationId: quoteFinOverdue.id,
+      customerId: custBlueWave.id,
+      status: 'FULFILLED',
+      subtotal: quoteFinOverdue.subtotal,
+      discountTotal: quoteFinOverdue.discountTotal,
+      taxTotal: quoteFinOverdue.taxTotal,
+      grandTotal: quoteFinOverdue.grandTotal,
+    }).returning();
+
+    const [qi] = await db.select().from(quotationItems).where(eq(quotationItems.quotationId, quoteFinOverdue.id));
+    const [oi] = await db.insert(orderItems).values({
+      orderId: orderFinOverdue.id,
+      quotationItemId: qi.id,
+      productId: qi.productId,
+      quantity: qi.quantity,
+      unitPrice: qi.unitPrice,
+      discountPct: qi.discountPct,
+      discountAmount: qi.discountAmount,
+      lineTotal: qi.lineTotal,
+      billingLineType: 'ONE_TIME',
+    }).returning();
+
+    // Overdue invoice with due date in the past
+    const invNumber = 'INV-2026-OVERDUE-01';
+    const [inv] = await db.insert(invoices).values({
+      invoiceNumber: invNumber,
+      orderId: orderFinOverdue.id,
+      customerId: custBlueWave.id,
+      invoiceType: 'ONE_TIME',
+      status: 'PARTIALLY_PAID',
+      subtotal: '200000.00',
+      taxTotal: '36000.00',
+      total: '236000.00',
+      amountPaid: '50000.00',
+      dueDate: '2026-08-15',
+      issuedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    }).returning();
+
+    await db.insert(invoiceLines).values({
+      invoiceId: inv.id,
+      orderItemId: oi.id,
+      description: 'Enterprise Implementation & Integration Pack (2x)',
+      amount: '236000.00',
+    });
+
+    await db.insert(payments).values({
+      invoiceId: inv.id,
+      amount: '50000.00',
+      method: 'BANK_TRANSFER',
+      status: 'SUCCEEDED',
+      transactionReference: 'NEFT-INIT-PARTIAL-50K',
+      paidAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+    });
+  }
+  console.log(`[SEED] David Simulation: Created Overdue Invoice INV-2026-OVERDUE-01`);
+
+  // ==========================================
+  // SCENARIO 6 (David Miller / Finance):
+  // Reconciliation Ledger: Unapplied Credit Note
+  // ==========================================
+  const existingCn = await db.select().from(creditNotes).where(eq(creditNotes.reason, 'Mid-cycle Cloud Pod downgrade proration credit'));
+  if (existingCn.length === 0) {
+    const existingSubLines = await db.select().from(subscriptionLines).limit(1);
+    if (existingSubLines.length > 0) {
+      await db.insert(creditNotes).values({
+        subscriptionLineId: existingSubLines[0].id,
+        amount: '18400.00',
+        reason: 'Mid-cycle Cloud Pod downgrade proration credit',
+        status: 'ISSUED',
+        issuedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      });
+      console.log(`[SEED] David Simulation: Created Unapplied Credit Note for ₹18,400`);
+    }
+  }
+
+  console.log('[SEED] ✅ Master data seed & Elena/David rich simulations completed successfully.');
   process.exit(0);
 }
 

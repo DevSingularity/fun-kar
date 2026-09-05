@@ -17,6 +17,26 @@ export const getInvoiceDetail = asyncHandler(async (req, res) => {
   return successResponse(res, invoice, 200);
 });
 
+export const listSubscriptions = asyncHandler(async (req, res) => {
+  const result = await service.listSubscriptions(req.query, req.user);
+  return successResponse(res, { items: result.items, statusCounts: result.statusCounts }, 200, result.meta);
+});
+
+export const getSubscriptionDetail = asyncHandler(async (req, res) => {
+  const subscription = await service.getSubscriptionDetail(req.params.id, req.user);
+  return successResponse(res, subscription, 200);
+});
+
+export const pauseSubscription = asyncHandler(async (req, res) => {
+  const result = await service.pauseSubscription(req.params.id, req.user);
+  return successResponse(res, result, 200);
+});
+
+export const resumeSubscription = asyncHandler(async (req, res) => {
+  const result = await service.resumeSubscription(req.params.id, req.user);
+  return successResponse(res, result, 200);
+});
+
 export const changeSubscription = asyncHandler(async (req, res) => {
   const result = await service.changeSubscription(req.params.id, req.body, req.user);
   return successResponse(res, result, 200);

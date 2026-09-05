@@ -189,6 +189,74 @@ export async function getInvoiceDetail(id, auth) {
   return invoice;
 }
 
+// ---------- Subscriptions List & Detail ----------
+
+export async function listSubscriptions(query, auth) {
+  const limit = Math.min(100, Math.max(1, Number(query.limit) || 50));
+  const offset = Math.max(0, Number(query.offset) || 0);
+  const result = await repo.listSubscriptionLines({
+    status: query.status,
+    customerId: query.customerId,
+    search: query.search,
+    offset,
+    limit,
+  });
+  return {
+    items: result.items,
+    statusCounts: result.statusCounts,
+    meta: { page: Math.floor(offset / limit) + 1, limit, total: result.total, hasMore: offset + result.items.length < result.total },
+  };
+}
+
+export async function getSubscriptionDetail(id, auth) {
+  const subscription = await repo.findSubscriptionDetailFull(id);
+  if (!subscription) {
+    throw new NotFoundError(`Subscription '${id}' not found.`, 'SUBSCRIPTION_NOT_FOUND');
+  }
+  if (auth.role === 'SALES_REP' && subscription.salesRepId !== auth.id) {
+    throw new ForbiddenError('You do not have access to this subscription.');
+  }
+  return subscription;
+}
+
+export async function pauseSubscription(subscriptionLineId, auth) {
+  const found = await repo.findSubscriptionLineById(subscriptionLineId);
+  if (!found) throw new NotFoundError(`Subscription line '${subscriptionLineId}' not found.`, 'SUBSCRIPTION_NOT_FOUND');
+  if (found.line.status !== 'ACTIVE') {
+    throw new ConflictError(`Cannot pause a subscription in '${found.line.status}' status.`, 'INVALID_STATE');
+  }
+
+  const updated = await repo.updateSubscriptionLine(subscriptionLineId, { status: 'PAUSED' });
+  await repo.insertAuditLog({
+    actorId: auth.id || auth.userId,
+    entityType: 'SUBSCRIPTION_LINE',
+    entityId: subscriptionLineId,
+    action: 'SUBSCRIPTION_PAUSED',
+    reason: 'Subscription paused by user',
+    newValue: { status: 'PAUSED' },
+  });
+  return updated;
+}
+
+export async function resumeSubscription(subscriptionLineId, auth) {
+  const found = await repo.findSubscriptionLineById(subscriptionLineId);
+  if (!found) throw new NotFoundError(`Subscription line '${subscriptionLineId}' not found.`, 'SUBSCRIPTION_NOT_FOUND');
+  if (found.line.status !== 'PAUSED') {
+    throw new ConflictError(`Cannot resume a subscription in '${found.line.status}' status.`, 'INVALID_STATE');
+  }
+
+  const updated = await repo.updateSubscriptionLine(subscriptionLineId, { status: 'ACTIVE' });
+  await repo.insertAuditLog({
+    actorId: auth.id || auth.userId,
+    entityType: 'SUBSCRIPTION_LINE',
+    entityId: subscriptionLineId,
+    action: 'SUBSCRIPTION_RESUMED',
+    reason: 'Subscription resumed by user',
+    newValue: { status: 'ACTIVE' },
+  });
+  return updated;
+}
+
 // ---------- Subscription change / cancel ----------
 
 export async function changeSubscription(subscriptionLineId, { quantity, newPlanId }, auth) {

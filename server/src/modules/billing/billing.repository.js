@@ -221,6 +221,83 @@ export async function insertBillingSchedule(data, tx = undefined) {
   return row;
 }
 
+export async function listSubscriptionLines({ status, customerId, search, offset = 0, limit = 50 } = {}) {
+  const db = getDb();
+  const conditions = [];
+  if (status && status !== 'ALL') conditions.push(eq(subscriptionLines.status, status));
+  if (customerId) conditions.push(eq(orders.customerId, customerId));
+  if (search) {
+    conditions.push(
+      sql`(${sql`lower(${products.name})`} LIKE ${`%${search.toLowerCase()}%`} OR ${sql`lower(${customers.name})`} LIKE ${`%${search.toLowerCase()}%`} OR ${sql`lower(${subscriptionPlans.name})`} LIKE ${`%${search.toLowerCase()}%`})`
+    );
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select({
+      id: subscriptionLines.id,
+      orderItemId: subscriptionLines.orderItemId,
+      orderId: orderItems.orderId,
+      orderNumber: orders.orderNumber,
+      customerId: orders.customerId,
+      customerName: customers.name,
+      customerTier: customers.tier,
+      quoteNumber: quotations.quoteNumber,
+      productId: orderItems.productId,
+      productName: products.name,
+      subscriptionPlanId: subscriptionLines.subscriptionPlanId,
+      planName: subscriptionPlans.name,
+      frequency: subscriptionPlans.frequency,
+      quantity: subscriptionLines.quantity,
+      recurringAmount: subscriptionLines.recurringAmount,
+      startDate: subscriptionLines.startDate,
+      endDate: subscriptionLines.endDate,
+      nextBillingDate: subscriptionLines.nextBillingDate,
+      status: subscriptionLines.status,
+      createdAt: subscriptionLines.createdAt,
+      cancelledAt: subscriptionLines.cancelledAt,
+    })
+    .from(subscriptionLines)
+    .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptionLines.subscriptionPlanId))
+    .innerJoin(orderItems, eq(orderItems.id, subscriptionLines.orderItemId))
+    .innerJoin(products, eq(products.id, orderItems.productId))
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .innerJoin(customers, eq(customers.id, orders.customerId))
+    .innerJoin(quotations, eq(quotations.id, orders.quotationId))
+    .where(whereClause)
+    .orderBy(desc(subscriptionLines.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [{ count }] = await db
+    .select({ count: sql`count(*)::int` })
+    .from(subscriptionLines)
+    .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptionLines.subscriptionPlanId))
+    .innerJoin(orderItems, eq(orderItems.id, subscriptionLines.orderItemId))
+    .innerJoin(products, eq(products.id, orderItems.productId))
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .innerJoin(customers, eq(customers.id, orders.customerId))
+    .innerJoin(quotations, eq(quotations.id, orders.quotationId))
+    .where(whereClause);
+
+  // Status counts for filter badges
+  const statusCountsRes = await db
+    .select({
+      status: subscriptionLines.status,
+      count: sql`count(*)::int`,
+    })
+    .from(subscriptionLines)
+    .groupBy(subscriptionLines.status);
+
+  const statusCounts = { ACTIVE: 0, PAUSED: 0, CANCELLED: 0 };
+  for (const sc of statusCountsRes) {
+    statusCounts[sc.status] = Number(sc.count || 0);
+  }
+
+  return { items: rows, total: count, statusCounts };
+}
+
 export async function findSubscriptionLineById(id, tx = undefined) {
   const db = tx || getDb();
   const [row] = await db
@@ -239,6 +316,101 @@ export async function findSubscriptionLineById(id, tx = undefined) {
     .innerJoin(quotations, eq(quotations.id, orders.quotationId))
     .where(eq(subscriptionLines.id, id));
   return row || null;
+}
+
+export async function findSubscriptionDetailFull(id) {
+  const db = getDb();
+  const [header] = await db
+    .select({
+      id: subscriptionLines.id,
+      orderItemId: subscriptionLines.orderItemId,
+      orderId: orderItems.orderId,
+      orderNumber: orders.orderNumber,
+      customerId: orders.customerId,
+      customerName: customers.name,
+      customerEmail: customers.email,
+      customerTier: customers.tier,
+      quoteNumber: quotations.quoteNumber,
+      salesRepId: quotations.salesRepId,
+      productId: orderItems.productId,
+      productName: products.name,
+      productSku: products.sku,
+      subscriptionPlanId: subscriptionLines.subscriptionPlanId,
+      planName: subscriptionPlans.name,
+      frequency: subscriptionPlans.frequency,
+      planPrice: subscriptionPlans.price,
+      quantity: subscriptionLines.quantity,
+      recurringAmount: subscriptionLines.recurringAmount,
+      startDate: subscriptionLines.startDate,
+      endDate: subscriptionLines.endDate,
+      nextBillingDate: subscriptionLines.nextBillingDate,
+      status: subscriptionLines.status,
+      createdAt: subscriptionLines.createdAt,
+      cancelledAt: subscriptionLines.cancelledAt,
+    })
+    .from(subscriptionLines)
+    .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptionLines.subscriptionPlanId))
+    .innerJoin(orderItems, eq(orderItems.id, subscriptionLines.orderItemId))
+    .innerJoin(products, eq(products.id, orderItems.productId))
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .innerJoin(customers, eq(customers.id, orders.customerId))
+    .innerJoin(quotations, eq(quotations.id, orders.quotationId))
+    .where(eq(subscriptionLines.id, id));
+
+  if (!header) return null;
+
+  const schedules = await db
+    .select()
+    .from(billingSchedules)
+    .where(eq(billingSchedules.subscriptionLineId, id))
+    .orderBy(desc(billingSchedules.billingPeriodStart));
+
+  const cNotes = await db
+    .select()
+    .from(creditNotes)
+    .where(eq(creditNotes.subscriptionLineId, id))
+    .orderBy(desc(creditNotes.issuedAt));
+
+  // Wireframe 10: Fetch originating order one-time lines & all recurring lines
+  const orderLines = await db
+    .select({
+      id: orderItems.id,
+      productId: orderItems.productId,
+      productName: products.name,
+      sku: products.sku,
+      quantity: orderItems.quantity,
+      unitPrice: orderItems.unitPrice,
+      discountPct: orderItems.discountPct,
+      discountAmount: orderItems.discountAmount,
+      lineTotal: orderItems.lineTotal,
+      billingLineType: orderItems.billingLineType,
+    })
+    .from(orderItems)
+    .innerJoin(products, eq(products.id, orderItems.productId))
+    .where(eq(orderItems.orderId, header.orderId));
+
+  const oneTimeLines = orderLines.filter((l) => l.billingLineType === 'ONE_TIME');
+
+  const recurringLines = await db
+    .select({
+      id: subscriptionLines.id,
+      orderItemId: subscriptionLines.orderItemId,
+      planName: subscriptionPlans.name,
+      frequency: subscriptionPlans.frequency,
+      nextBillingDate: subscriptionLines.nextBillingDate,
+      recurringAmount: subscriptionLines.recurringAmount,
+      quantity: subscriptionLines.quantity,
+      status: subscriptionLines.status,
+      startDate: subscriptionLines.startDate,
+      productName: products.name,
+    })
+    .from(subscriptionLines)
+    .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptionLines.subscriptionPlanId))
+    .innerJoin(orderItems, eq(orderItems.id, subscriptionLines.orderItemId))
+    .innerJoin(products, eq(products.id, orderItems.productId))
+    .where(eq(orderItems.orderId, header.orderId));
+
+  return { ...header, schedules, creditNotes: cNotes, oneTimeLines, recurringLines };
 }
 
 export async function findCurrentScheduleForLine(subscriptionLineId, tx = undefined) {
