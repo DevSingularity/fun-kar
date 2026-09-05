@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 
-import DashboardLayout from '../components/layout/DashboardLayout.jsx';
 import GlobalLoader from '../components/loaders/GlobalLoader.jsx';
 import LandingPage from '../pages/landing/LandingPage.jsx';
 import LoginPage from '../pages/auth/LoginPage.jsx';
 import RegisterPage from '../pages/auth/RegisterPage.jsx';
-import DashboardHomePage from '../pages/dashboard/DashboardHomePage.jsx';
 import V1DashboardPage from '../pages/dashboard/V1DashboardPage.jsx';
 import V1QuotationsPage from '../pages/quotations/V1QuotationsPage.jsx';
 import V1QuotationDetailPage from '../pages/quotations/V1QuotationDetailPage.jsx';
@@ -25,12 +23,6 @@ import V1SubscriptionsPage from '../pages/billing/V1SubscriptionsPage.jsx';
 import V1SubscriptionDetailPage from '../pages/billing/V1SubscriptionDetailPage.jsx';
 import V1ReconciliationPage from '../pages/billing/V1ReconciliationPage.jsx';
 import V1PricingPage from '../pages/catalog/V1PricingPage.jsx';
-import ProductsPage from '../pages/catalog/ProductsPage.jsx';
-import PricingPage from '../pages/catalog/PricingPage.jsx';
-import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
-import CustomersPage from '../pages/customers/CustomersPage.jsx';
-import QuotationsPage from '../pages/quotations/QuotationsPage.jsx';
-import QuotationDetailPage from '../pages/quotations/QuotationDetailPage.jsx';
 import CustomerQuotationsPage from '../customer/CustomerQuotationsPage.jsx';
 import CustomerQuotationDetailPage from '../customer/CustomerQuotationDetailPage.jsx';
 
@@ -126,28 +118,20 @@ export default function AppRoutes() {
             <Route path="/v1/pricing" element={<V1PricingPage />} />
           </Route>
 
-          {/* Standard Shell Layout */}
-          <Route element={<DashboardLayout />}>
-            <Route path="/dashboard" element={<DashboardHomePage />} />
-            <Route path="/dashboard/products" element={<ProductsPage />} />
-            
-            {/* Scoped Sub-pages */}
-            <Route element={<RoleRoute allowedRoles={['SALES_REP', 'SALES_MANAGER', 'ADMIN']} />}>
-              <Route path="/dashboard/customers" element={<CustomersPage />} />
-              <Route path="/dashboard/quotations" element={<QuotationsPage />} />
-              <Route path="/dashboard/quotations/:id" element={<QuotationDetailPage />} />
-            </Route>
-
-            <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'FINANCE', 'ADMIN']} />}>
-              <Route path="/dashboard/pricing" element={<PricingPage />} />
-              <Route path="/dashboard/governance" element={<DiscountsPage />} />
-            </Route>
-          </Route>
+          {/* Legacy route fallbacks seamlessly redirecting to V1 */}
+          <Route path="/dashboard" element={<Navigate to="/v1/dashboard" replace />} />
+          <Route path="/dashboard/quotations" element={<Navigate to="/v1/quotations" replace />} />
+          <Route path="/dashboard/quotations/:id" element={<Navigate to="/v1/quotations" replace />} />
+          <Route path="/dashboard/customers" element={<Navigate to="/v1/customers" replace />} />
+          <Route path="/dashboard/products" element={<Navigate to="/v1/products" replace />} />
+          <Route path="/dashboard/pricing" element={<Navigate to="/v1/pricing" replace />} />
+          <Route path="/dashboard/governance" element={<Navigate to="/v1/governance" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
 }
+
 
 

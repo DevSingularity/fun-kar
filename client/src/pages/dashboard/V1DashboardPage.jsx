@@ -156,14 +156,6 @@ export default function V1DashboardPage() {
           >
             {isApprover ? 'View Approvals' : 'View Pending Deals'}
           </Link>
-
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors ml-auto"
-          >
-            <span>Switch to Classic Workspace</span>
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </Link>
         </div>
 
         {/* ── Recent Activity Section ── */}

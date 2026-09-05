@@ -39,7 +39,7 @@ export default function RegisterPage() {
       const authData = res.data?.data || res.data;
       setAuth({ user: authData.user, accessToken: authData.accessToken });
       toast.success('Account created successfully.');
-      navigate('/dashboard');
+      navigate('/v1/dashboard');
     } catch (error) {
       const msg =
         error.response?.data?.error?.message ||
