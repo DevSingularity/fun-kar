@@ -3,7 +3,6 @@
  *
  * Shared shell for all authenticated DealFlow360 pages.
  */
-import { useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -15,7 +14,10 @@ import {
   Handshake, 
   Activity, 
   BarChart3, 
-  LogOut 
+  LogOut,
+  Building2,
+  Percent,
+  Calculator
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -23,10 +25,13 @@ import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
 
 const navigationItems = [
-  { label: 'Overview', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Quotations', path: '/dashboard/quotations', icon: FileSpreadsheet },
-  { label: 'Approvals & Governance', path: '/dashboard/approvals', icon: ShieldCheck },
-  { label: 'Catalog & Pricing', path: '/dashboard/products', icon: Package },
+  { label: 'Operations Overview', path: '/dashboard', icon: LayoutDashboard },
+  { label: 'Customer Accounts', path: '/dashboard/customers', icon: Building2 },
+  { label: 'Product Catalog SKUs', path: '/dashboard/products', icon: Package },
+  { label: 'Price Lists & Matrix', path: '/dashboard/pricing', icon: Calculator },
+  { label: 'Discount Governance', path: '/dashboard/governance', icon: Percent },
+  { label: 'Quotations Hub', path: '/dashboard/quotations', icon: FileSpreadsheet },
+  { label: 'Approval Chains', path: '/dashboard/approvals', icon: ShieldCheck },
   { label: 'Fulfillment & Stock', path: '/dashboard/fulfillment', icon: Boxes },
   { label: 'Hybrid Billing', path: '/dashboard/billing', icon: CreditCard },
   { label: 'Customer Deal Room', path: '/dashboard/deal-room', icon: Handshake },
@@ -68,7 +73,7 @@ export default function DashboardLayout() {
             Sales Operations
           </div>
           {navigationItems.map(({ label, path, icon: Icon }) => {
-            const active = location.pathname === path;
+            const active = location.pathname === path || (path !== '/dashboard' && location.pathname.startsWith(path));
             return (
               <Link
                 key={path}

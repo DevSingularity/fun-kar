@@ -13,8 +13,15 @@ import LandingPage from '../pages/landing/LandingPage.jsx';
 import LoginPage from '../pages/auth/LoginPage.jsx';
 import RegisterPage from '../pages/auth/RegisterPage.jsx';
 import DashboardHomePage from '../pages/dashboard/DashboardHomePage.jsx';
-// TODO: Import and add your domain-specific page routes below
-// import DashboardResourcesPage from '../pages/dashboard/DashboardResourcesPage.jsx';
+import V1DashboardPage from '../pages/dashboard/V1DashboardPage.jsx';
+import V1QuotationsPage from '../pages/quotations/V1QuotationsPage.jsx';
+import V1QuotationDetailPage from '../pages/quotations/V1QuotationDetailPage.jsx';
+import ProductsPage from '../pages/catalog/ProductsPage.jsx';
+import PricingPage from '../pages/catalog/PricingPage.jsx';
+import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
+import CustomersPage from '../pages/customers/CustomersPage.jsx';
+import QuotationsPage from '../pages/quotations/QuotationsPage.jsx';
+import QuotationDetailPage from '../pages/quotations/QuotationDetailPage.jsx';
 
 import useAuthStore from '../store/auth.store.js';
 
@@ -54,10 +61,18 @@ export default function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route element={<PrivateRoute />}>
+          {/* Standalone Official Wireframe V1 Sales Pages */}
+          <Route path="/v1/dashboard" element={<V1DashboardPage />} />
+          <Route path="/v1/quotations" element={<V1QuotationsPage />} />
+          <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardHomePage />} />
-            {/* TODO: Add your domain routes here */}
-            {/* <Route path="/dashboard/resources" element={<DashboardResourcesPage />} /> */}
+            <Route path="/dashboard/products" element={<ProductsPage />} />
+            <Route path="/dashboard/pricing" element={<PricingPage />} />
+            <Route path="/dashboard/governance" element={<DiscountsPage />} />
+            <Route path="/dashboard/customers" element={<CustomersPage />} />
+            <Route path="/dashboard/quotations" element={<QuotationsPage />} />
+            <Route path="/dashboard/quotations/:id" element={<QuotationDetailPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

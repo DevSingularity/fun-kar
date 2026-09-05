@@ -1,23 +1,29 @@
-/**
- * Route barrel
- *
- * Mount new routers here as you add domain features.
- * Pattern: import router → router.use('/your-resource', yourRouter)
- */
 import { Router } from 'express';
-import healthRouter   from './health.route.js';
-import authRouter     from './auth.route.js';
-import resourceRouter from './resource.route.js';
+import healthRouter from './health.route.js';
+import authRoutes from '../modules/auth/auth.routes.js';
+import categoriesRoutes from '../modules/categories/categories.routes.js';
+import productsRoutes from '../modules/products/products.routes.js';
+import priceListsRoutes from '../modules/priceLists/priceLists.routes.js';
+import customersRoutes from '../modules/customers/customers.routes.js';
+import governanceRoutes from '../modules/governance/governance.routes.js';
+import riskRoutes from '../modules/risk/risk.routes.js';
+import quotationsRoutes from '../modules/quotations/quotations.routes.js';
+import dashboardRoutes from '../modules/dashboard/dashboard.routes.js';
 
 const router = Router();
 
+// Health Check
 router.use(healthRouter);
-router.use('/auth',      authRouter);
-// TODO: rename '/resources' to match your domain entity (e.g. '/products', '/orders')
-router.use('/resources', resourceRouter);
 
-// TODO: Add more routers below as you build out features
-// import productsRouter from './products.route.js';
-// router.use('/products', productsRouter);
+// Core Modules
+router.use('/auth', authRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/categories', categoriesRoutes);
+router.use('/products', productsRoutes);
+router.use('/price-lists', priceListsRoutes);
+router.use('/customers', customersRoutes);
+router.use('/governance', governanceRoutes);
+router.use('/risk', riskRoutes);
+router.use('/quotations', quotationsRoutes);
 
 export default router;

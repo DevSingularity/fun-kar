@@ -38,11 +38,16 @@ export default function RegisterPage() {
     setTransitioning(true, true);
     try {
       const res = await api.post('/auth/register', formData);
-      setAuth({ user: res.data.user, accessToken: res.data.accessToken });
+      const authData = res.data?.data || res.data;
+      setAuth({ user: authData.user, accessToken: authData.accessToken });
       toast.success('Account created successfully.');
       navigate('/dashboard');
     } catch (error) {
-      const msg = error.response?.data?.errors?.[0] || error.response?.data?.message || 'Registration failed.';
+      const msg =
+        error.response?.data?.error?.message ||
+        error.response?.data?.errors?.[0]?.message ||
+        error.response?.data?.message ||
+        'Registration failed.';
       toast.error(msg);
       setTransitioning(false);
       setIsSubmitting(false);
