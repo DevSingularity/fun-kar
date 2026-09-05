@@ -313,16 +313,11 @@ export default function V1QuotationsPage() {
                   {/* Deals Cards in Column */}
                   <div className="space-y-3 flex-1 overflow-y-auto no-scrollbar pt-1">
                     {quotesInCol.map((quote) => {
-                      const isRealDbQuote = !quote.id?.startsWith('ps-');
                       return (
                         <div
                           key={quote.id}
                           onClick={() => {
-                            if (isRealDbQuote) {
-                              navigate(`/dashboard/quotations/${quote.id}`);
-                            } else {
-                              setShowCreateModal(true);
-                            }
+                            navigate(`/v1/quotations/${quote.id}`);
                           }}
                           className={`group cursor-pointer p-4 rounded-xl border transition-all duration-200 active:scale-98 ${
                             darkMode 
@@ -384,7 +379,7 @@ export default function V1QuotationsPage() {
                   {filteredQuotations.map((q) => (
                     <tr 
                       key={q.id}
-                      onClick={() => navigate(`/dashboard/quotations/${q.id}`)}
+                      onClick={() => navigate(`/v1/quotations/${q.id}`)}
                       className={`cursor-pointer transition-colors ${
                         darkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'
                       }`}
