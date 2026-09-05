@@ -10,6 +10,8 @@ import DashboardHomePage from '../pages/dashboard/DashboardHomePage.jsx';
 import V1DashboardPage from '../pages/dashboard/V1DashboardPage.jsx';
 import V1QuotationsPage from '../pages/quotations/V1QuotationsPage.jsx';
 import V1QuotationDetailPage from '../pages/quotations/V1QuotationDetailPage.jsx';
+import V1CustomersPage from '../pages/customers/V1CustomersPage.jsx';
+import V1ProductsPage from '../pages/catalog/V1ProductsPage.jsx';
 import V1ApprovalsPage from '../pages/approvals/V1ApprovalsPage.jsx';
 import V1ApprovalDetailPage from '../pages/approvals/V1ApprovalDetailPage.jsx';
 import V1FulfillmentPage from '../pages/fulfillment/V1FulfillmentPage.jsx';
@@ -78,10 +80,12 @@ export default function AppRoutes() {
           {/* Universal Authenticated Pages */}
           <Route path="/v1/dashboard" element={<V1DashboardPage />} />
 
-          {/* Quotations: Sales Rep, Sales Manager, Admin */}
-          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'SALES_MANAGER', 'ADMIN']} />}>
+          {/* Quotations, Customers & Product Master: Sales Rep, Sales Manager, Operations, Admin */}
+          <Route element={<RoleRoute allowedRoles={['SALES_REP', 'SALES_MANAGER', 'OPERATIONS', 'ADMIN']} />}>
             <Route path="/v1/quotations" element={<V1QuotationsPage />} />
             <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
+            <Route path="/v1/customers" element={<V1CustomersPage />} />
+            <Route path="/v1/products" element={<V1ProductsPage />} />
           </Route>
 
           {/* Approvals: Sales Manager, Finance, Admin */}

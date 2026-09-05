@@ -33,12 +33,12 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
   const allNavTabs = [
     { label: 'Dashboard', path: '/v1/dashboard', id: 'Dashboard', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
     { label: 'Quotations', path: '/v1/quotations', id: 'Quotations', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
-    { label: 'Customers', path: '/dashboard/customers', id: 'Customers', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
+    { label: 'Customers', path: '/v1/customers', id: 'Customers', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
     { label: 'Approvals', path: '/v1/approvals', id: 'Approvals', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
     { label: 'Fulfillment', path: '/v1/fulfillment', id: 'Fulfillment', roles: ['ADMIN', 'OPERATIONS'] },
     { label: 'Pricing Matrix', path: '/dashboard/pricing', id: 'Pricing', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
     { label: 'Deal Health', path: '/dashboard/governance', id: 'Deal Health', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
-    { label: 'Catalog SKUs', path: '/dashboard/products', id: 'Product', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'OPERATIONS'] },
+    { label: 'Catalog SKUs', path: '/v1/products', id: 'Product', roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'OPERATIONS'] },
   ];
 
   const navTabs = allNavTabs.filter((tab) => tab.roles.includes(userRole));

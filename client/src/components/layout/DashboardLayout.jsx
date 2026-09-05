@@ -26,9 +26,9 @@ import useAuthStore from '../../store/auth.store.js';
 
 const allNavigationItems = [
   { label: 'Operations Overview', path: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
-  { label: 'Customer Accounts', path: '/dashboard/customers', icon: Building2, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
-  { label: 'Quotations Hub', path: '/dashboard/quotations', icon: FileSpreadsheet, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
-  { label: 'Product Catalog SKUs', path: '/dashboard/products', icon: Package, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'OPERATIONS'] },
+  { label: 'Customer Accounts', path: '/v1/customers', icon: Building2, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
+  { label: 'Quotations Hub', path: '/v1/quotations', icon: FileSpreadsheet, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
+  { label: 'Product Catalog SKUs', path: '/v1/products', icon: Package, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'OPERATIONS'] },
   { label: 'Price Lists & Matrix', path: '/dashboard/pricing', icon: Calculator, roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
   { label: 'Discount Governance', path: '/dashboard/governance', icon: Percent, roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
   { label: 'Approval Chains', path: '/v1/approvals', icon: ShieldCheck, roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
