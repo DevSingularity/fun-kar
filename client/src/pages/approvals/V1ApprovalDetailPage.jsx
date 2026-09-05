@@ -54,38 +54,42 @@ export default function V1ApprovalDetailPage() {
     fetchDetail();
   }, [id]);
 
-  const handleApprove = async () => {
-    if (!confirm('Are you sure you want to approve this discount exception?')) return;
-    setActionLoading(true);
-    try {
-      await api.post(`/approval-requests/${id}/approve`, {});
-      toast.success('Discount exception approved successfully.');
-      fetchDetail();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to approve request');
-    } finally {
-      setActionLoading(false);
-    }
+  const openApproveModal = () => {
+    setDecisionModal({
+      open: true,
+      type: 'APPROVE',
+      title: 'Approve Discount Exception',
+      reason: '',
+    });
   };
 
   const handleDecisionSubmit = async (e) => {
     e.preventDefault();
-    if (!decisionModal.reason.trim()) {
-      toast.error('A detailed reason is required.');
+    const isRejectOrReturn = decisionModal.type === 'REJECT' || decisionModal.type === 'RETURN';
+    if (isRejectOrReturn && !decisionModal.reason.trim()) {
+      toast.error('A detailed justification reason is required.');
       return;
     }
 
     setActionLoading(true);
     try {
-      const endpoint = decisionModal.type === 'REJECT' ? 'reject' : 'return';
-      await api.post(`/approval-requests/${id}/${endpoint}`, {
-        reason: decisionModal.reason.trim(),
-      });
-      toast.success(
-        decisionModal.type === 'REJECT'
-          ? 'Quotation has been rejected.'
-          : 'Quotation returned for rep revision.'
-      );
+      if (decisionModal.type === 'APPROVE') {
+        await api.post(`/approval-requests/${id}/approve`, {
+          reason: decisionModal.reason.trim() || undefined,
+        });
+        toast.success('Discount exception approved successfully.');
+      } else if (decisionModal.type === 'RETURN') {
+        await api.post(`/approval-requests/${id}/return`, {
+          reason: decisionModal.reason.trim(),
+        });
+        toast.success('Quotation returned for rep revision.');
+      } else if (decisionModal.type === 'REJECT') {
+        await api.post(`/approval-requests/${id}/reject`, {
+          reason: decisionModal.reason.trim(),
+        });
+        toast.success('Quotation has been rejected.');
+      }
+
       setDecisionModal({ open: false, type: null, title: '', reason: '' });
       fetchDetail();
     } catch (err) {
@@ -361,14 +365,14 @@ export default function V1ApprovalDetailPage() {
         {/* ── Section 4: Bottom Action Buttons (From Wireframe 6) ── */}
         {currentStatus === 'PENDING' && (
           <div className="flex flex-wrap items-center gap-3 pt-4">
-            
             {/* Approve Button */}
             <button
-              onClick={handleApprove}
+              onClick={openApproveModal}
               disabled={actionLoading}
-              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50"
+              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
             >
-              Approve
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Approve</span>
             </button>
 
             {/* Return for Revision Button */}
@@ -382,9 +386,10 @@ export default function V1ApprovalDetailPage() {
                 })
               }
               disabled={actionLoading}
-              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50"
+              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
             >
-              Return for Revision
+              <RotateCcw className="h-4 w-4" />
+              <span>Return for Revision</span>
             </button>
 
             {/* Reject Button */}
@@ -398,9 +403,10 @@ export default function V1ApprovalDetailPage() {
                 })
               }
               disabled={actionLoading}
-              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50"
+              className="px-6 py-2.5 rounded-lg text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
             >
-              Reject
+              <XCircle className="h-4 w-4" />
+              <span>Reject</span>
             </button>
 
             <Link
@@ -414,12 +420,33 @@ export default function V1ApprovalDetailPage() {
         )}
       </main>
 
-      {/* ── Modal: Decision Reason Prompt (Reject or Return) ── */}
+      {/* ── Custom Modal: Decision Confirmation & Reason Prompt (Zero Default Alerts) ── */}
       {decisionModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-5 text-slate-900">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-base text-slate-900">{decisionModal.title}</h3>
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`p-2 rounded-lg ${
+                    decisionModal.type === 'APPROVE'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : decisionModal.type === 'RETURN'
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-rose-50 text-rose-700'
+                  }`}
+                >
+                  {decisionModal.type === 'APPROVE' && <ShieldCheck className="h-5 w-5" />}
+                  {decisionModal.type === 'RETURN' && <RotateCcw className="h-5 w-5" />}
+                  {decisionModal.type === 'REJECT' && <XCircle className="h-5 w-5" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">{decisionModal.title}</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {quotation?.quoteNumber} &bull; {customerName}
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setDecisionModal({ open: false, type: null, title: '', reason: '' })}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
@@ -428,18 +455,56 @@ export default function V1ApprovalDetailPage() {
               </button>
             </div>
 
+            {/* Context Summary for Approve / Return / Reject */}
+            {decisionModal.type === 'APPROVE' ? (
+              <div className="rounded-lg bg-emerald-50/60 border border-emerald-200/80 p-3 text-xs text-emerald-950 space-y-1">
+                <p className="font-semibold text-emerald-900">
+                  Are you sure you want to authorize this discount exception?
+                </p>
+                <p className="text-[11px] text-emerald-800/90 leading-relaxed">
+                  Authorizing will record your approval in the immutable audit trail and advance the deal to the next stage.
+                </p>
+              </div>
+            ) : decisionModal.type === 'RETURN' ? (
+              <div className="rounded-lg bg-amber-50/60 border border-amber-200/80 p-3 text-xs text-amber-950 space-y-1">
+                <p className="font-semibold text-amber-900">
+                  Returning this deal to the Sales Representative
+                </p>
+                <p className="text-[11px] text-amber-800/90 leading-relaxed">
+                  The quotation status will be reset to <strong>DRAFT</strong> so the representative can adjust line items and re-submit.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-rose-50/60 border border-rose-200/80 p-3 text-xs text-rose-950 space-y-1">
+                <p className="font-semibold text-rose-900">
+                  Rejecting this quotation request
+                </p>
+                <p className="text-[11px] text-rose-800/90 leading-relaxed">
+                  This exception will be formally marked as <strong>REJECTED</strong>. A reason is required for compliance logging.
+                </p>
+              </div>
+            )}
+
             <form onSubmit={handleDecisionSubmit} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1 text-slate-700">
-                  Decision Note / Justification <span className="text-rose-500">*</span>
+                  {decisionModal.type === 'APPROVE' ? (
+                    <>Approval Note <span className="text-slate-400 font-normal">(Optional)</span></>
+                  ) : (
+                    <>Decision Justification <span className="text-rose-500">*</span></>
+                  )}
                 </label>
                 <textarea
-                  rows={4}
-                  required
-                  placeholder="Explain reason for returning or rejecting this discount exception..."
+                  rows={3}
+                  required={decisionModal.type !== 'APPROVE'}
+                  placeholder={
+                    decisionModal.type === 'APPROVE'
+                      ? 'Add an optional note (e.g. Approved per quarterly executive allowance)...'
+                      : 'Provide explicit reasons or requested discount threshold adjustments...'
+                  }
                   value={decisionModal.reason}
                   onChange={(e) => setDecisionModal({ ...decisionModal, reason: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 bg-white p-3 font-medium text-slate-800 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"
+                  className="w-full rounded-lg border border-slate-300 bg-white p-2.5 font-medium text-slate-800 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all text-xs"
                 />
               </div>
 
@@ -455,12 +520,22 @@ export default function V1ApprovalDetailPage() {
                   type="submit"
                   disabled={actionLoading}
                   className={`px-5 py-2 rounded-lg text-xs font-bold text-white shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 ${
-                    decisionModal.type === 'REJECT'
+                    decisionModal.type === 'APPROVE'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : decisionModal.type === 'REJECT'
                       ? 'bg-rose-600 hover:bg-rose-700'
                       : 'bg-amber-600 hover:bg-amber-700'
                   }`}
                 >
-                  {actionLoading ? 'Saving...' : 'Submit Decision'}
+                  {actionLoading ? (
+                    'Processing...'
+                  ) : decisionModal.type === 'APPROVE' ? (
+                    'Confirm Approval'
+                  ) : decisionModal.type === 'RETURN' ? (
+                    'Return for Revision'
+                  ) : (
+                    'Confirm Rejection'
+                  )}
                 </button>
               </div>
             </form>

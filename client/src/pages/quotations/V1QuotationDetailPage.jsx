@@ -101,15 +101,27 @@ export default function V1QuotationDetailPage() {
     }
   };
 
-  const handleDeleteItem = async (itemId) => {
-    if (!confirm('Are you sure you want to remove this line item?')) return;
+  // Delete confirmation modal state
+  const [deleteModal, setDeleteModal] = useState({ open: false, itemId: null, itemName: '' });
+  const [deletingLine, setDeletingLine] = useState(false);
+
+  const confirmDeleteItem = async () => {
+    if (!deleteModal.itemId) return;
+    setDeletingLine(true);
     try {
-      await api.delete(`/quotations/${id}/items/${itemId}`);
-      toast.success('Item removed');
+      await api.delete(`/quotations/${id}/items/${deleteModal.itemId}`);
+      toast.success('Line item removed successfully');
+      setDeleteModal({ open: false, itemId: null, itemName: '' });
       fetchQuotation();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to remove item');
+    } finally {
+      setDeletingLine(false);
     }
+  };
+
+  const handleDeleteItem = (itemId, itemName = 'this item') => {
+    setDeleteModal({ open: true, itemId, itemName });
   };
 
   const handleAddUpsell = async (skuName, defaultDiscount = 0) => {
@@ -331,7 +343,7 @@ export default function V1QuotationDetailPage() {
                       <td className="py-3.5 px-4 text-right">
                         {!item.isDemo && (
                           <button
-                            onClick={() => handleDeleteItem(item.id)}
+                            onClick={() => handleDeleteItem(item.id, item.productName)}
                             title="Remove Line Item"
                             className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
                           >
@@ -526,7 +538,7 @@ export default function V1QuotationDetailPage() {
       {/* ── Submission Result Modal ── */}
       {submitResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4 text-slate-900">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3">
               {submitResult.quotation?.status === 'APPROVED' ? (
                 <CheckCircle2 className="h-7 w-7 text-emerald-600 shrink-0" />
@@ -556,6 +568,47 @@ export default function V1QuotationDetailPage() {
             >
               Done
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Modal: Delete Item Confirmation ── */}
+      {deleteModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-2xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-rose-50 text-rose-600">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900">Remove Line Item</h3>
+                <p className="text-xs text-slate-500 font-medium truncate max-w-[220px]">
+                  {deleteModal.itemName || 'Selected item'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to remove this line item? Quotation totals and margin calculations will automatically update.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeleteModal({ open: false, itemId: null, itemName: '' })}
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingLine}
+                onClick={confirmDeleteItem}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {deletingLine ? 'Removing...' : 'Confirm Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
