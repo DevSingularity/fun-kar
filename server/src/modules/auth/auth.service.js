@@ -1,4 +1,4 @@
-import { getDb } from '../../config/database.js';
+import { transaction } from '../../config/database.js';
 import { env } from '../../config/env.js';
 import { hashPassword, comparePassword } from '../../common/password.util.js';
 import { buildTokenPair, verifyToken } from '../../common/jwt.util.js';
@@ -18,10 +18,9 @@ export async function registerUser({ name, email, password }) {
   }
 
   const passwordHash = await hashPassword(password);
-  const db = getDb();
 
   // Execute user creation and initial audit log in transaction
-  const user = await db.transaction(async (tx) => {
+  const user = await transaction(async (tx) => {
     const newUser = await createUser(
       {
         name,
