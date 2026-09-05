@@ -5,6 +5,7 @@
  */
 
 import { useEffect } from 'react';
+import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 const Toast = ({
 	type = 'info',
@@ -23,45 +24,50 @@ const Toast = ({
 
 	const typeStyles = {
 		success: {
-			bg: 'bg-green-50',
-			border: 'border-green-200',
-			text: 'text-green-800',
-			icon: '✓',
-			iconBg: 'bg-green-100',
+			bg: 'bg-emerald-50',
+			border: 'border-emerald-200',
+			text: 'text-emerald-800',
+			icon: CheckCircle2,
+			iconColor: 'text-emerald-600',
+			iconBg: 'bg-emerald-100',
 		},
 		error: {
-			bg: 'bg-red-50',
-			border: 'border-red-200',
-			text: 'text-red-800',
-			icon: '✕',
-			iconBg: 'bg-red-100',
+			bg: 'bg-rose-50',
+			border: 'border-rose-200',
+			text: 'text-rose-800',
+			icon: XCircle,
+			iconColor: 'text-rose-600',
+			iconBg: 'bg-rose-100',
 		},
 		warning: {
-			bg: 'bg-yellow-50',
-			border: 'border-yellow-200',
-			text: 'text-yellow-800',
-			icon: '⚠',
-			iconBg: 'bg-yellow-100',
+			bg: 'bg-amber-50',
+			border: 'border-amber-200',
+			text: 'text-amber-800',
+			icon: AlertTriangle,
+			iconColor: 'text-amber-600',
+			iconBg: 'bg-amber-100',
 		},
 		info: {
 			bg: 'bg-blue-50',
 			border: 'border-blue-200',
 			text: 'text-blue-800',
-			icon: 'ℹ',
+			icon: Info,
+			iconColor: 'text-blue-600',
 			iconBg: 'bg-blue-100',
 		},
 	};
 
 	const styles = typeStyles[type] || typeStyles.info;
+	const IconComponent = styles.icon;
 
 	return (
-		<div className={`${styles.bg} ${styles.border} border rounded-lg p-4 flex gap-4 items-start max-w-md animate-in fade-in slide-in-from-bottom ${className}`}>
-			<div className={`${styles.iconBg} rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 ${styles.text} font-bold`}>{styles.icon}</div>
-			<p className={`${styles.text} text-sm flex-1`}>{message}</p>
-			<button onClick={() => onClose(id)} className={`${styles.text} opacity-50 hover:opacity-100 transition-opacity flex-shrink-0`}>
-				<svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-					<path fillRule='evenodd' d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z' clipRule='evenodd' />
-				</svg>
+		<div className={`${styles.bg} ${styles.border} border rounded-lg p-3.5 flex gap-3 items-center max-w-md shadow-md animate-in fade-in slide-in-from-bottom ${className}`}>
+			<div className={`${styles.iconBg} rounded-full w-7 h-7 flex items-center justify-center flex-shrink-0`}>
+				<IconComponent className={`h-4 w-4 ${styles.iconColor}`} />
+			</div>
+			<p className={`${styles.text} text-xs font-semibold flex-1 leading-snug`}>{message}</p>
+			<button onClick={() => onClose(id)} className={`${styles.text} p-1 rounded-md opacity-60 hover:opacity-100 hover:bg-black/5 transition-opacity flex-shrink-0`}>
+				<X className="w-4 h-4" />
 			</button>
 		</div>
 	);

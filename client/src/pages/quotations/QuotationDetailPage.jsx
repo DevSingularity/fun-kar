@@ -20,7 +20,8 @@ import {
   Zap,
   Info,
   Award,
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
@@ -147,7 +148,7 @@ export default function QuotationDetailPage() {
         quotation: resultData.quotation || resultData,
       }));
       if (resultData?.quotation?.status === 'APPROVED') {
-        toast.success('🎉 Quotation automatically approved within delegation!');
+        toast.success('Quotation automatically approved within delegation threshold.');
       } else {
         toast.success('Quotation submitted for multi-tier approval');
       }
@@ -450,7 +451,9 @@ export default function QuotationDetailPage() {
                   <h4 className="text-xs font-bold text-(--app-color-primary) uppercase tracking-wider">
                     Add Product to Quotation
                   </h4>
-                  <button type="button" onClick={() => setShowAddItem(false)} className="text-xs font-bold text-(--app-color-text-muted)">✕</button>
+                  <button type="button" onClick={() => setShowAddItem(false)} className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">

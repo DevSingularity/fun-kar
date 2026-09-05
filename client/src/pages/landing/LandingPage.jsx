@@ -2,35 +2,45 @@
  * LandingPage — DealFlow360 B2B Sales Operations Platform
  */
 import { Link } from 'react-router-dom';
+import { 
+  FileText, 
+  Scale, 
+  Boxes, 
+  CreditCard, 
+  Users, 
+  TrendingUp, 
+  ArrowRight,
+  ShieldCheck 
+} from 'lucide-react';
 
 const FEATURES = [
   { 
-    icon: '📋', 
+    icon: FileText, 
     title: 'Intelligent Quotation Engine', 
     desc: 'Configure complex multi-line B2B quotes with dynamic pricing tiers, customer discounts, and instant margin impact analysis.' 
   },
   { 
-    icon: '⚖️', 
+    icon: Scale, 
     title: 'Autonomous Discount Governance', 
     desc: 'Self-governing approval workflows with role-based routing (Sales Manager, Finance) based on margin erosion and discount limits.' 
   },
   { 
-    icon: '📦', 
+    icon: Boxes, 
     title: 'Multi-Warehouse Allocation', 
     desc: 'Automated inventory fulfillment across regional warehouses with real-time split deliveries and backorder management.' 
   },
   { 
-    icon: '💳', 
+    icon: CreditCard, 
     title: 'Hybrid Billing & Subscriptions', 
     desc: 'Combine one-time products and recurring subscription contracts in single orders with automated proration and billing schedules.' 
   },
   { 
-    icon: '🤝', 
+    icon: Users, 
     title: 'Client Negotiation Portal', 
     desc: 'Empower buyers to review terms, submit structured counter-proposals, and trigger automated re-approval under clear guardrails.' 
   },
   { 
-    icon: '📈', 
+    icon: TrendingUp, 
     title: 'Deal Health & Risk Radar', 
     desc: 'Live anomaly detection, SLA tracking, approval audit logs, and actionable executive insights into conversion velocity.' 
   },
@@ -104,7 +114,9 @@ export default function LandingPage() {
               key={feat.title}
               className="rounded-xl border border-(--app-color-border) bg-white/90 p-6 shadow-sm backdrop-blur transition-all hover:shadow-md hover:border-(--app-color-primary)/30"
             >
-              <div className="mb-4 text-2xl p-2 w-10 h-10 rounded-lg bg-(--app-color-primary-soft) flex items-center justify-center">{feat.icon}</div>
+              <div className="mb-4 p-2.5 w-10 h-10 rounded-lg bg-(--app-color-primary-soft) flex items-center justify-center">
+                <feat.icon className="h-5 w-5 text-(--app-color-primary)" />
+              </div>
               <h3 className="mb-2 text-base font-bold text-(--app-color-text)">{feat.title}</h3>
               <p className="text-sm text-(--app-color-text-muted) leading-relaxed">{feat.desc}</p>
             </div>

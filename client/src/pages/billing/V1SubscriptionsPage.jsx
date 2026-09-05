@@ -16,6 +16,7 @@ import {
   Sparkles,
   Layers,
   HelpCircle,
+  X,
 } from 'lucide-react';
 import api from '../../services/api.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
@@ -369,8 +370,8 @@ export default function V1SubscriptionsPage() {
             <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <h3 className="text-sm font-bold text-slate-800">Define New Subscription Plan</h3>
-                <button onClick={() => setShowPlanModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">
-                  ✕
+                <button onClick={() => setShowPlanModal(false)} className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 

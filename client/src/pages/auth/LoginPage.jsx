@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { KeyRound, Check } from 'lucide-react';
 
 import Button from '../../components/Button';
 import Container from '../../components/Container';
@@ -98,53 +99,47 @@ export default function LoginPage() {
             style={{ background: 'var(--app-gradient-auth-login)' }}
           >
             <div className="noise-overlay pointer-events-none opacity-20" />
+            <div className="aurora aurora-one opacity-20" />
+
             <div className="relative z-10 flex flex-col items-center">
-              <div className="flex flex-col items-center gap-3">
-                <img src="/logo.svg" alt="DealFlow360 Logo" className="h-16 w-16 object-contain drop-shadow-lg" />
-                <div className="h-[2px] w-12 rounded-full bg-(--app-color-accent)" />
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 shadow-inner backdrop-blur-lg border border-white/20">
+                <img src="/logo.svg" alt="DealFlow360" className="h-10 w-10 object-contain drop-shadow" />
               </div>
-              <div className="mt-5">
-                <h1 className="text-3xl font-extrabold tracking-tight lg:text-4xl">
-                  Governed Deals. <br />
-                  <span className="text-teal-300">Zero Margin Leakage.</span>
-                </h1>
-                <p className="mx-auto mt-2.5 max-w-sm text-xs sm:text-sm font-medium leading-relaxed text-white/80">
-                  Intelligent sales operations and quotation governance platform designed for high-velocity B2B enterprise teams.
-                </p>
-              </div>
-              <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-2 text-left w-full">
-                {FEATURE_BULLETS.map((f) => (
-                  <div key={f} className="flex items-center gap-2">
-                    <div className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-300">
-                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <span className="text-[11px] font-semibold tracking-wide text-white/90">{f}</span>
-                  </div>
+
+              <h1 className="text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
+                DealFlow<span className="text-(--app-color-accent)">360</span>
+              </h1>
+              <p className="mt-2 max-w-xs text-xs font-semibold uppercase tracking-widest text-white/70">
+                Intelligent Sales Operations Platform
+              </p>
+
+              <div className="my-6 h-px w-24 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+              <ul className="space-y-2.5 text-left text-xs text-white/85">
+                {FEATURE_BULLETS.map((bullet) => (
+                  <li key={bullet} className="flex items-center gap-2">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-(--app-color-accent)/20 text-(--app-color-accent)">
+                      <Check className="h-2.5 w-2.5" />
+                    </span>
+                    <span>{bullet}</span>
+                  </li>
                 ))}
-              </div>
-            </div>
-            <div className="mt-8 flex items-center justify-between w-full px-4 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-              <p>© 2026 DealFlow360</p>
-              <p>Enterprise Sales Ops</p>
+              </ul>
             </div>
           </section>
 
           {/* ── Right form panel ── */}
-          <section
-            className="auth-form-slide flex flex-col justify-center p-6 lg:p-10 bg-white"
-          >
+          <section className="flex flex-col justify-center p-8 lg:p-12 bg-white/90">
             <div className="mx-auto w-full max-w-sm">
-              <div className="mb-6 text-center lg:text-left">
+              <div className="mb-6">
                 <h2 className="text-2xl font-bold tracking-tight text-(--app-color-text)">Welcome Back</h2>
                 <p className="mt-1 text-xs text-(--app-color-text-muted)">Sign in to access your sales workspace</p>
               </div>
 
               {/* Quick Demo Switcher */}
               <div className="mb-5 rounded-xl border border-(--app-color-border) bg-(--app-color-surface-elevated)/70 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-(--app-color-text-muted) mb-2">
-                  ⚡ 1-Click Demo Accounts
+                <p className="text-[10px] font-bold uppercase tracking-wider text-(--app-color-text-muted) mb-2 flex items-center gap-1.5">
+                  <KeyRound className="h-3 w-3 text-[#714b67]" /> Quick Demo Accounts
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {DEMO_PRESETS.map((demo) => (
@@ -152,7 +147,6 @@ export default function LoginPage() {
                       key={demo.email}
                       type="button"
                       onClick={() => handleSelectDemo(demo.email)}
-
                       className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-all hover:scale-105 active:scale-95 ${demo.color}`}
                     >
                       {demo.role}
