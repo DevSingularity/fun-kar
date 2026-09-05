@@ -99,60 +99,48 @@ export default function V1ApprovalDetailPage() {
     }
   };
 
-  // Fallback demo data for wireframe visualization
-  const quotation = data?.quotation || { quoteNumber: 'Q-1042' };
-  const customerName = data?.customerName || 'Acme Corp';
-  const customerTier = data?.customerTier || 'Gold';
-  const riskScore = Number(data?.approvalRequest?.blendedRiskScore || 18.5);
-  const riskLabel = riskScore >= 25 ? 'HIGH' : riskScore >= 10 ? 'HIGH' : 'LOW';
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+        <OdooTopNavbar activeTab="Approvals" />
+        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center">
+          <p className="text-xs font-semibold text-slate-400">Loading discount approval details...</p>
+        </main>
+      </div>
+    );
+  }
 
-  // Line violations table
-  const lineEvaluations = data?.riskEvaluation?.lineEvaluations || [
-    {
-      lineNumber: 1,
-      productName: 'Laptop (Hardware)',
-      requestedDiscountPct: 12,
-      effectiveAllowedDiscountPct: 15,
-      overagePct: 0,
-      status: 'WITHIN_POLICY',
-    },
-    {
-      lineNumber: 2,
-      productName: 'Setup Service (Services)',
-      requestedDiscountPct: 18,
-      effectiveAllowedDiscountPct: 10,
-      overagePct: 8,
-      status: 'EXCEEDS_POLICY',
-    },
-  ];
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+        <OdooTopNavbar activeTab="Approvals" />
+        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center space-y-4">
+          <p className="text-sm font-bold text-slate-700">Approval request not found</p>
+          <Link
+            to="/v1/approvals"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#714b67] text-white"
+          >
+            ← Return to Approvals List
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
-  // Action History
-  const actions = data?.actions?.length > 0 ? data.actions : [
-    {
-      id: 'act-1',
-      actorName: 'J. Rao',
-      action: 'Submitted',
-      createdAt: '2026-08-20',
-      reason: 'Initial 12% discount',
-    },
-    {
-      id: 'act-2',
-      actorName: 'M. Shah',
-      action: 'Returned',
-      createdAt: '2026-08-21',
-      reason: 'Requested justification',
-    },
-    {
-      id: 'act-3',
-      actorName: 'J. Rao',
-      action: 'Resubmitted',
-      createdAt: '2026-08-22',
-      reason: 'Added margin note',
-    },
-  ];
+  const quotation = data.quotation || {};
+  const customerName = data.customerName || 'Customer';
+  const customerTier = data.customerTier || 'BRONZE';
+  const riskScore = Number(data.approvalRequest?.blendedRiskScore || 0);
+  const riskLabel = riskScore >= 25 ? 'HIGH' : riskScore >= 10 ? 'MEDIUM' : 'LOW';
 
-  const currentStatus = data?.approvalRequest?.status || 'PENDING';
-  const currentStep = data?.approvalRequest?.currentStep || 'MANAGER';
+  // Real line evaluations
+  const lineEvaluations = data.riskEvaluation?.lineEvaluations || [];
+
+  // Real Action History
+  const actions = data.actions || [];
+
+  const currentStatus = data.approvalRequest?.status || 'PENDING';
+  const currentStep = data.approvalRequest?.currentStep || 'MANAGER';
 
   // Multi-step visual tracker state
   const isManagerDone = actions.some((a) => a.level === 'MANAGER' && a.action === 'APPROVED');
@@ -218,33 +206,41 @@ export default function V1ApprovalDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800 font-medium">
-                {lineEvaluations.map((line, idx) => {
-                  const isOver = line.overagePct > 0;
-                  return (
-                    <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-semibold text-slate-900">
-                        {line.productName || `Line ${line.lineNumber}`}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
-                        {line.requestedDiscountPct}%
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-600 font-semibold">
-                        {line.effectiveAllowedDiscountPct}%
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {isOver ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
-                            {line.overagePct} pt OVER
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            0 pt - OK
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {lineEvaluations.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-xs text-slate-400 font-medium">
+                      All line items are within standard policy limits.
+                    </td>
+                  </tr>
+                ) : (
+                  lineEvaluations.map((line, idx) => {
+                    const isOver = line.overagePct > 0;
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-semibold text-slate-900">
+                          {line.productName || `Line ${line.lineNumber}`}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
+                          {line.requestedDiscountPct}%
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-600 font-semibold">
+                          {line.effectiveAllowedDiscountPct}%
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {isOver ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                              {line.overagePct} pt OVER
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              0 pt - OK
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -255,7 +251,7 @@ export default function V1ApprovalDetailPage() {
           <div className="flex items-center gap-2.5">
             <Info className="h-4 w-4 text-amber-600 shrink-0" />
             <span className="font-semibold">
-              Worst single line (8pt over) plus overall pattern across the order sets the blended score. One bad line is enough to require approval.
+              Worst single line overage plus overall deal margin across the order sets the blended risk score.
             </span>
           </div>
         </div>
@@ -339,24 +335,32 @@ export default function V1ApprovalDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800 font-medium">
-                {actions.map((act) => (
-                  <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-slate-900">
-                      {act.actorName || 'Officer'}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
-                        {act.action}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-500">
-                      {act.createdAt ? new Date(act.createdAt).toLocaleDateString() : 'Aug 20'}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      {act.reason || 'Standard review action'}
+                {actions.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-xs text-slate-400 font-medium">
+                      No decision actions recorded yet for this request.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  actions.map((act) => (
+                    <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-semibold text-slate-900">
+                        {act.actorName || 'Officer'}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                          {act.action}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-500">
+                        {act.createdAt ? new Date(act.createdAt).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600">
+                        {act.reason || 'Standard review action'}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -50,86 +50,19 @@ export default function V1FulfillmentPage() {
     fetchData();
   }, []);
 
-  // Demo fallback data if empty so UI matches Wireframe 7 immediately
-  const effectiveStock = stockList.length > 0 ? stockList : [
-    {
-      stockId: 'stk-1',
-      warehouseName: 'Main Warehouse',
-      productName: 'Laptop Pro 14 (Hardware)',
-      productSku: 'HW-LAP-14',
-      inStock: 40,
-      allocated: 18,
-      available: 22,
-    },
-    {
-      stockId: 'stk-2',
-      warehouseName: 'East Depot',
-      productName: 'Laptop Pro 14 (Hardware)',
-      productSku: 'HW-LAP-14',
-      inStock: 10,
-      allocated: 6,
-      available: 4,
-    },
-    {
-      stockId: 'stk-3',
-      warehouseName: 'Main Warehouse',
-      productName: 'Universal Thunderbolt Docking Station',
-      productSku: 'HW-DOC-01',
-      inStock: 65,
-      allocated: 12,
-      available: 53,
-    },
-    {
-      stockId: 'stk-4',
-      warehouseName: 'North DC',
-      productName: 'DealFlow Edge Gateway Appliance G4',
-      productSku: 'HW-EDGE-G4',
-      inStock: 25,
-      allocated: 5,
-      available: 20,
-    },
-  ];
-
-  const effectiveOrders = ordersList.length > 0 ? ordersList : [
-    {
-      id: 'demo-ord-1',
-      orderNumber: 'Q-1042',
-      quoteNumber: 'Q-1042',
-      customerName: 'Acme Corp',
-      status: 'PARTIALLY_FULFILLED',
-      warehouseNames: 'Main + East Depot',
-      grandTotal: '171000.00',
-    },
-    {
-      id: 'demo-ord-2',
-      orderNumber: 'Q-1039',
-      quoteNumber: 'Q-1039',
-      customerName: 'Zenith Co',
-      status: 'BACKORDERED',
-      warehouseNames: 'East Depot',
-      grandTotal: '95000.00',
-    },
-    {
-      id: 'demo-ord-3',
-      orderNumber: 'Q-1035',
-      quoteNumber: 'Q-1035',
-      customerName: 'Nova Retail',
-      status: 'FULFILLED',
-      warehouseNames: 'Main Warehouse',
-      grandTotal: '238000.00',
-    },
-  ];
+  const effectiveStock = stockList;
+  const effectiveOrders = ordersList;
 
   // Filter distinct warehouses for filter pills
-  const distinctWarehouses = ['ALL', ...new Set(effectiveStock.map((s) => s.warehouseName))];
+  const distinctWarehouses = ['ALL', ...new Set(effectiveStock.map((s) => s.warehouseName).filter(Boolean))];
 
   const filteredStock = effectiveStock.filter((s) => {
     const matchWarehouse =
       selectedWarehouseFilter === 'ALL' || s.warehouseName === selectedWarehouseFilter;
     const matchSearch =
       !searchQuery.trim() ||
-      s.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.warehouseName.toLowerCase().includes(searchQuery.toLowerCase());
+      s.productName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.warehouseName?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchWarehouse && matchSearch;
   });
 
@@ -256,44 +189,58 @@ export default function V1FulfillmentPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredStock.map((row) => (
-                  <tr key={row.stockId || `${row.warehouseName}-${row.productSku}`} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#008784]" />
-                      <span>{row.warehouseName}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-slate-900 block">{row.productName}</span>
-                      {row.productSku && (
-                        <span className="text-[10px] text-slate-400 font-mono">{row.productSku}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-center font-bold text-slate-800 text-sm">
-                      {row.inStock}
-                    </td>
-                    <td className="py-3 px-4 text-center font-bold text-blue-700 text-sm">
-                      {row.allocated}
-                    </td>
-                    <td className="py-3 px-4 text-center font-bold text-emerald-700 text-sm">
-                      {row.available}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      {row.available > 10 ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                          <CheckCircle2 className="h-3 w-3" /> Healthy
-                        </span>
-                      ) : row.available > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700">
-                          <AlertCircle className="h-3 w-3" /> Low Stock
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700">
-                          <AlertTriangle className="h-3 w-3" /> Depleted
-                        </span>
-                      )}
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs text-slate-400 font-medium">
+                      Loading live warehouse inventory from database...
                     </td>
                   </tr>
-                ))}
+                ) : filteredStock.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs text-slate-400 font-medium">
+                      No warehouse stock records found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStock.map((row) => (
+                    <tr key={row.stockId || `${row.warehouseName}-${row.productSku}`} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#008784]" />
+                        <span>{row.warehouseName}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-semibold text-slate-900 block">{row.productName}</span>
+                        {row.productSku && (
+                          <span className="text-[10px] text-slate-400 font-mono">{row.productSku}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-center font-bold text-slate-800 text-sm">
+                        {row.inStock}
+                      </td>
+                      <td className="py-3 px-4 text-center font-bold text-blue-700 text-sm">
+                        {row.allocated}
+                      </td>
+                      <td className="py-3 px-4 text-center font-bold text-emerald-700 text-sm">
+                        {row.available}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {row.available > 10 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                            <CheckCircle2 className="h-3 w-3" /> Healthy
+                          </span>
+                        ) : row.available > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700">
+                            <AlertCircle className="h-3 w-3" /> Low Stock
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700">
+                            <AlertTriangle className="h-3 w-3" /> Depleted
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -324,33 +271,47 @@ export default function V1FulfillmentPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {filteredOrders.map((ord) => (
-                    <tr
-                      key={ord.id}
-                      onClick={() => navigate(`/v1/fulfillment/${ord.id}`)}
-                      className="hover:bg-slate-50/90 cursor-pointer transition-colors group"
-                    >
-                      <td className="py-3.5 px-4 font-bold text-[#714b67] group-hover:underline flex items-center gap-1.5">
-                        <PackageSearch className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#714b67]" />
-                        <span>{ord.orderNumber || ord.quoteNumber}</span>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-900">
-                        {ord.customerName}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {renderOrderStatusBadge(ord.status)}
-                      </td>
-                      <td className="py-3.5 px-4 font-medium text-slate-700">
-                        {ord.warehouseNames || 'Main + East Depot'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 group-hover:text-[#714b67]">
-                          <span>View Split</span>
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </span>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-xs text-slate-400 font-medium">
+                        Loading orders awaiting fulfillment...
                       </td>
                     </tr>
-                  ))}
+                  ) : filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-xs text-slate-400 font-medium">
+                        No active fulfillment orders. Approved quotations will convert here automatically.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOrders.map((ord) => (
+                      <tr
+                        key={ord.id}
+                        onClick={() => navigate(`/v1/fulfillment/${ord.id}`)}
+                        className="hover:bg-slate-50/90 cursor-pointer transition-colors group"
+                      >
+                        <td className="py-3.5 px-4 font-bold text-[#714b67] group-hover:underline flex items-center gap-1.5">
+                          <PackageSearch className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#714b67]" />
+                          <span>{ord.orderNumber || ord.quoteNumber}</span>
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-900">
+                          {ord.customerName}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {renderOrderStatusBadge(ord.status)}
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-slate-700">
+                          {ord.warehouseNames || 'Main Warehouse'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 group-hover:text-[#714b67]">
+                            <span>View Split</span>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

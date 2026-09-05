@@ -75,36 +75,42 @@ export default function V1FulfillmentDetailPage() {
     fetchDetail();
   }, [id]);
 
-  // Demo fallback for wireframe visualization if record is new/demo
-  const order = data?.order || { orderNumber: 'Q-1042', status: 'PARTIALLY_FULFILLED' };
-  const customerName = data?.customerName || 'Acme Corp';
-  const quoteNumber = data?.quoteNumber || order.orderNumber;
-  const items = data?.items || [];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+        <OdooTopNavbar activeTab="Fulfillment" />
+        <main className="max-w-[1440px] w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 flex-1 text-center py-16">
+          <p className="text-xs font-semibold text-slate-400">Loading order fulfillment details...</p>
+        </main>
+      </div>
+    );
+  }
 
-  const warehouseSplits = data?.warehouseSplits?.length > 0 ? data.warehouseSplits : [
-    {
-      warehouseId: 'wh-1',
-      warehouseName: 'Main Warehouse',
-      totalQty: 18,
-      shipmentCost: 42,
-      lines: [
-        { productName: 'Laptop Pro 14 (Hardware)', quantityAllocated: 18, isManualOverride: false },
-      ],
-    },
-    {
-      warehouseId: 'wh-2',
-      warehouseName: 'East Depot',
-      totalQty: 6,
-      shipmentCost: 29,
-      lines: [
-        { productName: 'Laptop Pro 14 (Hardware)', quantityAllocated: 6, isManualOverride: false },
-      ],
-    },
-  ];
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+        <OdooTopNavbar activeTab="Fulfillment" />
+        <main className="max-w-[1440px] w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 flex-1 text-center py-16 space-y-4">
+          <p className="text-sm font-bold text-slate-700">Order fulfillment record not found</p>
+          <Link
+            to="/v1/fulfillment"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#714b67] text-white"
+          >
+            ← Return to Fulfillment List
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
-  const estimatedShipments = data?.estimatedShipments || warehouseSplits.length || 2;
-  const estimatedShippingTotal = data?.estimatedShippingTotal || 71;
-  const backorders = data?.backorders || [];
+  const order = data.order || {};
+  const customerName = data.customerName || 'Customer';
+  const quoteNumber = data.quoteNumber || order.orderNumber;
+  const items = data.items || [];
+  const warehouseSplits = data.warehouseSplits || [];
+  const estimatedShipments = data.estimatedShipments ?? warehouseSplits.length;
+  const estimatedShippingTotal = data.estimatedShippingTotal ?? 0;
+  const backorders = data.backorders || [];
 
   const handleAcceptSuggestedSplit = async () => {
     setActionLoading(true);
@@ -240,38 +246,46 @@ export default function V1FulfillmentDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {warehouseSplits.map((split, idx) => (
-                  <tr key={split.warehouseId || idx} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-[#714b67]" />
-                        <span>{split.warehouseName}</span>
-                      </div>
-                      {split.lines?.length > 0 && (
-                        <div className="mt-1 pl-4 space-y-0.5">
-                          {split.lines.map((l, lIdx) => (
-                            <div key={lIdx} className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
-                              <span>&bull; {l.productName}</span>
-                              <span className="font-bold text-slate-700">({l.quantityAllocated} units)</span>
-                              {l.isManualOverride && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold">Manual</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
-                      {split.totalQty} units
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">
-                      1
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-[#008784] text-sm">
-                      ₹{Number(split.shipmentCost).toLocaleString()}
+                {warehouseSplits.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-12 text-center text-xs text-slate-400 font-medium">
+                      No warehouse allocations recorded yet. Click &quot;Accept Suggested Split&quot; below to trigger allocation.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  warehouseSplits.map((split, idx) => (
+                    <tr key={split.warehouseId || idx} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-[#714b67]" />
+                          <span>{split.warehouseName}</span>
+                        </div>
+                        {split.lines?.length > 0 && (
+                          <div className="mt-1 pl-4 space-y-0.5">
+                            {split.lines.map((l, lIdx) => (
+                              <div key={lIdx} className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
+                                <span>&bull; {l.productName}</span>
+                                <span className="font-bold text-slate-700">({l.quantityAllocated} units)</span>
+                                {l.isManualOverride && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold">Manual</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
+                        {split.totalQty} units
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-bold text-slate-700">
+                        1
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-[#008784] text-sm">
+                        ₹{Number(split.shipmentCost).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
