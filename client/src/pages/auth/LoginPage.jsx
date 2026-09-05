@@ -26,7 +26,7 @@ const DEMO_PRESETS = [
   { role: 'Finance', email: 'finance@dealflow.io', tag: 'FIN', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   { role: 'Operations', email: 'ops@dealflow.io', tag: 'OPS', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { role: 'Admin', email: 'admin@dealflow.io', tag: 'ADM', color: 'bg-slate-100 text-slate-800 border-slate-300' },
-  { role: 'Customer Portal', email: 'customer@harborline.example', tag: 'CUS', color: 'bg-[#714b67]/10 text-[#714b67] border-[#714b67]/30 font-bold' },
+  { role: 'Customer Portal', email: 'customer@apexlogistics.com', tag: 'CUS', color: 'bg-[#714b67]/10 text-[#714b67] border-[#714b67]/30 font-bold' },
 ];
 
 export default function LoginPage() {
