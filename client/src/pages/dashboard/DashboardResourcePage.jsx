@@ -1,14 +1,5 @@
 /**
- * DashboardResourcePage — TEMPLATE
- *
- * Copy this file for each domain entity in your PS.
- * Rename "Resource" → your entity (e.g. "Product", "Order", "Player").
- *
- * TODO:
- *  1. Update the API endpoint from '/resources' to your entity
- *  2. Update table columns to match your data model
- *  3. Update the create/edit form fields
- *  4. Rename this file to match your entity
+ * DashboardResourcePage — DealFlow360 Domain Entity Template
  */
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
@@ -22,11 +13,10 @@ import Input from '../../components/Input.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Spinner from '../../components/Spinner.jsx';
 
-// TODO: Rename columns to match your data model
 const TABLE_COLUMNS = [
-  { key: 'title',       label: 'Title' },
-  { key: 'status',      label: 'Status' },
-  { key: 'createdAt',   label: 'Created' },
+  { key: 'title',       label: 'Quotation / Entity Ref' },
+  { key: 'status',      label: 'Governance Status' },
+  { key: 'createdAt',   label: 'Created Date' },
 ];
 
 const EMPTY_FORM = { title: '', description: '' };
@@ -42,7 +32,6 @@ export default function DashboardResourcePage() {
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      // TODO: change '/resources' to your endpoint
       const res = await api.get('/resources');
       setItems(res.data.items || []);
     } catch {
@@ -63,7 +52,6 @@ export default function DashboardResourcePage() {
     setSaving(true);
     try {
       if (editId) {
-        // TODO: change '/resources' to your endpoint
         await api.patch(`/resources/${editId}`, formData);
         toast.success('Updated successfully.');
       } else {
@@ -92,15 +80,14 @@ export default function DashboardResourcePage() {
 
   return (
     <div className="space-y-6">
-      {/* TODO: Replace title/subtitle */}
-      <PageHeader title="Resources" subtitle="Manage your resource items.">
-        <Button onClick={handleOpenCreate}>+ Add Resource</Button>
+      <PageHeader title="Quotations & Deal Records" subtitle="Manage and govern B2B sales records and approval flows.">
+        <Button onClick={handleOpenCreate}>+ New Quotation</Button>
       </PageHeader>
 
       {loading ? (
         <div className="flex justify-center py-20"><Spinner /></div>
       ) : items.length === 0 ? (
-        <EmptyState title="No items yet" description="Create your first item to get started." action={{ label: '+ Add Resource', onClick: handleOpenCreate }} />
+        <EmptyState title="No records found" description="Create your first quotation or catalog item to get started." action={{ label: '+ New Quotation', onClick: handleOpenCreate }} />
       ) : (
         <Table
           columns={[
@@ -121,14 +108,13 @@ export default function DashboardResourcePage() {
       )}
 
       {/* Create / Edit modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Edit Item' : 'Create Item'}>
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editId ? 'Edit Quotation Record' : 'Create Quotation Record'}>
         <form onSubmit={handleSave} className="space-y-4">
-          {/* TODO: Replace fields to match your domain */}
-          <Input label="Title" name="title" value={formData.title} onChange={handleChange} required placeholder="Enter title" />
-          <Input label="Description" name="description" value={formData.description} onChange={handleChange} placeholder="Optional description" />
+          <Input label="Quotation Ref / Title" name="title" value={formData.title} onChange={handleChange} required placeholder="e.g. QT-2026-Enterprise Tier" />
+          <Input label="Description / Notes" name="description" value={formData.description} onChange={handleChange} placeholder="Customer terms, billing notes..." />
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button type="submit" loading={saving} disabled={saving}>{editId ? 'Save Changes' : 'Create'}</Button>
+            <Button type="submit" loading={saving} disabled={saving}>{editId ? 'Save Changes' : 'Create Record'}</Button>
           </div>
         </form>
       </Modal>

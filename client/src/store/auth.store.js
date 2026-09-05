@@ -27,7 +27,7 @@ const useAuthStore = create(
       setExiting: (isExiting) => set({ isExiting }),
     }),
     {
-      name: 'app-auth-store', // TODO: rename
+      name: 'dealflow360-auth-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ user: state.user, accessToken: state.accessToken, isLoggedIn: state.isLoggedIn }),
       onRehydrateStorage: () => (state) => { state?.setHydrated(); },

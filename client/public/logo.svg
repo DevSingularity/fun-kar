@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <rect width="120" height="120" rx="28" fill="#714B67"/>
+  <!-- Odoo style Deal Flow geometric loop / arrows -->
+  <path d="M35 44C35 34.0589 43.0589 26 53 26H67C76.9411 26 85 34.0589 85 44V50C85 59.9411 76.9411 68 67 68H45" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M85 76C85 85.9411 76.9411 94 67 94H53C43.0589 94 35 85.9411 35 76V70C35 60.0589 43.0589 52 53 52H75" stroke="#00A09D" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="45" cy="68" r="4.5" fill="#FFFFFF"/>
+  <circle cx="75" cy="52" r="4.5" fill="#00A09D"/>
+</svg>

@@ -1,28 +1,37 @@
 /**
  * DashboardLayout
  *
- * Shared shell for all authenticated dashboard pages.
- *
- * TODO:
- *  1. Update navigationItems with your app's real pages
- *  2. Replace the logo/app name references
- *  3. Add socket.io connection here if your PS needs real-time features
+ * Shared shell for all authenticated DealFlow360 pages.
  */
 import { useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  FileSpreadsheet, 
+  ShieldCheck, 
+  Package, 
+  Boxes, 
+  CreditCard, 
+  Handshake, 
+  Activity, 
+  BarChart3, 
+  LogOut 
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
 
-// TODO: Replace with your app's real navigation items
-// icon: any lucide-react icon component
 const navigationItems = [
   { label: 'Overview', path: '/dashboard', icon: LayoutDashboard },
-  // { label: 'Resources', path: '/dashboard/resources', icon: Layers },
-  // { label: 'Analytics', path: '/dashboard/analytics', icon: BarChart3 },
-  // Add more items here ↑
+  { label: 'Quotations', path: '/dashboard/quotations', icon: FileSpreadsheet },
+  { label: 'Approvals & Governance', path: '/dashboard/approvals', icon: ShieldCheck },
+  { label: 'Catalog & Pricing', path: '/dashboard/products', icon: Package },
+  { label: 'Fulfillment & Stock', path: '/dashboard/fulfillment', icon: Boxes },
+  { label: 'Hybrid Billing', path: '/dashboard/billing', icon: CreditCard },
+  { label: 'Customer Deal Room', path: '/dashboard/deal-room', icon: Handshake },
+  { label: 'Deal Health Radar', path: '/dashboard/deal-health', icon: Activity },
+  { label: 'Executive Reports', path: '/dashboard/reports', icon: BarChart3 },
 ];
 
 export default function DashboardLayout() {
@@ -43,53 +52,57 @@ export default function DashboardLayout() {
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--app-gradient-shell)' }}>
       {/* ── Sidebar ── */}
-      <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-(--app-color-border) bg-white/90 backdrop-blur">
+      <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-(--app-color-border) bg-white backdrop-blur">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 px-6 py-5 hover:opacity-80">
-          {/* TODO: Replace logo.png */}
-          <img src="/logo.png" alt="Logo" className="h-8 w-8 object-contain" />
-          {/* TODO: Replace app name */}
-          <span className="text-sm font-black uppercase tracking-widest text-(--app-color-text)">App Name</span>
+        <Link to="/" className="flex items-center gap-2.5 px-6 py-4.5 border-b border-(--app-color-border)/70 hover:opacity-90 transition-opacity">
+          <img src="/logo.svg" alt="DealFlow360" className="h-7 w-7 object-contain" />
+          <div className="flex items-baseline font-bold tracking-tight text-base">
+            <span className="text-(--app-color-primary)">DealFlow</span>
+            <span className="text-(--app-color-accent) font-extrabold ml-0.5">360</span>
+          </div>
         </Link>
 
         {/* Nav items */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+          <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-(--app-color-text-muted)">
+            Sales Operations
+          </div>
           {navigationItems.map(({ label, path, icon: Icon }) => {
             const active = location.pathname === path;
             return (
               <Link
                 key={path}
                 to={path}
-                className={`flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
                   active
-                    ? 'bg-(--app-color-primary-soft) text-(--app-color-primary)'
-                    : 'text-(--app-color-text-muted) hover:bg-(--app-color-surface-elevated) hover:text-(--app-color-text)'
+                    ? 'bg-(--app-color-primary) text-white shadow-sm'
+                    : 'text-(--app-color-text) hover:bg-(--app-color-surface-elevated)'
                 }`}
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                {label}
+                <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-white' : 'text-(--app-color-primary)'}`} />
+                <span className="truncate">{label}</span>
               </Link>
             );
           })}
         </nav>
 
         {/* User / logout footer */}
-        <div className="border-t border-(--app-color-border) p-4 space-y-2">
-          <div className="flex items-center gap-3 rounded-xl px-3 py-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--app-color-primary-soft) text-xs font-black text-(--app-color-primary)">
+        <div className="border-t border-(--app-color-border) p-3 space-y-1.5 bg-(--app-color-surface-elevated)/60">
+          <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 bg-white border border-(--app-color-border)">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-(--app-color-primary-soft) text-xs font-bold text-(--app-color-primary)">
               {user?.name?.[0]?.toUpperCase() ?? 'U'}
             </div>
-            <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-(--app-color-text)">{user?.name ?? 'User'}</p>
-              <p className="truncate text-[10px] text-(--app-color-text-muted)">{user?.email ?? ''}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-bold text-(--app-color-text)">{user?.name ?? 'Sales Officer'}</p>
+              <p className="truncate text-[10px] text-(--app-color-text-muted)">{user?.role || user?.email || 'sales@dealflow.io'}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-(--app-color-text-muted) hover:bg-red-50 hover:text-red-600 transition-colors"
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-(--app-color-text-muted) hover:bg-red-50 hover:text-red-600 transition-colors"
           >
-            <LogOut className="h-4 w-4" />
-            Sign out
+            <LogOut className="h-3.5 w-3.5" />
+            Sign Out
           </button>
         </div>
       </aside>
