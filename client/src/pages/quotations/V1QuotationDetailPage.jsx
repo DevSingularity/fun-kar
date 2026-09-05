@@ -673,25 +673,6 @@ export default function V1QuotationDetailPage() {
           </div>
         </div>
 
-        {/* ── Live Policy Check Callout Banner ── */}
-        <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/80 text-amber-900 text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <Info className="h-4 w-4 text-amber-600 shrink-0" />
-            <span className="font-semibold">
-              Discount is checked against each line&apos;s own limit live, as soon as it is entered, not only at submit time.
-            </span>
-          </div>
-          {hasAnyOverLimit ? (
-            <span className="shrink-0 text-[10px] font-extrabold px-2.5 py-1 rounded bg-amber-200/80 text-amber-900 border border-amber-300">
-              Requires Manager Approval
-            </span>
-          ) : (
-            <span className="shrink-0 text-[10px] font-extrabold px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-              Auto-Approval Eligible
-            </span>
-          )}
-        </div>
-
         {/* ── Upsell and Cross-Sell Suggestions (Real Products from Catalog) ── */}
         {isDraft && (
           <div className="space-y-3 pt-2">
