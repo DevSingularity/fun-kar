@@ -1,7 +1,11 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ path: './server/.env' });
+dotenv.config();
+
 import { connectDatabase, getDb } from '../config/database.js';
-import { users } from './schema/users.js';
+import { users, customerUsers } from './schema/users.js';
 import {
+
   productCategories,
   products,
   productVariants,
@@ -521,10 +525,69 @@ async function runSeed() {
     }
     console.log('[SEED] Seeded multi-warehouse inventory stock levels.');
   }
+  
+  // 10. Seed Customer Portal Contacts (customer_users)
+  console.log('[SEED] Upserting Customer Portal user contacts...');
+  const customerList = await db.select().from(customers);
+  const customerMap = {};
+  for (const c of customerList) {
+    customerMap[c.email.toLowerCase()] = c;
+  }
 
-  console.log('[SEED] ✅ Master data seed (Phases 1–5) completed successfully.');
+  const SEED_CUSTOMER_USERS = [
+    {
+      customerEmail: 'procurement@apexlogistics.com',
+      email: 'customer@apexlogistics.com',
+      name: 'Vikram Malhotra (Procurement Head)',
+    },
+    {
+      customerEmail: 'it-purchasing@starlightfin.io',
+      email: 'customer@starlightfin.io',
+      name: 'Priya Sharma (IT Purchasing)',
+    },
+    {
+      customerEmail: 'enterprise-deals@omnicorp.com',
+      email: 'customer@omnicorp.com',
+      name: 'David Vance (OmniCorp VP)',
+    },
+  ];
+
+  for (const cu of SEED_CUSTOMER_USERS) {
+    const parentCustomer = customerMap[cu.customerEmail.toLowerCase()] || customerList[0];
+    if (parentCustomer) {
+      const existing = await db
+        .select()
+        .from(customerUsers)
+        .where(sql`lower(${customerUsers.email}) = ${cu.email.toLowerCase()}`)
+        .limit(1);
+
+      if (existing.length === 0) {
+        await db.insert(customerUsers).values({
+          customerId: parentCustomer.id,
+          name: cu.name,
+          email: cu.email.toLowerCase(),
+          passwordHash,
+          isActive: true,
+        });
+        console.log(`[SEED] Created Customer Portal user: ${cu.email} (${cu.name})`);
+      } else {
+        await db
+          .update(customerUsers)
+          .set({
+            name: cu.name,
+            passwordHash,
+            isActive: true,
+            updatedAt: new Date(),
+          })
+          .where(sql`lower(${customerUsers.email}) = ${cu.email.toLowerCase()}`);
+        console.log(`[SEED] Updated Customer Portal user: ${cu.email}`);
+      }
+    }
+  }
+  console.log('[SEED] ✅ Master data seed (Phases 1–5) & Customer Portal seed completed successfully.');
   process.exit(0);
 }
+
 
 runSeed().catch((err) => {
   console.error('[SEED] ❌ Failed to seed database:', err);

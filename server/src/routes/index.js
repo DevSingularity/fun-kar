@@ -13,6 +13,12 @@ import approvalRoutes from '../modules/approval/approval.routes.js';
 import { adminRouter as upsellRulesRoutes, suggestionsRouter as quoteUpsellRoutes } from '../modules/intelligence/intelligence.routes.js';
 import warehousesRoutes from '../modules/warehouses/warehouses.routes.js';
 import fulfillmentRoutes from '../modules/fulfillment/fulfillment.routes.js';
+import portalAuthRoutes from '../modules/portalAuth/portalAuth.routes.js';
+import customerPortalUsersRoutes from '../modules/customerPortalUsers/customerPortalUsers.routes.js';
+import quotationSharingRoutes from '../modules/quotationSharing/quotationSharing.routes.js';
+import portalQuotesRoutes from '../modules/portalQuotes/portalQuotes.routes.js';
+import { quotationNegotiationRouter, requestActionsRouter } from '../modules/negotiation/negotiation.internal.routes.js';
+import paymentsRoutes from '../modules/payments/payments.routes.js';
 
 const router = Router();
 
@@ -36,4 +42,14 @@ router.use('/warehouses', warehousesRoutes);
 router.use('/orders', fulfillmentRoutes);
 router.use('/fulfillment', fulfillmentRoutes);
 
+// Phase 7 Modules
+router.use('/portal/auth', portalAuthRoutes);
+router.use('/customers/:customerId/portal-users', customerPortalUsersRoutes);
+router.use('/quotations', quotationSharingRoutes);
+router.use('/quotations', quotationNegotiationRouter);
+router.use('/negotiation-requests', requestActionsRouter);
+router.use('/portal/quotes', portalQuotesRoutes);
+router.use('/invoices', paymentsRoutes);
+
 export default router;
+
