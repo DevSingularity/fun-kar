@@ -24,20 +24,21 @@ import {
 const router = Router();
 
 router.use(authenticate);
+router.use(authorize('ADMIN'));
 
-// Overview / read routes (all authenticated users can read policy rules)
+// Overview / read routes (Admin only)
 router.get('/overview', asyncHandler(handleGetGovernanceOverview));
 router.get('/tier-limits', asyncHandler(handleGetTierLimits));
 router.get('/category-limits', asyncHandler(handleGetCategoryLimits));
 router.get('/approval-rules', asyncHandler(handleGetApprovalRules));
 
-// Mutations (Admin and Sales Manager can manage discount policies)
-router.post('/tier-limits', authorize('ADMIN'), validateSetTierLimit, asyncHandler(handleSetTierLimit));
-router.post('/category-limits', authorize('ADMIN'), validateSetCategoryLimit, asyncHandler(handleSetCategoryLimit));
-router.delete('/category-limits/:id', authorize('ADMIN'), asyncHandler(handleDeleteCategoryLimit));
+// Mutations (Admin only)
+router.post('/tier-limits', validateSetTierLimit, asyncHandler(handleSetTierLimit));
+router.post('/category-limits', validateSetCategoryLimit, asyncHandler(handleSetCategoryLimit));
+router.delete('/category-limits/:id', asyncHandler(handleDeleteCategoryLimit));
 
-router.post('/approval-rules', authorize('ADMIN'), validateCreateApprovalRule, asyncHandler(handleCreateApprovalRule));
-router.patch('/approval-rules/:id', authorize('ADMIN'), validateUpdateApprovalRule, asyncHandler(handleUpdateApprovalRule));
-router.delete('/approval-rules/:id', authorize('ADMIN'), asyncHandler(handleDeleteApprovalRule));
+router.post('/approval-rules', validateCreateApprovalRule, asyncHandler(handleCreateApprovalRule));
+router.patch('/approval-rules/:id', validateUpdateApprovalRule, asyncHandler(handleUpdateApprovalRule));
+router.delete('/approval-rules/:id', asyncHandler(handleDeleteApprovalRule));
 
 export default router;

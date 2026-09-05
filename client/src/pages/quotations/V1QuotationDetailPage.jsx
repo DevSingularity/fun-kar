@@ -47,18 +47,6 @@ export default function V1QuotationDetailPage() {
   // Line items state
   const [items, setItems] = useState([]);
 
-  // Data lists
-  const [products, setProducts] = useState([]);
-  const [customers, setCustomers] = useState([]);
-
-  // Quotation header state
-  const [quoteData, setQuoteData] = useState(null);
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [promisedDeliveryDate, setPromisedDeliveryDate] = useState('');
-
-  // Line items state
-  const [items, setItems] = useState([]);
-
   // Line item add modal
   const [showAddLineModal, setShowAddLineModal] = useState(false);
   const [newLine, setNewLine] = useState({

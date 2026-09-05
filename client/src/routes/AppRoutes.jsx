@@ -18,6 +18,7 @@ import V1DealHealthPage from '../pages/dealHealth/V1DealHealthPage.jsx';
 import V1DealDetailPage from '../pages/dealHealth/V1DealDetailPage.jsx';
 import V1FulfillmentPage from '../pages/fulfillment/V1FulfillmentPage.jsx';
 import V1FulfillmentDetailPage from '../pages/fulfillment/V1FulfillmentDetailPage.jsx';
+import V1GovernancePage from '../pages/governance/V1GovernancePage.jsx';
 import ProductsPage from '../pages/catalog/ProductsPage.jsx';
 import PricingPage from '../pages/catalog/PricingPage.jsx';
 import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
@@ -106,6 +107,12 @@ export default function AppRoutes() {
             <Route path="/v1/deal-health/:quotationId" element={<V1DealDetailPage />} />
             <Route path="/v1/deal/:quotationId" element={<V1DealDetailPage />} />
             <Route path="/v1/deals" element={<V1DealHealthPage />} />
+          </Route>
+
+          {/* Governance & Risk Engine: Admin Only */}
+          <Route element={<RoleRoute allowedRoles={['ADMIN']} />}>
+            <Route path="/v1/governance" element={<V1GovernancePage />} />
+            <Route path="/v1/discounts" element={<V1GovernancePage />} />
           </Route>
 
           {/* Fulfillment: Operations, Admin */}
