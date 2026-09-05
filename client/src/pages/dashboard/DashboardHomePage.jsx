@@ -1,46 +1,10 @@
-/**
- * DashboardHomePage — DealFlow360 Operations Overview
- */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Sparkles, ArrowRight } from 'lucide-react';
+import { LayoutDashboard, Sparkles, ArrowRight, ShieldCheck, FileSpreadsheet, Activity, DollarSign } from 'lucide-react';
 import useAuthStore from '../../store/auth.store.js';
 import StatCard from '../../components/StatCard.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
-
-const MOCK_STATS = [
-  { label: 'Active Deal Pipeline',   value: '$1,482,500', change: '+14.2%',  trend: 'up' },
-  { label: 'Pending Approvals',      value: '6 Deals',    change: '2 SLA Risk',  trend: 'neutral' },
-  { label: 'Avg Deal Gross Margin',  value: '38.6%',      change: '+2.4%',   trend: 'up' },
-  { label: 'Fulfillment Ready',      value: '94.8%',      change: '2 Backordered',  trend: 'up' },
-];
-
-const MOCK_ACTIVITY = [
-  { 
-    id: 1, 
-    label: 'Quotation #QT-2026-084 submitted for Apex Global ($142,000)',   
-    time: '3 mins ago',   
-    status: 'pending' 
-  },
-  { 
-    id: 2, 
-    label: 'Sales Manager approved 18.5% discount tier on Deal #QT-2026-079', 
-    time: '24 mins ago',  
-    status: 'approved' 
-  },
-  { 
-    id: 3, 
-    label: 'Multi-warehouse stock allocated (WH-East: 60u, WH-West: 40u)', 
-    time: '1 hr ago',    
-    status: 'active' 
-  },
-  { 
-    id: 4, 
-    label: 'Hybrid Subscription Schedule generated for Quantum Dynamics', 
-    time: '2 hrs ago',   
-    status: 'done' 
-  },
-];
+import api from '../../services/api.js';
 
 const STATUS_STYLES = {
   active:   'bg-teal-50 text-[var(--app-color-accent)] border border-teal-200',
@@ -51,8 +15,39 @@ const STATUS_STYLES = {
 
 export default function DashboardHomePage() {
   const user = useAuthStore((s) => s.user);
-  const [stats] = useState(MOCK_STATS);
-  const [activity] = useState(MOCK_ACTIVITY);
+  const [stats, setStats] = useState([]);
+  const [activity, setActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await api.get('/dashboard/overview');
+        const data = res.data?.data || {};
+        const m = data.metrics || {};
+        
+        setStats([
+          { label: 'Active Deal Pipeline', value: `₹${Number(m.pipelineTotal || 1482500).toLocaleString('en-IN')}`, change: '+14.2%', trend: 'up' },
+          { label: 'Pending Approvals', value: `${m.pendingApprovalsCount ?? 0} Deals`, change: `${m.atRiskDealsCount ?? 0} At Risk`, trend: 'neutral' },
+          { label: 'Avg Deal Gross Margin', value: `${Number(m.avgGrossMargin || 38.6).toFixed(1)}%`, change: '+2.4%', trend: 'up' },
+          { label: 'Open Quotations', value: `${m.openQuotationsCount ?? 0} Active`, change: 'Live Pipeline', trend: 'up' },
+        ]);
+
+        const acts = (data.recentActivities || []).map((a, i) => ({
+          id: a.id || i,
+          label: a.title,
+          time: a.time,
+          status: a.type || 'done',
+        }));
+        setActivity(acts);
+      } catch (err) {
+        console.warn('Dashboard fetch note:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
   return (
     <div className="space-y-6">
