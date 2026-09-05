@@ -5,40 +5,28 @@ import {
   Plus, 
   ShieldCheck, 
   Boxes, 
-  CreditCard, 
   Activity, 
   BarChart3, 
   Package, 
-  Receipt, 
-  Sparkles, 
   Clock, 
-  AlertTriangle, 
   CheckCircle2, 
-  Sun, 
-  Moon, 
-  LogOut, 
-  User, 
   Layers, 
   ArrowUpRight,
-  MousePointer2,
-  Calendar,
   Building2,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
+import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
 
 export default function V1DashboardPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
 
   const [loading, setLoading] = useState(true);
   const [quotations, setQuotations] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [darkMode, setDarkMode] = useState(true);
-  const [brightness, setBrightness] = useState(85);
 
   // New Quotation Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -74,15 +62,6 @@ export default function V1DashboardPage() {
     fetchData();
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout');
-    } catch { /* ignore */ }
-    clearAuth();
-    toast.success('Logged out.');
-    navigate('/login');
-  };
-
   const handleCreateQuote = async (e) => {
     e.preventDefault();
     if (!formData.customerId) {
@@ -99,7 +78,7 @@ export default function V1DashboardPage() {
       setShowCreateModal(false);
       const newId = res.data?.data?.quotation?.id || res.data?.data?.id;
       if (newId) {
-        navigate(`/dashboard/quotations/${newId}`);
+        navigate(`/v1/quotations/${newId}`);
       } else {
         fetchData();
       }
@@ -119,147 +98,49 @@ export default function V1DashboardPage() {
     q.marginHealth === 'LOW_MARGIN' || q.marginHealth === 'WATCH' || Number(q.estimatedMarginPct) < 20
   ).length || 3;
 
-  // Build activity feed with live real quotations + official PS wireframe mock highlights
+  // Build clean activity feed with live real quotations + official scenario highlights
   const recentActivities = [
     {
       id: 'mock-1',
       title: 'Acme Corp quotation approved by Finance',
       type: 'approved',
       time: '10 mins ago',
-      source: 'PS Scenario'
     },
     {
       id: 'mock-2',
       title: 'Beta Industries requested a discount change',
       type: 'pending',
       time: '35 mins ago',
-      source: 'PS Scenario'
     },
     {
       id: 'mock-3',
       title: 'East Depot stock updated for Order #2291',
       type: 'system',
       time: '1 hr ago',
-      source: 'PS Scenario'
     },
     ...quotations.slice(0, 4).map((q) => ({
       id: q.id,
       title: `${q.customerName || 'Customer'} — Quotation ${q.quoteNumber} (${q.status.replace('_', ' ')})`,
       type: q.status === 'APPROVED' ? 'approved' : q.status === 'PENDING_APPROVAL' ? 'pending' : 'draft',
-      time: 'Live',
-      source: 'Live Neon DB',
+      time: 'Just now',
       quoteId: q.id,
     })),
   ];
 
-  const navTabs = [
-    { label: 'Dashboard', path: '/v1/dashboard', active: true },
-    { label: 'Quotations', path: '/v1/quotations', active: false },
-    { label: 'Approvals', path: '/dashboard/approvals', active: false },
-    { label: 'Fulfillment', path: '/dashboard/fulfillment', active: false },
-    { label: 'Subscriptions', path: '/dashboard/billing', active: false },
-    { label: 'Invoices', path: '/dashboard/billing', active: false },
-    { label: 'Deal Health', path: '/dashboard/deal-health', active: false },
-    { label: 'Reports', path: '/dashboard/reports', active: false },
-    { label: 'Product', path: '/dashboard/products', active: false },
-  ];
-
-  const bgStyle = darkMode 
-    ? { backgroundColor: `rgba(18, 20, 24, ${brightness / 100})` }
-    : { backgroundColor: '#f8fafc' };
-
   return (
-    <div 
-      className={`min-h-screen transition-colors duration-300 flex flex-col font-sans ${
-        darkMode ? 'text-slate-100' : 'text-slate-800'
-      }`}
-      style={bgStyle}
-    >
-      {/* ── Top Odoo Official Horizontal Navigation Bar ── */}
-      <header className="bg-[#4a90e2] text-white shadow-md select-none sticky top-0 z-40">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
-          
-          {/* Brand & Tabs */}
-          <div className="flex items-center gap-4 lg:gap-6 overflow-x-auto no-scrollbar py-1">
-            <Link 
-              to="/v1/dashboard" 
-              className="font-bold text-lg tracking-tight shrink-0 flex items-center gap-2 hover:opacity-95 transition-opacity"
-            >
-              <div className="h-7 w-7 rounded-md bg-white/20 flex items-center justify-center font-black text-sm">
-                DF
-              </div>
-              <span className="font-extrabold text-white text-base">DealFlow360</span>
-            </Link>
-
-            {/* Horizontal Pill Tabs */}
-            <nav className="flex items-center gap-1.5 shrink-0">
-              {navTabs.map((tab) => {
-                if (tab.active) {
-                  return (
-                    <div
-                      key={tab.label}
-                      className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#111827] text-white shadow-inner transition-all cursor-default"
-                    >
-                      {tab.label}
-                    </div>
-                  );
-                }
-                return (
-                  <Link
-                    key={tab.label}
-                    to={tab.path}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white/90 hover:bg-white/20 hover:text-white transition-all whitespace-nowrap"
-                  >
-                    {tab.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Right User Controls */}
-          <div className="flex items-center gap-3 shrink-0 ml-4">
-            <div className="hidden sm:flex items-center gap-1.5 bg-black/20 rounded-full px-2.5 py-1 border border-white/15 text-[11px] font-semibold">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{user?.role || 'SALES_REP'}</span>
-            </div>
-
-            {/* User Avatars P & G from wireframe */}
-            <div className="flex items-center -space-x-1.5">
-              <div 
-                title={user?.name || 'Primary User'} 
-                className="h-8 w-8 rounded-full bg-[#f97316] text-white flex items-center justify-center font-bold text-xs shadow-xs border-2 border-[#4a90e2]"
-              >
-                {user?.name?.[0]?.toUpperCase() || 'P'}
-              </div>
-              <div 
-                title="Governor / Manager" 
-                className="h-8 w-8 rounded-full bg-[#0284c7] text-white flex items-center justify-center font-bold text-xs shadow-xs border-2 border-[#4a90e2]"
-              >
-                G
-              </div>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              title="Sign Out"
-              className="p-1.5 rounded-md hover:bg-white/20 text-white/90 hover:text-white transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+      {/* ── Enterprise Global Navbar ── */}
+      <OdooTopNavbar activeTab="Dashboard" />
 
       {/* ── Main Content Area ── */}
       <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-8 space-y-8">
         
         {/* Page Title & Subtitle */}
         <div className="space-y-1">
-          <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             Sales Dashboard / Home
           </h1>
-          <p className={`text-xs sm:text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium">
             Central hub, links out to every module below
           </p>
         </div>
@@ -269,23 +150,19 @@ export default function V1DashboardPage() {
           
           {/* Card 1: Pending Approvals */}
           <Link
-            to="/dashboard/approvals"
-            className={`group block p-5 rounded-2xl border transition-all duration-200 ${
-              darkMode 
-                ? 'border-slate-700/80 bg-slate-900/60 hover:border-amber-500/60 hover:bg-slate-900/90 shadow-lg' 
-                : 'border-slate-200 bg-white hover:border-amber-400 hover:shadow-md'
-            }`}
+            to="/dashboard/governance"
+            className="group block p-6 rounded-xl border border-slate-200 bg-white hover:border-[#714b67] hover:shadow-md transition-all duration-200 shadow-xs"
           >
             <div className="flex items-start justify-between">
               <div className="space-y-1.5">
-                <h3 className={`text-sm font-semibold tracking-wide ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                <h3 className="text-sm font-bold text-slate-800 group-hover:text-[#714b67] transition-colors">
                   Pending Approvals
                 </h3>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <span className="font-bold text-amber-400">{pendingApprovalsCount}</span> quotations waiting
+                <p className="text-xs text-slate-500 font-medium">
+                  <span className="font-extrabold text-amber-600 text-sm">{pendingApprovalsCount}</span> quotations waiting
                 </p>
               </div>
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 group-hover:scale-110 transition-transform">
+              <div className="p-2.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 group-hover:scale-105 transition-transform">
                 <ShieldCheck className="h-5 w-5" />
               </div>
             </div>
@@ -293,23 +170,19 @@ export default function V1DashboardPage() {
 
           {/* Card 2: Open Quotations */}
           <Link
-            to="/dashboard/quotations"
-            className={`group block p-5 rounded-2xl border transition-all duration-200 ${
-              darkMode 
-                ? 'border-slate-700/80 bg-slate-900/60 hover:border-sky-500/60 hover:bg-slate-900/90 shadow-lg' 
-                : 'border-slate-200 bg-white hover:border-sky-400 hover:shadow-md'
-            }`}
+            to="/v1/quotations"
+            className="group block p-6 rounded-xl border border-slate-200 bg-white hover:border-[#008784] hover:shadow-md transition-all duration-200 shadow-xs"
           >
             <div className="flex items-start justify-between">
               <div className="space-y-1.5">
-                <h3 className={`text-sm font-semibold tracking-wide ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                <h3 className="text-sm font-bold text-slate-800 group-hover:text-[#008784] transition-colors">
                   Open Quotations
                 </h3>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <span className="font-bold text-sky-400">{openQuotesCount}</span> active deals
+                <p className="text-xs text-slate-500 font-medium">
+                  <span className="font-extrabold text-[#008784] text-sm">{openQuotesCount}</span> active deals
                 </p>
               </div>
-              <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:scale-110 transition-transform">
+              <div className="p-2.5 rounded-lg bg-teal-50 text-[#008784] border border-teal-200 group-hover:scale-105 transition-transform">
                 <FileSpreadsheet className="h-5 w-5" />
               </div>
             </div>
@@ -317,117 +190,93 @@ export default function V1DashboardPage() {
 
           {/* Card 3: At-Risk Deals */}
           <Link
-            to="/dashboard/deal-health"
-            className={`group block p-5 rounded-2xl border transition-all duration-200 ${
-              darkMode 
-                ? 'border-slate-700/80 bg-slate-900/60 hover:border-rose-500/60 hover:bg-slate-900/90 shadow-lg' 
-                : 'border-slate-200 bg-white hover:border-rose-400 hover:shadow-md'
-            }`}
+            to="/dashboard/governance"
+            className="group block p-6 rounded-xl border border-slate-200 bg-white hover:border-rose-400 hover:shadow-md transition-all duration-200 shadow-xs"
           >
             <div className="flex items-start justify-between">
               <div className="space-y-1.5">
-                <h3 className={`text-sm font-semibold tracking-wide ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                <h3 className="text-sm font-bold text-slate-800 group-hover:text-rose-600 transition-colors">
                   At-Risk Deals
                 </h3>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <span className="font-bold text-rose-400">{atRiskCount}</span> flagged by Deal Health
+                <p className="text-xs text-slate-500 font-medium">
+                  <span className="font-extrabold text-rose-600 text-sm">{atRiskCount}</span> flagged by Deal Health
                 </p>
               </div>
-              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 group-hover:scale-110 transition-transform">
+              <div className="p-2.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 group-hover:scale-105 transition-transform">
                 <Activity className="h-5 w-5" />
               </div>
             </div>
           </Link>
         </div>
 
-        {/* ── Action Buttons with Pointer Indicator ── */}
-        <div className="flex flex-wrap items-center gap-3 pt-1">
+        {/* ── Action Buttons Row ── */}
+        <div className="flex flex-wrap items-center gap-3">
           
-          {/* + New Quotation Button with "Handy Owl" Tag */}
-          <div className="relative inline-flex items-center">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#4a90e2] hover:bg-[#357abd] text-white shadow-md hover:shadow-lg transition-all active:scale-95"
-            >
-              <Plus className="h-4 w-4" />
-              + New Quotation
-            </button>
-            
-            {/* Interactive Wireframe Tag */}
-            <div className="hidden sm:flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-md bg-[#0f382a] text-[#4ade80] border border-[#22c55e]/30 text-[10px] font-semibold">
-              <MousePointer2 className="h-3 w-3 fill-current rotate-12 text-[#22c55e]" />
-              <span>Handy Owl</span>
-            </div>
-          </div>
+          {/* + New Quotation Button */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
+          >
+            <Plus className="h-4 w-4" />
+            + New Quotation
+          </button>
 
           {/* View Approvals Button */}
           <Link
-            to="/dashboard/approvals"
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
-              darkMode 
-                ? 'border-slate-700 bg-slate-900/80 text-slate-200 hover:border-slate-500 hover:bg-slate-800' 
-                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
+            to="/dashboard/governance"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-xs"
           >
             View Approvals
           </Link>
 
           <Link
             to="/dashboard"
-            className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors ml-auto`}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors ml-auto"
           >
-            <span>Switch to Classic Grid Hub</span>
+            <span>Switch to Classic Workspace</span>
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </div>
 
         {/* ── Recent Activity Section ── */}
-        <div className="space-y-4 pt-4">
+        <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-[#38bdf8] uppercase tracking-wider flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[#38bdf8]" />
+            <h2 className="text-xs font-bold text-[#008784] uppercase tracking-wider flex items-center gap-2">
+              <Clock className="h-4 w-4 text-[#008784]" />
               Recent Activity
             </h2>
-            <span className="text-[11px] text-slate-500">Auto-synced with Neon DB</span>
+            <span className="text-[11px] text-slate-400 font-medium">Real-Time Event Stream</span>
           </div>
 
-          <div className={`rounded-2xl border p-5 space-y-3.5 ${
-            darkMode 
-              ? 'border-slate-800/90 bg-slate-900/40 backdrop-blur-xs' 
-              : 'border-slate-200 bg-white shadow-xs'
-          }`}>
-            <ul className="space-y-2.5">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+            <ul className="divide-y divide-slate-100">
               {recentActivities.map((act) => (
                 <li 
                   key={act.id} 
-                  className={`flex items-center justify-between text-xs py-1.5 px-3 rounded-lg transition-colors ${
-                    darkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'
-                  }`}
+                  className="flex items-center justify-between text-xs py-3 px-2 hover:bg-slate-50/80 rounded-lg transition-colors"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-slate-500 font-bold">•</span>
-                    <span className={`truncate font-medium ${
-                      darkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>
+                    <span className="text-slate-400 font-bold">•</span>
+                    <span className="truncate font-semibold text-slate-700">
                       {act.title}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 ml-4">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${
+                  <div className="flex items-center gap-2.5 shrink-0 ml-4">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
                       act.type === 'approved' 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                         : act.type === 'pending'
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        : 'bg-slate-700/40 text-slate-400 border border-slate-700/50'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200'
                     }`}>
                       {act.time}
                     </span>
 
                     {act.quoteId && (
                       <Link
-                        to={`/dashboard/quotations/${act.quoteId}`}
-                        className="text-[11px] text-[#38bdf8] hover:underline flex items-center gap-0.5"
+                        to={`/v1/quotations/${act.quoteId}`}
+                        className="text-[11px] font-bold text-[#008784] hover:underline flex items-center gap-0.5"
                       >
                         Open <ArrowUpRight className="h-3 w-3" />
                       </Link>
@@ -438,57 +287,20 @@ export default function V1DashboardPage() {
             </ul>
           </div>
         </div>
-
-        {/* ── Absolute Caterpillar Floating Tag ── */}
-        <div className="flex justify-center pt-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#452210] text-[#f97316] border border-[#ea580c]/30 text-[11px] font-bold shadow-md animate-bounce">
-            <MousePointer2 className="h-3.5 w-3.5 fill-current text-[#f97316]" />
-            <span>Absolute Caterpillar</span>
-          </div>
-        </div>
       </main>
-
-      {/* ── Bottom Theme Brightness Control Slider (from wireframe) ── */}
-      <footer className="mt-auto py-4 border-t border-slate-800/80 bg-black/40 backdrop-blur-md">
-        <div className="max-w-[400px] mx-auto px-4 flex items-center justify-center gap-4">
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white transition-colors"
-            title="Toggle Light / Dark Base"
-          >
-            {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4 text-amber-500" />}
-          </button>
-          
-          <input
-            type="range"
-            min="30"
-            max="100"
-            value={brightness}
-            onChange={(e) => setBrightness(Number(e.target.value))}
-            className="w-48 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#4a90e2]"
-            title="Adjust Canvas Dimness"
-          />
-
-          <span className="text-[10px] font-mono text-slate-400 shrink-0">
-            {brightness}% Dim
-          </span>
-        </div>
-      </footer>
 
       {/* ── Modal: Create New Quotation ── */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl space-y-5 ${
-            darkMode ? 'border-slate-700 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900'
-          }`}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-700/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-5 text-slate-900">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-[#4a90e2]" />
-                <h3 className="font-bold text-base">New Quotation Header</h3>
+                <FileSpreadsheet className="h-5 w-5 text-[#714b67]" />
+                <h3 className="font-bold text-base text-slate-900">New Quotation Header</h3>
               </div>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -496,18 +308,14 @@ export default function V1DashboardPage() {
 
             <form onSubmit={handleCreateQuote} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold mb-1 text-slate-300">
-                  Customer Account <span className="text-rose-400">*</span>
+                <label className="block font-bold mb-1 text-slate-700">
+                  Customer Account <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={formData.customerId}
                   onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
                   required
-                  className={`w-full rounded-xl border px-3.5 py-2.5 font-medium outline-hidden transition-all ${
-                    darkMode 
-                      ? 'border-slate-700 bg-slate-800 text-white focus:border-[#4a90e2]' 
-                      : 'border-slate-300 bg-white text-slate-900 focus:border-[#4a90e2]'
-                  }`}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 font-medium text-slate-800 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"
                 >
                   <option value="" disabled>Select customer...</option>
                   {customers.map((c) => (
@@ -519,33 +327,29 @@ export default function V1DashboardPage() {
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-slate-300">
+                <label className="block font-bold mb-1 text-slate-700">
                   Promised Delivery Date (Optional)
                 </label>
                 <input
                   type="date"
                   value={formData.promisedDeliveryDate}
                   onChange={(e) => setFormData({ ...formData, promisedDeliveryDate: e.target.value })}
-                  className={`w-full rounded-xl border px-3.5 py-2.5 font-medium outline-hidden transition-all ${
-                    darkMode 
-                      ? 'border-slate-700 bg-slate-800 text-white focus:border-[#4a90e2]' 
-                      : 'border-slate-300 bg-white text-slate-900 focus:border-[#4a90e2]'
-                  }`}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 font-medium text-slate-800 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-700/50">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-[#4a90e2] hover:bg-[#357abd] text-white shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {submitting ? 'Creating...' : 'Create & Open Builder →'}
                 </button>
