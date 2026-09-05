@@ -24,19 +24,15 @@ import toast from 'react-hot-toast';
 import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
 
-const navigationItems = [
-  { label: 'Operations Overview', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Customer Accounts', path: '/dashboard/customers', icon: Building2 },
-  { label: 'Product Catalog SKUs', path: '/dashboard/products', icon: Package },
-  { label: 'Price Lists & Matrix', path: '/dashboard/pricing', icon: Calculator },
-  { label: 'Discount Governance', path: '/dashboard/governance', icon: Percent },
-  { label: 'Quotations Hub', path: '/dashboard/quotations', icon: FileSpreadsheet },
-  { label: 'Approval Chains', path: '/dashboard/approvals', icon: ShieldCheck },
-  { label: 'Fulfillment & Stock', path: '/dashboard/fulfillment', icon: Boxes },
-  { label: 'Hybrid Billing', path: '/dashboard/billing', icon: CreditCard },
-  { label: 'Customer Deal Room', path: '/dashboard/deal-room', icon: Handshake },
-  { label: 'Deal Health Radar', path: '/dashboard/deal-health', icon: Activity },
-  { label: 'Executive Reports', path: '/dashboard/reports', icon: BarChart3 },
+const allNavigationItems = [
+  { label: 'Operations Overview', path: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
+  { label: 'Customer Accounts', path: '/v1/customers', icon: Building2, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
+  { label: 'Quotations Hub', path: '/v1/quotations', icon: FileSpreadsheet, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER'] },
+  { label: 'Product Catalog SKUs', path: '/v1/products', icon: Package, roles: ['ADMIN', 'SALES_REP', 'SALES_MANAGER', 'OPERATIONS'] },
+  { label: 'Price Lists & Matrix', path: '/dashboard/pricing', icon: Calculator, roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
+  { label: 'Discount Governance', path: '/dashboard/governance', icon: Percent, roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
+  { label: 'Approval Chains', path: '/v1/approvals', icon: ShieldCheck, roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
+  { label: 'Fulfillment & Stock', path: '/v1/fulfillment', icon: Boxes, roles: ['ADMIN', 'OPERATIONS'] },
 ];
 
 export default function DashboardLayout() {
@@ -44,6 +40,9 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  const userRole = user?.role || 'SALES_REP';
+  const navigationItems = allNavigationItems.filter((item) => item.roles.includes(userRole));
 
   const handleLogout = async () => {
     try {
@@ -70,7 +69,7 @@ export default function DashboardLayout() {
         {/* Nav items */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
           <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-(--app-color-text-muted)">
-            Sales Operations
+            {userRole.replace('_', ' ')} Workspace
           </div>
           {navigationItems.map(({ label, path, icon: Icon }) => {
             const active = location.pathname === path || (path !== '/dashboard' && location.pathname.startsWith(path));

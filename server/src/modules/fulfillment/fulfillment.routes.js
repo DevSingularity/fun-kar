@@ -16,45 +16,45 @@ const router = Router();
 router.use(authenticate);
 
 // Orders listing awaiting fulfillment (Table 2 on Wireframe 7)
-router.get('/', asyncHandler(handleListFulfillmentOrders));
+router.get('/', authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE'), asyncHandler(handleListFulfillmentOrders));
 
 // Convert approved quotation to order (Plan §5.2 gap fill)
 router.post(
   '/from-quotation/:quotationId',
-  authorize('SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'),
+  authorize('SALES_REP', 'SALES_MANAGER', 'OPERATIONS', 'ADMIN'),
   asyncHandler(handleCreateOrderFromQuotation)
 );
 
 // Order Fulfillment Detail & Split view (Wireframe 8)
 router.get(
   '/:id',
-  authorize('SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'),
+  authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE'),
   asyncHandler(handleGetOrderFulfillmentDetail)
 );
 router.get(
   '/:id/allocation',
-  authorize('SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'),
+  authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE'),
   asyncHandler(handleGetOrderFulfillmentDetail)
 );
 
 // Auto Allocation Engine execution
 router.post(
   '/:id/allocate',
-  authorize('SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'),
+  authorize('OPERATIONS', 'ADMIN'),
   asyncHandler(handleAllocateOrder)
 );
 
 // Manual Override execution
 router.put(
   '/:id/allocation',
-  authorize('SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'),
+  authorize('OPERATIONS', 'ADMIN'),
   asyncHandler(handleOverrideAllocation)
 );
 
 // Backorder Consolidation execution
 router.post(
   '/:id/backorder/consolidate',
-  authorize('SALES_REP', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'),
+  authorize('OPERATIONS', 'ADMIN'),
   asyncHandler(handleConsolidateBackorder)
 );
 

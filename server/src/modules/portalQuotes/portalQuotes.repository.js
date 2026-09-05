@@ -1,6 +1,6 @@
 import { getDb } from '../../config/database.js';
 import { quotations, quotationItems, quotationPortalTokens, customers, products, orders, invoices } from '../../db/schema/index.js';
-import { eq, and, inArray, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, exists } from 'drizzle-orm';
 
 const SAFE_QUOTE_COLUMNS = {
   id: quotations.id,
@@ -24,7 +24,6 @@ const SAFE_ITEM_COLUMNS = {
   quantity: quotationItems.quantity,
   unitPrice: quotationItems.unitPrice,
   discountPct: quotationItems.discountPct,
-  allowedDiscountPct: quotationItems.allowedDiscountPct, // Threshold for this product
   discountAmount: quotationItems.discountAmount,
   taxAmount: quotationItems.taxAmount,
   lineTotal: quotationItems.lineTotal,
@@ -41,9 +40,11 @@ export async function hasBeenShared(quotationId) {
 
 export async function listForCustomer(customerId, { offset, limit }) {
   const db = getDb();
-  const sharedQuoteIdsSubquery = db
-    .select({ quotationId: quotationPortalTokens.quotationId })
-    .from(quotationPortalTokens);
+  const sharedQuoteExists = db
+    .select({ id: quotationPortalTokens.id })
+    .from(quotationPortalTokens)
+    .where(eq(quotationPortalTokens.quotationId, quotations.id))
+    .limit(1);
 
   const rows = await db
     .select(SAFE_QUOTE_COLUMNS)
@@ -51,7 +52,7 @@ export async function listForCustomer(customerId, { offset, limit }) {
     .where(
       and(
         eq(quotations.customerId, customerId),
-        inArray(quotations.id, sharedQuoteIdsSubquery)
+        exists(sharedQuoteExists)
       )
     )
     .orderBy(desc(quotations.createdAt))
@@ -64,7 +65,7 @@ export async function listForCustomer(customerId, { offset, limit }) {
     .where(
       and(
         eq(quotations.customerId, customerId),
-        inArray(quotations.id, sharedQuoteIdsSubquery)
+        exists(sharedQuoteExists)
       )
     );
 

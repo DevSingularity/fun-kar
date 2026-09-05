@@ -15,7 +15,8 @@ import {
   PlusCircle,
   Tag,
   Save,
-  ChevronDown
+  ChevronDown,
+  RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
@@ -32,6 +33,19 @@ export default function V1QuotationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  // Data lists
+  const [products, setProducts] = useState([]);
+  const [customers, setCustomers] = useState([]);
+
+  // Quotation header state
+  const [quoteData, setQuoteData] = useState(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [promisedDeliveryDate, setPromisedDeliveryDate] = useState('');
+
+  // Line items state
+  const [items, setItems] = useState([]);
 
   // Data lists
   const [products, setProducts] = useState([]);
@@ -427,6 +441,20 @@ export default function V1QuotationDetailPage() {
     }
   };
 
+  // Withdraw Quotation (from PENDING_APPROVAL back to DRAFT)
+  const handleWithdrawQuotation = async () => {
+    setWithdrawing(true);
+    try {
+      await api.post(`/quotations/${id}/withdraw`);
+      toast.success('Quotation withdrawn to DRAFT for editing');
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to withdraw quotation');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
@@ -742,6 +770,18 @@ export default function V1QuotationDetailPage() {
             >
               <Send className="h-3.5 w-3.5" />
               <span>{submitting ? 'Submitting...' : 'Submit for Approval'}</span>
+            </button>
+          )}
+
+          {/* Withdraw to Draft Button (if PENDING_APPROVAL) */}
+          {quoteData?.status === 'PENDING_APPROVAL' && (
+            <button
+              onClick={handleWithdrawQuotation}
+              disabled={withdrawing}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-all shadow-xs disabled:opacity-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
+              <span>{withdrawing ? 'Withdrawing...' : 'Withdraw to Draft'}</span>
             </button>
           )}
 

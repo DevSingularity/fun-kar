@@ -10,6 +10,7 @@ import {
   updateLineItem,
   removeLineItem,
   submitQuotation,
+  withdrawQuotation,
 } from './quotations.service.js';
 
 export async function handleListQuotations(req, res) {
@@ -61,3 +62,9 @@ export async function handleSubmitQuotation(req, res) {
   const result = await submitQuotation(req.params.id, req.user);
   return successResponse(res, result, 200);
 }
+
+export async function handleWithdrawQuotation(req, res) {
+  const quotation = await withdrawQuotation(req.params.id, req.user);
+  return successResponse(res, quotation, 200);
+}
+

@@ -10,30 +10,34 @@ import {
 
 export async function handleListCustomers(req, res) {
   const query = parseListQuery(req.query);
-  const result = await listCustomers({
-    ...query,
-    tier: req.query.tier,
-    assignedRepId: req.query.assignedRepId,
-  });
+  const result = await listCustomers(
+    {
+      ...query,
+      tier: req.query.tier,
+      assignedRepId: req.query.assignedRepId,
+    },
+    req.user
+  );
   return successResponse(res, result.customers, 200, result.meta);
 }
 
 export async function handleGetCustomer(req, res) {
-  const customer = await getCustomer(req.params.id);
+  const customer = await getCustomer(req.params.id, req.user);
   return successResponse(res, customer, 200);
 }
 
 export async function handleCreateCustomer(req, res) {
-  const customer = await addCustomer(req.body);
+  const customer = await addCustomer(req.body, req.user);
   return successResponse(res, customer, 201);
 }
 
 export async function handleUpdateCustomer(req, res) {
-  const customer = await editCustomer(req.params.id, req.body);
+  const customer = await editCustomer(req.params.id, req.body, req.user);
   return successResponse(res, customer, 200);
 }
 
 export async function handleDeleteCustomer(req, res) {
-  const customer = await removeCustomer(req.params.id);
+  const customer = await removeCustomer(req.params.id, req.user);
   return successResponse(res, { deleted: true, customer }, 200);
 }
+
