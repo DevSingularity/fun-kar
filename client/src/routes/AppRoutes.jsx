@@ -18,6 +18,8 @@ import V1QuotationsPage from '../pages/quotations/V1QuotationsPage.jsx';
 import V1QuotationDetailPage from '../pages/quotations/V1QuotationDetailPage.jsx';
 import V1ApprovalsPage from '../pages/approvals/V1ApprovalsPage.jsx';
 import V1ApprovalDetailPage from '../pages/approvals/V1ApprovalDetailPage.jsx';
+import V1FulfillmentPage from '../pages/fulfillment/V1FulfillmentPage.jsx';
+import V1FulfillmentDetailPage from '../pages/fulfillment/V1FulfillmentDetailPage.jsx';
 import ProductsPage from '../pages/catalog/ProductsPage.jsx';
 import PricingPage from '../pages/catalog/PricingPage.jsx';
 import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
@@ -79,6 +81,8 @@ export default function AppRoutes() {
           <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
           <Route path="/v1/approvals" element={<V1ApprovalsPage />} />
           <Route path="/v1/approvals/:id" element={<V1ApprovalDetailPage />} />
+          <Route path="/v1/fulfillment" element={<V1FulfillmentPage />} />
+          <Route path="/v1/fulfillment/:id" element={<V1FulfillmentDetailPage />} />
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardHomePage />} />
             <Route path="/dashboard/products" element={<ProductsPage />} />

@@ -51,44 +51,7 @@ export default function V1ApprovalsPage() {
     fetchData();
   }, [pendingOnly]);
 
-  // Fallback demo data for initial wireframe rendering
-  const DEMO_APPROVALS = [
-    {
-      id: 'app-demo-1',
-      quotationId: 'q-demo-1',
-      quoteNumber: 'Q-1042',
-      customerName: 'Acme Corp',
-      blendedRiskScore: '18.5',
-      requiredLevel: 'MANAGER',
-      currentStep: 'Sales Manager',
-      salesRepName: 'M. Shah',
-      status: 'PENDING',
-    },
-    {
-      id: 'app-demo-2',
-      quotationId: 'q-demo-2',
-      quoteNumber: 'Q-1039',
-      customerName: 'Beta Industries',
-      blendedRiskScore: '32.0',
-      requiredLevel: 'MANAGER_FINANCE',
-      currentStep: 'Finance',
-      salesRepName: 'R. Iyer',
-      status: 'PENDING',
-    },
-    {
-      id: 'app-demo-3',
-      quotationId: 'q-demo-3',
-      quoteNumber: 'Q-1035',
-      customerName: 'Nova Retail',
-      blendedRiskScore: '4.0',
-      requiredLevel: 'NONE',
-      currentStep: 'Auto-Approved',
-      salesRepName: '-',
-      status: 'APPROVED',
-    },
-  ];
-
-  const displayList = approvalRequests.length > 0 ? approvalRequests : DEMO_APPROVALS;
+  const displayList = approvalRequests;
 
   const filteredList = displayList.filter((item) => {
     if (pendingOnly && item.status !== 'PENDING') return false;
@@ -101,9 +64,9 @@ export default function V1ApprovalsPage() {
     );
   });
 
-  const pendingCount = displayList.filter((a) => a.status === 'PENDING').length || 3;
-  const returnedCount = displayList.filter((a) => a.status === 'RETURNED').length || 1;
-  const approvedCount = displayList.filter((a) => a.status === 'APPROVED').length || 12;
+  const pendingCount = displayList.filter((a) => a.status === 'PENDING').length;
+  const returnedCount = displayList.filter((a) => a.status === 'RETURNED').length;
+  const approvedCount = displayList.filter((a) => a.status === 'APPROVED').length;
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
@@ -171,54 +134,68 @@ export default function V1ApprovalsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800 font-medium">
-                {filteredList.map((item) => {
-                  const riskScore = Number(item.blendedRiskScore || 0);
-                  const riskLabel = riskScore >= 25 ? 'HIGH' : riskScore >= 10 ? 'MEDIUM' : 'LOW';
-                  const riskBadgeClass =
-                    riskLabel === 'HIGH'
-                      ? 'bg-rose-50 text-rose-700 border-rose-200'
-                      : riskLabel === 'MEDIUM'
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs text-slate-400 font-medium">
+                      Loading discount approval requests...
+                    </td>
+                  </tr>
+                ) : filteredList.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-xs text-slate-400 font-medium">
+                      No approval requests found matching your filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredList.map((item) => {
+                    const riskScore = Number(item.blendedRiskScore || 0);
+                    const riskLabel = riskScore >= 25 ? 'HIGH' : riskScore >= 10 ? 'MEDIUM' : 'LOW';
+                    const riskBadgeClass =
+                      riskLabel === 'HIGH'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : riskLabel === 'MEDIUM'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
-                  const stageDisplay =
-                    item.status === 'APPROVED'
-                      ? 'Auto-Approved'
-                      : item.currentStep === 'FINANCE'
-                      ? 'Finance'
-                      : 'Sales Manager';
+                    const stageDisplay =
+                      item.status === 'APPROVED'
+                        ? 'Auto-Approved'
+                        : item.currentStep === 'FINANCE'
+                        ? 'Finance'
+                        : 'Sales Manager';
 
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => navigate(`/v1/approvals/${item.id}`)}
-                      className="cursor-pointer hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="py-3.5 px-4 font-mono font-bold text-[#714b67]">
-                        {item.quoteNumber || 'Q-1042'}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-900">
-                        {item.customerName || 'Acme Corp'}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border ${riskBadgeClass}`}>
-                          {riskLabel} ({riskScore}%)
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        {stageDisplay}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600 font-medium">
-                        {item.salesRepName || 'M. Shah'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <span className="text-[#008784] hover:underline inline-flex items-center gap-1 font-bold">
-                          Review <ArrowRight className="h-3 w-3" />
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr
+                        key={item.id}
+                        onClick={() => navigate(`/v1/approvals/${item.id}`)}
+                        className="cursor-pointer hover:bg-slate-50/80 transition-colors"
+                      >
+                        <td className="py-3.5 px-4 font-mono font-bold text-[#714b67]">
+                          {item.quoteNumber}
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-900">
+                          {item.customerName || 'Customer'}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border ${riskBadgeClass}`}>
+                            {riskLabel} ({riskScore}%)
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-700">
+                          {stageDisplay}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 font-medium">
+                          {item.salesRepName || 'Sales Rep'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <span className="text-[#008784] hover:underline inline-flex items-center gap-1 font-bold">
+                            Review <ArrowRight className="h-3 w-3" />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
