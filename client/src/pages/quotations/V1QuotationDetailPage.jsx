@@ -101,15 +101,27 @@ export default function V1QuotationDetailPage() {
     }
   };
 
-  const handleDeleteItem = async (itemId) => {
-    if (!confirm('Are you sure you want to remove this line item?')) return;
+  // Delete confirmation modal state
+  const [deleteModal, setDeleteModal] = useState({ open: false, itemId: null, itemName: '' });
+  const [deletingLine, setDeletingLine] = useState(false);
+
+  const confirmDeleteItem = async () => {
+    if (!deleteModal.itemId) return;
+    setDeletingLine(true);
     try {
-      await api.delete(`/quotations/${id}/items/${itemId}`);
-      toast.success('Item removed');
+      await api.delete(`/quotations/${id}/items/${deleteModal.itemId}`);
+      toast.success('Line item removed successfully');
+      setDeleteModal({ open: false, itemId: null, itemName: '' });
       fetchQuotation();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to remove item');
+    } finally {
+      setDeletingLine(false);
     }
+  };
+
+  const handleDeleteItem = (itemId, itemName = 'this item') => {
+    setDeleteModal({ open: true, itemId, itemName });
   };
 
   const handleAddUpsell = async (skuName, defaultDiscount = 0) => {
@@ -159,42 +171,41 @@ export default function V1QuotationDetailPage() {
   const customerTier = data?.customerTier || 'BRONZE';
   const tierLimitPct = customerTier === 'GOLD' ? 30 : customerTier === 'SILVER' ? 20 : 10;
 
-  // Calculate live limits for items
+  // Real line items from database
   const items = data?.items || [];
-  const renderedItems = items.length > 0 ? items : [
-    {
-      id: 'demo-1',
-      productName: 'Laptop Pro 14',
-      quantity: 2,
-      unitPrice: 1200,
-      discountPct: 12,
-      lineLimitPct: 15,
-      isDemo: true,
-    },
-    {
-      id: 'demo-2',
-      productName: 'Onsite Setup Service',
-      quantity: 1,
-      unitPrice: 450,
-      discountPct: 18,
-      lineLimitPct: 10,
-      isDemo: true,
-    },
-    {
-      id: 'demo-3',
-      productName: 'Extended Warranty',
-      quantity: 1,
-      unitPrice: 180,
-      discountPct: 10,
-      lineLimitPct: 15,
-      isDemo: true,
-    }
-  ];
 
-  const hasAnyOverLimit = renderedItems.some((item) => {
+  const hasAnyOverLimit = items.some((item) => {
     const limit = item.lineLimitPct || tierLimitPct;
     return Number(item.discountPct) > limit;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+        <OdooTopNavbar activeTab="Quotations" />
+        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center">
+          <p className="text-xs font-semibold text-slate-400">Loading quotation details...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+        <OdooTopNavbar activeTab="Quotations" />
+        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center space-y-4">
+          <p className="text-sm font-bold text-slate-700">Quotation not found</p>
+          <Link
+            to="/v1/quotations"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#714b67] text-white"
+          >
+            ← Return to Quotations List
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
@@ -208,9 +219,9 @@ export default function V1QuotationDetailPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-              Quotation Detail: {data?.quoteNumber || 'Q-1042'} ({data?.customerName || 'Acme Corp'})
+              Quotation Detail: {data.quoteNumber} ({data.customerName || 'Customer'})
             </h1>
-            {data?.status && (
+            {data.status && (
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
                 data.status === 'APPROVED' 
                   ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
@@ -238,9 +249,9 @@ export default function V1QuotationDetailPage() {
             <div className="p-3.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold flex items-center justify-between shadow-xs">
               <div className="flex items-center gap-2 truncate">
                 <Building2 className="h-4 w-4 text-[#714b67]" />
-                <span className="truncate text-slate-900 font-bold">{data?.customerName || 'Acme Corp'}</span>
+                <span className="truncate text-slate-900 font-bold">{data.customerName || 'Customer'}</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-[#714b67]/10 text-[#714b67] border border-[#714b67]/20">
-                  {data?.customerTier || 'GOLD'} Tier
+                  {data.customerTier || 'BRONZE'} Tier
                 </span>
               </div>
             </div>
@@ -255,7 +266,7 @@ export default function V1QuotationDetailPage() {
               <div className="flex items-center gap-2 truncate">
                 <Tag className="h-4 w-4 text-[#008784]" />
                 <span className="truncate text-slate-900 font-bold">
-                  {data?.customerTier === 'GOLD' ? 'Gold Partner Negotiated Matrix' : 'Standard Enterprise Price List'}
+                  {data.customerTier === 'GOLD' ? 'Gold Partner Negotiated Matrix' : 'Standard Enterprise Price List'}
                 </span>
                 <span className="text-[11px] text-slate-500 font-normal">
                   (Auto-Resolved)
@@ -288,60 +299,59 @@ export default function V1QuotationDetailPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-800 font-medium">
-                {renderedItems.map((item) => {
-                  const limit = item.lineLimitPct || (customerTier === 'GOLD' ? 30 : customerTier === 'SILVER' ? 20 : 10);
-                  const discount = Number(item.discountPct || 0);
-                  const isOver = discount > limit;
-                  const overagePoints = Math.max(0, discount - limit);
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-xs text-slate-400 font-medium">
+                      No line items added yet. Click &quot;+ Add Item&quot; to configure products.
+                    </td>
+                  </tr>
+                ) : (
+                  items.map((item) => {
+                    const lineLimit = item.lineLimitPct || tierLimitPct;
+                    const isOverLimit = Number(item.discountPct) > lineLimit;
 
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-semibold text-slate-900">
-                        <div className="flex items-center gap-2">
-                          <span>{item.productName}</span>
-                          {item.productSku && (
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                              {item.productSku}
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3.5 px-4 font-semibold text-slate-900">
+                          {item.productName || item.sku}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold">{item.quantity}</td>
+                        <td className="py-3.5 px-4">₹{Number(item.unitPrice || 0).toLocaleString()}</td>
+                        <td className="py-3.5 px-4">
+                          <span className={`font-extrabold ${isOverLimit ? 'text-amber-700' : 'text-slate-800'}`}>
+                            {item.discountPct}%
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-slate-500">
+                          {lineLimit}%
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {isOverLimit ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                              <AlertTriangle className="h-3 w-3 text-amber-600" />
+                              Approval Required
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              Auto-Approved
                             </span>
                           )}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{item.quantity}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
-                        ₹{Number(item.unitPrice || 0).toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-extrabold text-[#008784]">
-                        {discount}%
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-500 font-semibold">
-                        {limit}%
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {isOver ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
-                            OVER (+{overagePoints}pt)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            OK
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        {!item.isDemo && (
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
                           <button
-                            onClick={() => handleDeleteItem(item.id)}
+                            onClick={() => handleDeleteItem(item.id, item.productName)}
                             title="Remove Line Item"
                             className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -526,7 +536,7 @@ export default function V1QuotationDetailPage() {
       {/* ── Submission Result Modal ── */}
       {submitResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4 text-slate-900">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3">
               {submitResult.quotation?.status === 'APPROVED' ? (
                 <CheckCircle2 className="h-7 w-7 text-emerald-600 shrink-0" />
@@ -556,6 +566,47 @@ export default function V1QuotationDetailPage() {
             >
               Done
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Modal: Delete Item Confirmation ── */}
+      {deleteModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-2xl space-y-4 text-slate-900 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-rose-50 text-rose-600">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900">Remove Line Item</h3>
+                <p className="text-xs text-slate-500 font-medium truncate max-w-[220px]">
+                  {deleteModal.itemName || 'Selected item'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to remove this line item? Quotation totals and margin calculations will automatically update.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeleteModal({ open: false, itemId: null, itemName: '' })}
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingLine}
+                onClick={confirmDeleteItem}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {deletingLine ? 'Removing...' : 'Confirm Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -101,37 +101,21 @@ export default function V1QuotationsPage() {
     }
   };
 
-  // Official PS Scenario fallback deals for wireframe fidelity
-  const PS_DEFAULT_DEALS = {
-    DRAFT: [
-      { id: 'ps-d1', customerName: 'Acme Corp', netAmount: '12400', quoteNumber: 'Q-2026-0001' },
-      { id: 'ps-d2', customerName: 'Delta LLC', netAmount: '3200', quoteNumber: 'Q-2026-0002' },
-    ],
-    PENDING_APPROVAL: [
-      { id: 'ps-p1', customerName: 'Beta Industries', netAmount: '28900', quoteNumber: 'Q-2026-0003' },
-    ],
-    APPROVED: [
-      { id: 'ps-a1', customerName: 'Nova Retail', netAmount: '9750', quoteNumber: 'Q-2026-0004' },
-    ],
-    UNDER_NEGOTIATION: [
-      { id: 'ps-n1', customerName: 'Zenith Co', netAmount: '15300', quoteNumber: 'Q-2026-0005' },
-    ],
-    CONFIRMED: [
-      { id: 'ps-c1', customerName: 'Orion Ltd', netAmount: '41000', quoteNumber: 'Q-2026-0006' },
-    ],
-  };
-
-  // Group quotations by stage
+  // Group quotations by stage strictly from live DB
   const getQuotesForColumn = (stageKey) => {
-    const dbQuotes = quotations.filter((q) => {
+    return quotations.filter((q) => {
+      const matchesSearch = !search
+        ? true
+        : q.quoteNumber?.toLowerCase().includes(search.toLowerCase()) ||
+          q.customerName?.toLowerCase().includes(search.toLowerCase());
+
+      if (!matchesSearch) return false;
+
       if (stageKey === 'UNDER_NEGOTIATION') {
         return q.status === 'UNDER_NEGOTIATION' || q.status === 'SENT';
       }
       return q.status === stageKey;
     });
-
-    if (dbQuotes.length > 0) return dbQuotes;
-    return PS_DEFAULT_DEALS[stageKey] || [];
   };
 
   const filteredQuotations = quotations.filter((q) => {
@@ -176,7 +160,11 @@ export default function V1QuotationsPage() {
         </div>
 
         {/* ── View Mode: 5-Column Pipeline Kanban ── */}
-        {viewMode === 'kanban' ? (
+        {loading ? (
+          <div className="py-20 text-center rounded-xl border border-slate-200 bg-white p-8">
+            <p className="text-xs font-semibold text-slate-400">Loading quotations from database...</p>
+          </div>
+        ) : viewMode === 'kanban' ? (
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {STAGE_COLUMNS.map((col) => {
               const quotesInCol = getQuotesForColumn(col.key);
@@ -197,35 +185,43 @@ export default function V1QuotationsPage() {
 
                   {/* Deals Cards in Column */}
                   <div className="space-y-2.5 flex-1 overflow-y-auto no-scrollbar pt-1">
-                    {quotesInCol.map((quote) => (
-                      <div
-                        key={quote.id}
-                        onClick={() => navigate(`/v1/quotations/${quote.id}`)}
-                        className="group cursor-pointer p-3.5 rounded-lg border border-slate-200 bg-white hover:border-[#714b67] hover:shadow-sm transition-all duration-150 active:scale-98 shadow-xs"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-bold text-slate-800 group-hover:text-[#714b67] transition-colors">
-                            {quote.customerName || 'Enterprise Account'}
-                          </span>
-                          <span className="text-xs font-black text-[#008784] shrink-0">
-                            ₹{Number(quote.grandTotal || quote.netAmount || 0).toLocaleString()}
-                          </span>
-                        </div>
-
-                        <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500">
-                          <span className="font-mono text-[10px] font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200">
-                            {quote.quoteNumber || 'Q-2026-0001'}
-                          </span>
-                          {quote.marginHealth && (
-                            <span className={`text-[10px] font-extrabold ${
-                              quote.marginHealth === 'HEALTHY' ? 'text-emerald-600' : 'text-amber-600'
-                            }`}>
-                              {quote.marginHealth}
-                            </span>
-                          )}
-                        </div>
+                    {quotesInCol.length === 0 ? (
+                      <div className="h-32 flex items-center justify-center text-center p-3">
+                        <span className="text-[11px] text-slate-400 font-medium italic">
+                          No quotations in this stage
+                        </span>
                       </div>
-                    ))}
+                    ) : (
+                      quotesInCol.map((quote) => (
+                        <div
+                          key={quote.id}
+                          onClick={() => navigate(`/v1/quotations/${quote.id}`)}
+                          className="group cursor-pointer p-3.5 rounded-lg border border-slate-200 bg-white hover:border-[#714b67] hover:shadow-sm transition-all duration-150 active:scale-98 shadow-xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-xs font-bold text-slate-800 group-hover:text-[#714b67] transition-colors truncate">
+                              {quote.customerName || 'Enterprise Account'}
+                            </span>
+                            <span className="text-xs font-black text-[#008784] shrink-0">
+                              ₹{Number(quote.grandTotal || quote.netAmount || 0).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-500">
+                            <span className="font-mono text-[10px] font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200">
+                              {quote.quoteNumber || 'Q-DRAFT'}
+                            </span>
+                            {quote.marginHealth && (
+                              <span className={`text-[10px] font-extrabold ${
+                                quote.marginHealth === 'HEALTHY' ? 'text-emerald-600' : 'text-amber-600'
+                              }`}>
+                                {quote.marginHealth}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               );
@@ -247,30 +243,38 @@ export default function V1QuotationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {filteredQuotations.map((q) => (
-                    <tr 
-                      key={q.id}
-                      onClick={() => navigate(`/v1/quotations/${q.id}`)}
-                      className="cursor-pointer hover:bg-slate-50 transition-colors"
-                    >
-                      <td className="py-3 px-4 font-mono font-bold text-[#714b67]">{q.quoteNumber}</td>
-                      <td className="py-3 px-4 font-semibold text-slate-900">{q.customerName || 'Customer'}</td>
-                      <td className="py-3 px-4 font-extrabold text-[#008784]">
-                        ₹{Number(q.grandTotal || 0).toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
-                          {q.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-semibold">{q.marginHealth || 'HEALTHY'}</td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-[#008784] hover:underline inline-flex items-center gap-1 font-bold">
-                          Open <ArrowRight className="h-3 w-3" />
-                        </span>
+                  {filteredQuotations.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-xs text-slate-400 font-medium">
+                        No quotations match your criteria. Click "+ New Quotation" to create one.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredQuotations.map((q) => (
+                      <tr 
+                        key={q.id}
+                        onClick={() => navigate(`/v1/quotations/${q.id}`)}
+                        className="cursor-pointer hover:bg-slate-50 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-mono font-bold text-[#714b67]">{q.quoteNumber}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-900">{q.customerName || 'Customer'}</td>
+                        <td className="py-3 px-4 font-extrabold text-[#008784]">
+                          ₹{Number(q.grandTotal || 0).toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                            {q.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-semibold">{q.marginHealth || 'HEALTHY'}</td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="text-[#008784] hover:underline inline-flex items-center gap-1 font-bold">
+                            Open <ArrowRight className="h-3 w-3" />
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
