@@ -1,6 +1,12 @@
 import { Router } from 'express';
-import authRoutes from '../modules/auth/auth.routes.js';
 import healthRouter from './health.route.js';
+import authRoutes from '../modules/auth/auth.routes.js';
+import categoriesRoutes from '../modules/categories/categories.routes.js';
+import productsRoutes from '../modules/products/products.routes.js';
+import priceListsRoutes from '../modules/priceLists/priceLists.routes.js';
+import customersRoutes from '../modules/customers/customers.routes.js';
+import governanceRoutes from '../modules/governance/governance.routes.js';
+import riskRoutes from '../modules/risk/risk.routes.js';
 
 const router = Router();
 
@@ -9,5 +15,11 @@ router.use(healthRouter);
 
 // Core Modules
 router.use('/auth', authRoutes);
+router.use('/categories', categoriesRoutes);
+router.use('/products', productsRoutes);
+router.use('/price-lists', priceListsRoutes);
+router.use('/customers', customersRoutes);
+router.use('/governance', governanceRoutes);
+router.use('/risk', riskRoutes);
 
 export default router;

@@ -13,8 +13,10 @@ import LandingPage from '../pages/landing/LandingPage.jsx';
 import LoginPage from '../pages/auth/LoginPage.jsx';
 import RegisterPage from '../pages/auth/RegisterPage.jsx';
 import DashboardHomePage from '../pages/dashboard/DashboardHomePage.jsx';
-// TODO: Import and add your domain-specific page routes below
-// import DashboardResourcesPage from '../pages/dashboard/DashboardResourcesPage.jsx';
+import ProductsPage from '../pages/catalog/ProductsPage.jsx';
+import PricingPage from '../pages/catalog/PricingPage.jsx';
+import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
+import CustomersPage from '../pages/customers/CustomersPage.jsx';
 
 import useAuthStore from '../store/auth.store.js';
 
@@ -56,8 +58,10 @@ export default function AppRoutes() {
         <Route element={<PrivateRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardHomePage />} />
-            {/* TODO: Add your domain routes here */}
-            {/* <Route path="/dashboard/resources" element={<DashboardResourcesPage />} /> */}
+            <Route path="/dashboard/products" element={<ProductsPage />} />
+            <Route path="/dashboard/pricing" element={<PricingPage />} />
+            <Route path="/dashboard/governance" element={<DiscountsPage />} />
+            <Route path="/dashboard/customers" element={<CustomersPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
