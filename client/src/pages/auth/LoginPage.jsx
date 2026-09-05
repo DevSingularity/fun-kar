@@ -1,5 +1,6 @@
 /**
  * LoginPage — DealFlow360
+ * LoginPage — DealFlow360
  */
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -66,8 +67,11 @@ export default function LoginPage() {
 
   return (
     <Container className="flex min-h-screen items-center justify-center py-6">
+    <Container className="flex min-h-screen items-center justify-center py-6">
       {!isSubmitting && (
         <div
+          className="grid w-full max-w-5xl overflow-hidden rounded-2xl border border-(--app-color-border) backdrop-blur-md lg:grid-cols-[1.1fr_0.9fr] shadow-lg"
+          style={{ backgroundColor: 'var(--app-color-surface-glass)' }}
           className="grid w-full max-w-5xl overflow-hidden rounded-2xl border border-(--app-color-border) backdrop-blur-md lg:grid-cols-[1.1fr_0.9fr] shadow-lg"
           style={{ backgroundColor: 'var(--app-color-surface-glass)' }}
         >
@@ -177,6 +181,8 @@ export default function LoginPage() {
                 </div>
                 <p className="mt-5 text-center text-xs text-(--app-color-text-muted)">
                   Don't have an account?{' '}
+                  <Link to="/register" className="font-bold text-(--app-color-primary) hover:text-(--app-color-primary-hover)">
+                    Register Workspace
                   <Link to="/register" className="font-bold text-(--app-color-primary) hover:text-(--app-color-primary-hover)">
                     Register Workspace
                   </Link>
