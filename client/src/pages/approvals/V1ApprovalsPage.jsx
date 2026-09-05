@@ -27,7 +27,7 @@ export default function V1ApprovalsPage() {
 
   const [loading, setLoading] = useState(true);
   const [approvalRequests, setApprovalRequests] = useState([]);
-  const [pendingOnly, setPendingOnly] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'RETURNED' | 'APPROVED'
   const [search, setSearch] = useState('');
 
   const fetchData = async () => {
@@ -35,11 +35,13 @@ export default function V1ApprovalsPage() {
     try {
       const res = await api.get('/approval-requests', {
         params: {
-          status: pendingOnly ? 'PENDING' : 'ALL',
+          status: 'ALL',
           limit: 100,
         },
       });
-      setApprovalRequests(res.data?.data || []);
+      const data = res.data?.data;
+      const list = Array.isArray(data) ? data : (data?.items || []);
+      setApprovalRequests(list);
     } catch (err) {
       console.warn('Approvals list fetch note:', err);
     } finally {
@@ -49,12 +51,14 @@ export default function V1ApprovalsPage() {
 
   useEffect(() => {
     fetchData();
-  }, [pendingOnly]);
+  }, []);
 
-  const displayList = approvalRequests;
+  const pendingCount = approvalRequests.filter((a) => a.status === 'PENDING').length;
+  const returnedCount = approvalRequests.filter((a) => a.status === 'RETURNED').length;
+  const approvedCount = approvalRequests.filter((a) => a.status === 'APPROVED').length;
 
-  const filteredList = displayList.filter((item) => {
-    if (pendingOnly && item.status !== 'PENDING') return false;
+  const filteredList = approvalRequests.filter((item) => {
+    if (activeFilter !== 'ALL' && item.status !== activeFilter) return false;
     if (!search) return true;
     const term = search.toLowerCase();
     return (
@@ -63,10 +67,6 @@ export default function V1ApprovalsPage() {
       item.salesRepName?.toLowerCase().includes(term)
     );
   });
-
-  const pendingCount = displayList.filter((a) => a.status === 'PENDING').length;
-  const returnedCount = displayList.filter((a) => a.status === 'RETURNED').length;
-  const approvedCount = displayList.filter((a) => a.status === 'APPROVED').length;
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
@@ -80,19 +80,49 @@ export default function V1ApprovalsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Pending Pill */}
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white shadow-xs">
+            <button
+              onClick={() => setActiveFilter(activeFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                activeFilter === 'PENDING'
+                  ? 'bg-amber-600 text-white ring-2 ring-amber-400 ring-offset-1 scale-105'
+                  : 'bg-amber-500 hover:bg-amber-600 text-white opacity-90 hover:opacity-100'
+              }`}
+            >
               <span>{pendingCount} Pending</span>
-            </div>
+            </button>
 
             {/* Returned Pill */}
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-400 text-white shadow-xs">
+            <button
+              onClick={() => setActiveFilter(activeFilter === 'RETURNED' ? 'ALL' : 'RETURNED')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                activeFilter === 'RETURNED'
+                  ? 'bg-rose-500 text-white ring-2 ring-rose-400 ring-offset-1 scale-105'
+                  : 'bg-rose-400 hover:bg-rose-500 text-white opacity-90 hover:opacity-100'
+              }`}
+            >
               <span>{returnedCount} Returned</span>
-            </div>
+            </button>
 
             {/* Approved Pill */}
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white shadow-xs">
+            <button
+              onClick={() => setActiveFilter(activeFilter === 'APPROVED' ? 'ALL' : 'APPROVED')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                activeFilter === 'APPROVED'
+                  ? 'bg-emerald-600 text-white ring-2 ring-emerald-400 ring-offset-1 scale-105'
+                  : 'bg-emerald-500 hover:bg-emerald-600 text-white opacity-90 hover:opacity-100'
+              }`}
+            >
               <span>{approvedCount} Approved</span>
-            </div>
+            </button>
+
+            {activeFilter !== 'ALL' && (
+              <button
+                onClick={() => setActiveFilter('ALL')}
+                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 underline ml-1"
+              >
+                Clear Filter ({approvalRequests.length} Total)
+              </button>
+            )}
           </div>
 
           {/* Search Bar */}
@@ -200,18 +230,18 @@ export default function V1ApprovalsPage() {
           </div>
         </div>
 
-        {/* ── Filter Button (From Wireframe 5) ── */}
+        {/* ── Filter Button ── */}
         <div className="flex items-center gap-3 pt-1">
           <button
-            onClick={() => setPendingOnly(!pendingOnly)}
+            onClick={() => setActiveFilter(activeFilter === 'PENDING' ? 'ALL' : 'PENDING')}
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold border transition-all shadow-xs ${
-              pendingOnly
+              activeFilter === 'PENDING'
                 ? 'bg-[#714b67] text-white border-[#714b67]'
                 : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
             }`}
           >
             <Filter className="h-3.5 w-3.5" />
-            <span>Filter: Pending Only</span>
+            <span>Filter: {activeFilter === 'PENDING' ? 'Showing Pending Only' : 'Pending Only'}</span>
           </button>
 
           <Link
