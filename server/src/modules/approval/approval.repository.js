@@ -130,9 +130,15 @@ export async function listApprovalRequests({ role, repScope, status, offset = 0,
     }
   } else if (role === 'FINANCE') {
     conditions.push(
-      and(
-        eq(approvalRequests.requiredLevel, 'MANAGER_FINANCE'),
-        managerApprovedSql
+      or(
+        and(
+          eq(approvalRequests.requiredLevel, 'MANAGER_FINANCE'),
+          managerApprovedSql
+        ),
+        and(
+          eq(approvalRequests.requiredLevel, 'MANAGER_FINANCE'),
+          sql`${approvalRequests.status} != 'PENDING'`
+        )
       )
     );
   }

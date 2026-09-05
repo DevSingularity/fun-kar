@@ -103,6 +103,9 @@ export async function createOrderFromQuotation(quotationId, auth) {
     newValue: { orderNumber, grandTotal: quotation.grandTotal },
   });
 
+  // Mark quotation as CONFIRMED in DB
+  await quotationsRepo.updateHeaderFields(quotationId, { status: 'CONFIRMED' });
+
   // Run initial auto-allocation
   try {
     await allocateOrder(order.id, auth);

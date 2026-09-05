@@ -47,6 +47,7 @@ router.use('/risk', riskRoutes);
 router.use('/quotations', quotationsRoutes);
 router.use('/quotations/:id', quoteUpsellRoutes);
 router.use('/approval-requests', approvalRoutes);
+router.use('/approvals', approvalRoutes);
 router.use('/upsell-rules', upsellRulesRoutes);
 router.use('/warehouses', warehousesRoutes);
 router.use('/orders', fulfillmentRoutes);
