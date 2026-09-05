@@ -16,6 +16,8 @@ import DashboardHomePage from '../pages/dashboard/DashboardHomePage.jsx';
 import V1DashboardPage from '../pages/dashboard/V1DashboardPage.jsx';
 import V1QuotationsPage from '../pages/quotations/V1QuotationsPage.jsx';
 import V1QuotationDetailPage from '../pages/quotations/V1QuotationDetailPage.jsx';
+import V1ApprovalsPage from '../pages/approvals/V1ApprovalsPage.jsx';
+import V1ApprovalDetailPage from '../pages/approvals/V1ApprovalDetailPage.jsx';
 import ProductsPage from '../pages/catalog/ProductsPage.jsx';
 import PricingPage from '../pages/catalog/PricingPage.jsx';
 import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
@@ -61,10 +63,12 @@ export default function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route element={<PrivateRoute />}>
-          {/* Standalone Official Wireframe V1 Sales Pages */}
+          {/* Standalone Official Wireframe V1 Enterprise Pages */}
           <Route path="/v1/dashboard" element={<V1DashboardPage />} />
           <Route path="/v1/quotations" element={<V1QuotationsPage />} />
           <Route path="/v1/quotations/:id" element={<V1QuotationDetailPage />} />
+          <Route path="/v1/approvals" element={<V1ApprovalsPage />} />
+          <Route path="/v1/approvals/:id" element={<V1ApprovalDetailPage />} />
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardHomePage />} />
             <Route path="/dashboard/products" element={<ProductsPage />} />

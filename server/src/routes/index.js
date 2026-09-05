@@ -9,6 +9,8 @@ import governanceRoutes from '../modules/governance/governance.routes.js';
 import riskRoutes from '../modules/risk/risk.routes.js';
 import quotationsRoutes from '../modules/quotations/quotations.routes.js';
 import dashboardRoutes from '../modules/dashboard/dashboard.routes.js';
+import approvalRoutes from '../modules/approval/approval.routes.js';
+import { adminRouter as upsellRulesRoutes, suggestionsRouter as quoteUpsellRoutes } from '../modules/intelligence/intelligence.routes.js';
 
 const router = Router();
 
@@ -25,5 +27,8 @@ router.use('/customers', customersRoutes);
 router.use('/governance', governanceRoutes);
 router.use('/risk', riskRoutes);
 router.use('/quotations', quotationsRoutes);
+router.use('/quotations/:id', quoteUpsellRoutes);
+router.use('/approval-requests', approvalRoutes);
+router.use('/upsell-rules', upsellRulesRoutes);
 
 export default router;
