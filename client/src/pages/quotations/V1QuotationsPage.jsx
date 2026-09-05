@@ -3,33 +3,37 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   FileSpreadsheet, 
   Plus, 
-  ShieldCheck, 
-  Boxes, 
-  CreditCard, 
-  Activity, 
-  BarChart3, 
-  Package, 
-  Receipt, 
-  Sparkles, 
+  Table as TableIcon, 
+  Kanban, 
+  ArrowRight, 
   Clock, 
-  AlertTriangle, 
   CheckCircle2, 
+  ShieldAlert, 
+  AlertCircle, 
+  Search, 
+  Filter, 
+  X, 
   Sun, 
   Moon, 
-  LogOut, 
-  User, 
-  Layers, 
-  ArrowUpRight,
-  MousePointer2,
-  Calendar,
+  LogOut,
   Building2,
-  X
+  Calendar,
+  Layers,
+  ArrowUpRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
 
-export default function V1DashboardPage() {
+const STAGE_COLUMNS = [
+  { key: 'DRAFT', label: 'Draft', badgeColor: 'border-slate-700/80 bg-slate-900/60 text-slate-300' },
+  { key: 'PENDING_APPROVAL', label: 'Pending Approval', badgeColor: 'border-amber-500/40 bg-amber-950/20 text-amber-300' },
+  { key: 'APPROVED', label: 'Approved', badgeColor: 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300' },
+  { key: 'UNDER_NEGOTIATION', label: 'Negotiation', badgeColor: 'border-blue-500/40 bg-blue-950/20 text-blue-300' },
+  { key: 'CONFIRMED', label: 'Confirmed', badgeColor: 'border-purple-500/40 bg-purple-950/20 text-purple-300' },
+];
+
+export default function V1QuotationsPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -37,10 +41,12 @@ export default function V1DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [quotations, setQuotations] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
+  const [search, setSearch] = useState('');
   const [darkMode, setDarkMode] = useState(true);
   const [brightness, setBrightness] = useState(85);
 
-  // New Quotation Modal State
+  // New Quote Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -48,7 +54,6 @@ export default function V1DashboardPage() {
     promisedDeliveryDate: '',
   });
 
-  // Fetch real data from backend
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -64,7 +69,7 @@ export default function V1DashboardPage() {
         setFormData((prev) => ({ ...prev, customerId: custs[0].id }));
       }
     } catch (err) {
-      console.warn('Dashboard data fetch note:', err);
+      console.warn('Failed to load quotations:', err);
     } finally {
       setLoading(false);
     }
@@ -110,51 +115,42 @@ export default function V1DashboardPage() {
     }
   };
 
-  // Compute live metrics
-  const pendingApprovalsCount = quotations.filter((q) => q.status === 'PENDING_APPROVAL').length || 4;
-  const openQuotesCount = quotations.filter((q) => 
-    ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT'].includes(q.status)
-  ).length || 12;
-  const atRiskCount = quotations.filter((q) => 
-    q.marginHealth === 'LOW_MARGIN' || q.marginHealth === 'WATCH' || Number(q.estimatedMarginPct) < 20
-  ).length || 3;
+  // Official PS Scenario fallback deals for wireframe fidelity when database is empty
+  const PS_DEFAULT_DEALS = {
+    DRAFT: [
+      { id: 'ps-d1', customerName: 'Acme Corp', netAmount: '12400', quoteNumber: 'Q-2026-0001' },
+      { id: 'ps-d2', customerName: 'Delta LLC', netAmount: '3200', quoteNumber: 'Q-2026-0002' },
+    ],
+    PENDING_APPROVAL: [
+      { id: 'ps-p1', customerName: 'Beta Industries', netAmount: '28900', quoteNumber: 'Q-2026-0003' },
+    ],
+    APPROVED: [
+      { id: 'ps-a1', customerName: 'Nova Retail', netAmount: '9750', quoteNumber: 'Q-2026-0004' },
+    ],
+    UNDER_NEGOTIATION: [
+      { id: 'ps-n1', customerName: 'Zenith Co', netAmount: '15300', quoteNumber: 'Q-2026-0005' },
+    ],
+    CONFIRMED: [
+      { id: 'ps-c1', customerName: 'Orion Ltd', netAmount: '41000', quoteNumber: 'Q-2026-0006' },
+    ],
+  };
 
-  // Build activity feed with live real quotations + official PS wireframe mock highlights
-  const recentActivities = [
-    {
-      id: 'mock-1',
-      title: 'Acme Corp quotation approved by Finance',
-      type: 'approved',
-      time: '10 mins ago',
-      source: 'PS Scenario'
-    },
-    {
-      id: 'mock-2',
-      title: 'Beta Industries requested a discount change',
-      type: 'pending',
-      time: '35 mins ago',
-      source: 'PS Scenario'
-    },
-    {
-      id: 'mock-3',
-      title: 'East Depot stock updated for Order #2291',
-      type: 'system',
-      time: '1 hr ago',
-      source: 'PS Scenario'
-    },
-    ...quotations.slice(0, 4).map((q) => ({
-      id: q.id,
-      title: `${q.customerName || 'Customer'} — Quotation ${q.quoteNumber} (${q.status.replace('_', ' ')})`,
-      type: q.status === 'APPROVED' ? 'approved' : q.status === 'PENDING_APPROVAL' ? 'pending' : 'draft',
-      time: 'Live',
-      source: 'Live Neon DB',
-      quoteId: q.id,
-    })),
-  ];
+  // Group quotations by stage
+  const getQuotesForColumn = (stageKey) => {
+    const dbQuotes = quotations.filter((q) => {
+      if (stageKey === 'UNDER_NEGOTIATION') {
+        return q.status === 'UNDER_NEGOTIATION' || q.status === 'SENT';
+      }
+      return q.status === stageKey;
+    });
+
+    if (dbQuotes.length > 0) return dbQuotes;
+    return PS_DEFAULT_DEALS[stageKey] || [];
+  };
 
   const navTabs = [
-    { label: 'Dashboard', path: '/v1/dashboard', active: true },
-    { label: 'Quotations', path: '/v1/quotations', active: false },
+    { label: 'Dashboard', path: '/v1/dashboard', active: false },
+    { label: 'Quotations', path: '/v1/quotations', active: true },
     { label: 'Approvals', path: '/dashboard/approvals', active: false },
     { label: 'Fulfillment', path: '/dashboard/fulfillment', active: false },
     { label: 'Subscriptions', path: '/dashboard/billing', active: false },
@@ -163,6 +159,15 @@ export default function V1DashboardPage() {
     { label: 'Reports', path: '/dashboard/reports', active: false },
     { label: 'Product', path: '/dashboard/products', active: false },
   ];
+
+  const filteredQuotations = quotations.filter((q) => {
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return (
+      q.quoteNumber?.toLowerCase().includes(term) ||
+      q.customerName?.toLowerCase().includes(term)
+    );
+  });
 
   const bgStyle = darkMode 
     ? { backgroundColor: `rgba(18, 20, 24, ${brightness / 100})` }
@@ -224,7 +229,6 @@ export default function V1DashboardPage() {
               <span>{user?.role || 'SALES_REP'}</span>
             </div>
 
-            {/* User Avatars P & G from wireframe */}
             <div className="flex items-center -space-x-1.5">
               <div 
                 title={user?.name || 'Primary User'} 
@@ -252,203 +256,208 @@ export default function V1DashboardPage() {
       </header>
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-8 space-y-8">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
         
         {/* Page Title & Subtitle */}
-        <div className="space-y-1">
-          <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-            Sales Dashboard / Home
-          </h1>
-          <p className={`text-xs sm:text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-            Central hub, links out to every module below
-          </p>
-        </div>
-
-        {/* ── 3 Big KPI Status Summary Cards ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          
-          {/* Card 1: Pending Approvals */}
-          <Link
-            to="/dashboard/approvals"
-            className={`group block p-5 rounded-2xl border transition-all duration-200 ${
-              darkMode 
-                ? 'border-slate-700/80 bg-slate-900/60 hover:border-amber-500/60 hover:bg-slate-900/90 shadow-lg' 
-                : 'border-slate-200 bg-white hover:border-amber-400 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="space-y-1.5">
-                <h3 className={`text-sm font-semibold tracking-wide ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Pending Approvals
-                </h3>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <span className="font-bold text-amber-400">{pendingApprovalsCount}</span> quotations waiting
-                </p>
-              </div>
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 group-hover:scale-110 transition-transform">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 2: Open Quotations */}
-          <Link
-            to="/dashboard/quotations"
-            className={`group block p-5 rounded-2xl border transition-all duration-200 ${
-              darkMode 
-                ? 'border-slate-700/80 bg-slate-900/60 hover:border-sky-500/60 hover:bg-slate-900/90 shadow-lg' 
-                : 'border-slate-200 bg-white hover:border-sky-400 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="space-y-1.5">
-                <h3 className={`text-sm font-semibold tracking-wide ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                  Open Quotations
-                </h3>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <span className="font-bold text-sky-400">{openQuotesCount}</span> active deals
-                </p>
-              </div>
-              <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:scale-110 transition-transform">
-                <FileSpreadsheet className="h-5 w-5" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Card 3: At-Risk Deals */}
-          <Link
-            to="/dashboard/deal-health"
-            className={`group block p-5 rounded-2xl border transition-all duration-200 ${
-              darkMode 
-                ? 'border-slate-700/80 bg-slate-900/60 hover:border-rose-500/60 hover:bg-slate-900/90 shadow-lg' 
-                : 'border-slate-200 bg-white hover:border-rose-400 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="space-y-1.5">
-                <h3 className={`text-sm font-semibold tracking-wide ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                  At-Risk Deals
-                </h3>
-                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  <span className="font-bold text-rose-400">{atRiskCount}</span> flagged by Deal Health
-                </p>
-              </div>
-              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 group-hover:scale-110 transition-transform">
-                <Activity className="h-5 w-5" />
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* ── Action Buttons with Pointer Indicator ── */}
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          
-          {/* + New Quotation Button with "Handy Owl" Tag */}
-          <div className="relative inline-flex items-center">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#4a90e2] hover:bg-[#357abd] text-white shadow-md hover:shadow-lg transition-all active:scale-95"
-            >
-              <Plus className="h-4 w-4" />
-              + New Quotation
-            </button>
-            
-            {/* Interactive Wireframe Tag */}
-            <div className="hidden sm:flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-md bg-[#0f382a] text-[#4ade80] border border-[#22c55e]/30 text-[10px] font-semibold">
-              <MousePointer2 className="h-3 w-3 fill-current rotate-12 text-[#22c55e]" />
-              <span>Handy Owl</span>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+              Quotations (List)
+            </h1>
+            <p className={`text-xs sm:text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              Every quotation in the system, one row per quotation, click a row to open it
+            </p>
           </div>
 
-          {/* View Approvals Button */}
-          <Link
-            to="/dashboard/approvals"
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search deals or accounts..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs font-medium border outline-hidden transition-all ${
+                darkMode 
+                  ? 'border-slate-700 bg-slate-900/80 text-white placeholder:text-slate-500 focus:border-[#4a90e2]' 
+                  : 'border-slate-300 bg-white text-slate-800 placeholder:text-slate-400 focus:border-[#4a90e2]'
+              }`}
+            />
+          </div>
+        </div>
+
+        {/* ── View Mode: 5-Column Pipeline Kanban (As per Wireframe 3) ── */}
+        {viewMode === 'kanban' ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {STAGE_COLUMNS.map((col) => {
+              const quotesInCol = getQuotesForColumn(col.key);
+              return (
+                <div
+                  key={col.key}
+                  className={`flex flex-col rounded-2xl border p-4 min-h-[420px] space-y-3 transition-colors ${
+                    darkMode 
+                      ? 'border-slate-800 bg-slate-900/40 backdrop-blur-xs' 
+                      : 'border-slate-200 bg-white/80 shadow-xs'
+                  }`}
+                >
+                  {/* Column Header */}
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-700/40">
+                    <h3 className={`text-xs font-bold tracking-wide ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                      {col.label}
+                    </h3>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                      {quotesInCol.length}
+                    </span>
+                  </div>
+
+                  {/* Deals Cards in Column */}
+                  <div className="space-y-3 flex-1 overflow-y-auto no-scrollbar pt-1">
+                    {quotesInCol.map((quote) => {
+                      const isRealDbQuote = !quote.id?.startsWith('ps-');
+                      return (
+                        <div
+                          key={quote.id}
+                          onClick={() => {
+                            if (isRealDbQuote) {
+                              navigate(`/dashboard/quotations/${quote.id}`);
+                            } else {
+                              setShowCreateModal(true);
+                            }
+                          }}
+                          className={`group cursor-pointer p-4 rounded-xl border transition-all duration-200 active:scale-98 ${
+                            darkMode 
+                              ? 'border-slate-700/80 bg-slate-900/90 hover:border-[#4a90e2] hover:bg-slate-800/90 shadow-md' 
+                              : 'border-slate-200 bg-white hover:border-[#4a90e2] hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className={`text-xs font-bold group-hover:text-[#4a90e2] transition-colors ${
+                              darkMode ? 'text-slate-100' : 'text-slate-800'
+                            }`}>
+                              {quote.customerName || 'Enterprise Account'}
+                            </span>
+                            <span className="text-xs font-extrabold text-emerald-400 shrink-0">
+                              ₹{Number(quote.grandTotal || quote.netAmount || 0).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
+                            <span className="font-mono text-[10px] bg-slate-800/70 px-1.5 py-0.5 rounded text-slate-300">
+                              {quote.quoteNumber || 'Q-2026-0001'}
+                            </span>
+                            {quote.marginHealth && (
+                              <span className={`text-[10px] font-bold ${
+                                quote.marginHealth === 'HEALTHY' ? 'text-emerald-400' : 'text-amber-400'
+                              }`}>
+                                {quote.marginHealth}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── Table View ── */
+          <div className={`rounded-2xl border overflow-hidden ${
+            darkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-white'
+          }`}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className={`border-b font-bold uppercase tracking-wider ${
+                  darkMode ? 'border-slate-800 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500'
+                }`}>
+                  <tr>
+                    <th className="py-3.5 px-4">Quote #</th>
+                    <th className="py-3.5 px-4">Customer Account</th>
+                    <th className="py-3.5 px-4">Total Amount</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4">Margin Health</th>
+                    <th className="py-3.5 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${darkMode ? 'divide-slate-800 text-slate-300' : 'divide-slate-100 text-slate-700'}`}>
+                  {filteredQuotations.map((q) => (
+                    <tr 
+                      key={q.id}
+                      onClick={() => navigate(`/dashboard/quotations/${q.id}`)}
+                      className={`cursor-pointer transition-colors ${
+                        darkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <td className="py-3.5 px-4 font-mono font-bold text-[#4a90e2]">{q.quoteNumber}</td>
+                      <td className="py-3.5 px-4 font-semibold">{q.customerName || 'Customer'}</td>
+                      <td className="py-3.5 px-4 font-bold text-emerald-400">
+                        ₹{Number(q.grandTotal || 0).toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
+                          {q.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold">{q.marginHealth || 'HEALTHY'}</td>
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="text-[#4a90e2] hover:underline inline-flex items-center gap-1 font-semibold">
+                          Open <ArrowRight className="h-3 w-3" />
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Action Buttons Row (From Wireframe 3) ── */}
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          
+          {/* + New Quotation Button */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#4a90e2] hover:bg-[#357abd] text-white shadow-md hover:shadow-lg transition-all active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+            + New Quotation
+          </button>
+
+          {/* Switch to Table / Kanban View Button */}
+          <button
+            onClick={() => setViewMode(viewMode === 'kanban' ? 'table' : 'kanban')}
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 ${
               darkMode 
                 ? 'border-slate-700 bg-slate-900/80 text-slate-200 hover:border-slate-500 hover:bg-slate-800' 
                 : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
-            View Approvals
-          </Link>
+            {viewMode === 'kanban' ? (
+              <>
+                <TableIcon className="h-4 w-4 text-[#4a90e2]" />
+                Switch to Table View
+              </>
+            ) : (
+              <>
+                <Kanban className="h-4 w-4 text-[#4a90e2]" />
+                Switch to Pipeline View
+              </>
+            )}
+          </button>
 
           <Link
-            to="/dashboard"
-            className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors ml-auto`}
+            to="/v1/dashboard"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors ml-auto"
           >
-            <span>Switch to Classic Grid Hub</span>
+            <span>Back to Sales Dashboard</span>
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-
-        {/* ── Recent Activity Section ── */}
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-[#38bdf8] uppercase tracking-wider flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[#38bdf8]" />
-              Recent Activity
-            </h2>
-            <span className="text-[11px] text-slate-500">Auto-synced with Neon DB</span>
-          </div>
-
-          <div className={`rounded-2xl border p-5 space-y-3.5 ${
-            darkMode 
-              ? 'border-slate-800/90 bg-slate-900/40 backdrop-blur-xs' 
-              : 'border-slate-200 bg-white shadow-xs'
-          }`}>
-            <ul className="space-y-2.5">
-              {recentActivities.map((act) => (
-                <li 
-                  key={act.id} 
-                  className={`flex items-center justify-between text-xs py-1.5 px-3 rounded-lg transition-colors ${
-                    darkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-slate-500 font-bold">•</span>
-                    <span className={`truncate font-medium ${
-                      darkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>
-                      {act.title}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 ml-4">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${
-                      act.type === 'approved' 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                        : act.type === 'pending'
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        : 'bg-slate-700/40 text-slate-400 border border-slate-700/50'
-                    }`}>
-                      {act.time}
-                    </span>
-
-                    {act.quoteId && (
-                      <Link
-                        to={`/dashboard/quotations/${act.quoteId}`}
-                        className="text-[11px] text-[#38bdf8] hover:underline flex items-center gap-0.5"
-                      >
-                        Open <ArrowUpRight className="h-3 w-3" />
-                      </Link>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* ── Absolute Caterpillar Floating Tag ── */}
-        <div className="flex justify-center pt-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#452210] text-[#f97316] border border-[#ea580c]/30 text-[11px] font-bold shadow-md animate-bounce">
-            <MousePointer2 className="h-3.5 w-3.5 fill-current text-[#f97316]" />
-            <span>Absolute Caterpillar</span>
-          </div>
-        </div>
       </main>
 
-      {/* ── Bottom Theme Brightness Control Slider (from wireframe) ── */}
+      {/* ── Bottom Theme Brightness Control Slider ── */}
       <footer className="mt-auto py-4 border-t border-slate-800/80 bg-black/40 backdrop-blur-md">
         <div className="max-w-[400px] mx-auto px-4 flex items-center justify-center gap-4">
           <button
