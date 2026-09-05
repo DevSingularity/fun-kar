@@ -49,18 +49,36 @@ export default function V1FulfillmentDetailPage() {
 
       const detail = detailRes.data?.data;
       setData(detail);
-      setWarehouses(whRes.data?.data || []);
+      const whList = whRes.data?.data || [];
+      setWarehouses(whList);
 
-      // Initialize override state for each item
+      // Initialize override state from existing allocations if available, or first warehouse
       if (detail?.items) {
         const initial = {};
         for (const item of detail.items) {
-          initial[item.id] = [
-            {
-              warehouseId: whRes.data?.data?.[0]?.id || '',
-              quantity: item.quantity,
-            },
-          ];
+          const itemSplits = [];
+          if (detail.warehouseSplits) {
+            for (const ws of detail.warehouseSplits) {
+              const matchedLine = ws.lines?.find((l) => l.orderItemId === item.id);
+              if (matchedLine) {
+                itemSplits.push({
+                  warehouseId: ws.warehouseId,
+                  quantity: matchedLine.quantityAllocated,
+                });
+              }
+            }
+          }
+
+          if (itemSplits.length > 0) {
+            initial[item.id] = itemSplits;
+          } else {
+            initial[item.id] = [
+              {
+                warehouseId: whList[0]?.id || '',
+                quantity: item.quantity,
+              },
+            ];
+          }
         }
         setOverrideState(initial);
       }

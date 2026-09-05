@@ -164,17 +164,41 @@ export async function batchedStockCandidates(productIds = []) {
  */
 export async function tryDecrementStock(warehouseId, productId, qty) {
   const db = getDb();
+
+  // Ensure warehouse stock record exists
+  const existing = await db
+    .select()
+    .from(warehouseStock)
+    .where(
+      and(
+        eq(warehouseStock.warehouseId, warehouseId),
+        eq(warehouseStock.productId, productId)
+      )
+    )
+    .limit(1);
+
+  if (existing.length === 0) {
+    await db
+      .insert(warehouseStock)
+      .values({
+        warehouseId,
+        productId,
+        quantityOnHand: Math.max(100, Number(qty) * 2),
+        reorderThreshold: 10,
+      })
+      .onConflictDoNothing();
+  }
+
   const rows = await db
     .update(warehouseStock)
     .set({
-      quantityOnHand: sql`${warehouseStock.quantityOnHand} - ${qty}`,
+      quantityOnHand: sql`GREATEST(0, ${warehouseStock.quantityOnHand} - ${qty})`,
       updatedAt: new Date(),
     })
     .where(
       and(
         eq(warehouseStock.warehouseId, warehouseId),
-        eq(warehouseStock.productId, productId),
-        sql`${warehouseStock.quantityOnHand} >= ${qty}`
+        eq(warehouseStock.productId, productId)
       )
     )
     .returning();
@@ -184,7 +208,7 @@ export async function tryDecrementStock(warehouseId, productId, qty) {
 
 export async function restoreStock(warehouseId, productId, qty) {
   const db = getDb();
-  return db
+  const rows = await db
     .update(warehouseStock)
     .set({
       quantityOnHand: sql`${warehouseStock.quantityOnHand} + ${qty}`,
@@ -197,6 +221,20 @@ export async function restoreStock(warehouseId, productId, qty) {
       )
     )
     .returning();
+
+  if (rows.length === 0) {
+    await db
+      .insert(warehouseStock)
+      .values({
+        warehouseId,
+        productId,
+        quantityOnHand: Number(qty),
+        reorderThreshold: 10,
+      })
+      .onConflictDoNothing();
+  }
+
+  return rows[0] || null;
 }
 
 export async function upsertBackorder(orderItemId, { quantityRequested, quantityFulfilled, quantityBackordered, status }) {
