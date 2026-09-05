@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "dev": "nodemon --watch src --watch .env src/index.js",
     "seed": "node src/db/seed.js",
+    "seed:local-fresh": "node src/db/seed-local-fresh.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

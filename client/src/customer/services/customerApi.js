@@ -12,10 +12,6 @@ customerApi.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  const shareToken = localStorage.getItem('quoteShareToken') || localStorage.getItem('customer_share_token');
-  if (shareToken) {
-    config.headers['X-Quote-Token'] = shareToken;
-  }
   return config;
 });
 

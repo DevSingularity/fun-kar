@@ -26,7 +26,7 @@ const DEMO_PRESETS = [
   { role: 'Finance', email: 'finance@dealflow.io', tag: 'FIN', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   { role: 'Operations', email: 'ops@dealflow.io', tag: 'OPS', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   { role: 'Admin', email: 'admin@dealflow.io', tag: 'ADM', color: 'bg-slate-100 text-slate-800 border-slate-300' },
-  { role: 'Customer Portal', email: 'customer@apexlogistics.com', isCustomer: true, color: 'bg-[#714b67]/10 text-[#714b67] border-[#714b67]/30 font-bold' },
+  { role: 'Customer Portal', email: 'customer@harborline.example', tag: 'CUS', color: 'bg-[#714b67]/10 text-[#714b67] border-[#714b67]/30 font-bold' },
 ];
 
 export default function LoginPage() {
@@ -38,13 +38,9 @@ export default function LoginPage() {
 
   const handleChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleSelectDemo = (email, isCustomer) => {
+  const handleSelectDemo = (email) => {
     setFormData({ email, password: 'Password123!' });
-    if (isCustomer) {
-      toast.success(`Loaded Customer Portal login (${email})`, { duration: 2500 });
-    } else {
-      toast.success(`Demo credentials loaded for ${email}`, { duration: 2000 });
-    }
+    toast.success(`Demo credentials loaded for ${email}`, { duration: 2000 });
   };
 
   const handleSubmit = async (e) => {
@@ -147,7 +143,7 @@ export default function LoginPage() {
                     <button
                       key={demo.email}
                       type="button"
-                      onClick={() => handleSelectDemo(demo.email, demo.isCustomer)}
+                      onClick={() => handleSelectDemo(demo.email)}
 
                       className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-all hover:scale-105 active:scale-95 ${demo.color}`}
                     >

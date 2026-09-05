@@ -26,9 +26,8 @@ import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
 import CustomersPage from '../pages/customers/CustomersPage.jsx';
 import QuotationsPage from '../pages/quotations/QuotationsPage.jsx';
 import QuotationDetailPage from '../pages/quotations/QuotationDetailPage.jsx';
-import CustomerPortalPage from '../customer/CustomerPortalPage.jsx';
-import CustomerMessagesPage from '../customer/CustomerMessagesPage.jsx';
-import CustomerProfilePage from '../customer/CustomerProfilePage.jsx';
+import CustomerQuotationsPage from '../customer/CustomerQuotationsPage.jsx';
+import CustomerQuotationDetailPage from '../customer/CustomerQuotationDetailPage.jsx';
 
 import useAuthStore from '../store/auth.store.js';
 
@@ -69,10 +68,8 @@ export default function AppRoutes() {
         <Route path="/register" element={<RegisterPage />} />
         
         {/* Phase 7 Customer Portal Routes */}
-        <Route path="/v1/customer" element={<CustomerPortalPage />} />
-        <Route path="/v1/customer/:id" element={<CustomerPortalPage />} />
-        <Route path="/v1/customer/messages" element={<CustomerMessagesPage />} />
-        <Route path="/v1/customer/profile" element={<CustomerProfilePage />} />
+        <Route path="/v1/customer" element={<CustomerQuotationsPage />} />
+        <Route path="/v1/customer/:quotationId" element={<CustomerQuotationDetailPage />} />
 
         <Route element={<PrivateRoute />}>
           {/* Standalone Official Wireframe V1 Enterprise Pages */}
@@ -85,12 +82,6 @@ export default function AppRoutes() {
           <Route path="/v1/fulfillment/:id" element={<V1FulfillmentDetailPage />} />
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardHomePage />} />
-            <Route path="/dashboard/products" element={<ProductsPage />} />
-            <Route path="/dashboard/pricing" element={<PricingPage />} />
-            <Route path="/dashboard/governance" element={<DiscountsPage />} />
-            <Route path="/dashboard/customers" element={<CustomersPage />} />
-            <Route path="/dashboard/quotations" element={<QuotationsPage />} />
-            <Route path="/dashboard/quotations/:id" element={<QuotationDetailPage />} />
             <Route path="/dashboard/products" element={<ProductsPage />} />
             <Route path="/dashboard/pricing" element={<PricingPage />} />
             <Route path="/dashboard/governance" element={<DiscountsPage />} />

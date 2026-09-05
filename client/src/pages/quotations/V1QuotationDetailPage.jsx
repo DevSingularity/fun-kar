@@ -455,6 +455,34 @@ export default function V1QuotationDetailPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+        <OdooTopNavbar activeTab="Quotations" />
+        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center">
+          <p className="text-xs font-semibold text-slate-400">Loading quotation details...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
+        <OdooTopNavbar activeTab="Quotations" />
+        <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-16 text-center space-y-4">
+          <p className="text-sm font-bold text-slate-700">Quotation not found</p>
+          <Link
+            to="/v1/quotations"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#714b67] text-white"
+          >
+            ← Return to Quotations List
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
       {/* ── Enterprise Global Navbar ── */}
