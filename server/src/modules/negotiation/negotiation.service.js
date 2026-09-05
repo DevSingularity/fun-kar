@@ -1,23 +1,17 @@
 import * as repo from './negotiation.repository.js';
-import { getDb } from '../../config/database.js';
-import { quotations, quotationItems, approvalRequests, auditLogs } from '../../db/schema/index.js';
-import { eq, and } from 'drizzle-orm';
+import { query, queryOne } from '../../config/database.js';
 import { evaluateQuoteRisk } from '../risk/risk.service.js';
 import { createIfRequired } from '../approval/approval.service.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../common/errors.js';
-
 import { parseListQuery, buildMeta } from '../../common/pagination.util.js';
-
 
 const NEGOTIABLE_STATUSES = ['SENT', 'UNDER_NEGOTIATION'];
 
 export async function createRequestAsCustomer(quotationId, payload, portalAuth) {
-  const db = getDb();
-  const [quote] = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, quotationId));
-
+  const quote = await queryOne(
+    `SELECT * FROM quotations WHERE id = $1`,
+    [quotationId]
+  );
 
   if (!quote || quote.customerId !== portalAuth.customerId) {
     throw new NotFoundError(`Quotation with ID '${quotationId}' not found.`, 'QUOTATION_NOT_FOUND');
@@ -55,20 +49,21 @@ export async function createRequestAsCustomer(quotationId, payload, portalAuth) 
   });
 
   const nextStatus = quote.status === 'SENT' ? 'UNDER_NEGOTIATION' : quote.status;
-  await db
-    .update(quotations)
-    .set({ status: nextStatus, lastActivityAt: new Date(), updatedAt: new Date() })
-    .where(eq(quotations.id, quotationId));
+  await query(
+    `UPDATE quotations
+     SET status = $2, last_activity_at = NOW(), updated_at = NOW()
+     WHERE id = $1`,
+    [quotationId, nextStatus]
+  );
 
   return { negotiationRequest: request };
 }
 
 export async function addCommentAsCustomer(quotationId, payload, portalAuth) {
-  const db = getDb();
-  const [quote] = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, quotationId));
+  const quote = await queryOne(
+    `SELECT * FROM quotations WHERE id = $1`,
+    [quotationId]
+  );
 
   if (!quote || quote.customerId !== portalAuth.customerId) {
     throw new NotFoundError(`Quotation with ID '${quotationId}' not found.`, 'QUOTATION_NOT_FOUND');
@@ -90,20 +85,21 @@ export async function addCommentAsCustomer(quotationId, payload, portalAuth) {
     message: payload.message,
   });
 
-  await db
-    .update(quotations)
-    .set({ lastActivityAt: new Date(), updatedAt: new Date() })
-    .where(eq(quotations.id, quotationId));
+  await query(
+    `UPDATE quotations
+     SET last_activity_at = NOW(), updated_at = NOW()
+     WHERE id = $1`,
+    [quotationId]
+  );
 
   return { comment };
 }
 
 export async function addCommentAsInternal(quotationId, payload, authUser) {
-  const db = getDb();
-  const [quote] = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, quotationId));
+  const quote = await queryOne(
+    `SELECT * FROM quotations WHERE id = $1`,
+    [quotationId]
+  );
 
   if (!quote) {
     throw new NotFoundError(`Quotation with ID '${quotationId}' not found.`, 'QUOTATION_NOT_FOUND');
@@ -131,12 +127,11 @@ export async function addCommentAsInternal(quotationId, payload, authUser) {
   return { comment };
 }
 
-export async function listRequests(quotationId, query, authUser) {
-  const db = getDb();
-  const [quote] = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, quotationId));
+export async function listRequests(quotationId, queryParams, authUser) {
+  const quote = await queryOne(
+    `SELECT * FROM quotations WHERE id = $1`,
+    [quotationId]
+  );
 
   if (!quote) {
     throw new NotFoundError(`Quotation with ID '${quotationId}' not found.`, 'QUOTATION_NOT_FOUND');
@@ -146,14 +141,13 @@ export async function listRequests(quotationId, query, authUser) {
     throw new ForbiddenError('You do not have access to view negotiation requests for this quotation.', 'ACCESS_DENIED');
   }
 
-  const { page, limit, offset } = parseListQuery(query);
-  const { rows, count } = await repo.listRequests(quotationId, { status: query.status, offset, limit });
+  const { page, limit, offset } = parseListQuery(queryParams);
+  const { rows, count } = await repo.listRequests(quotationId, { status: queryParams.status, offset, limit });
 
   return {
     items: rows,
     meta: buildMeta(count, page, limit),
   };
-
 }
 
 export async function getTimeline(quotationId) {
@@ -184,7 +178,6 @@ export async function getTimeline(quotationId) {
 }
 
 export async function resolveRequest(requestId, { decision, resolutionNote }, authUser) {
-  const db = getDb();
   const request = await repo.findRequestById(requestId);
 
   if (!request) {
@@ -195,10 +188,10 @@ export async function resolveRequest(requestId, { decision, resolutionNote }, au
     throw new ConflictError('This negotiation request has already been resolved.', 'ALREADY_RESOLVED');
   }
 
-  const [quote] = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, request.quotationId));
+  const quote = await queryOne(
+    `SELECT * FROM quotations WHERE id = $1`,
+    [request.quotationId]
+  );
 
   if (!quote) {
     throw new NotFoundError(`Quotation with ID '${request.quotationId}' not found.`, 'QUOTATION_NOT_FOUND');
@@ -246,21 +239,18 @@ export async function resolveRequest(requestId, { decision, resolutionNote }, au
   const lineTotal = Number((effectiveUnitPrice * quantity).toFixed(2));
   const discountAmount = Number(((unitPrice * newDiscountPct / 100) * quantity).toFixed(2));
 
-  await db
-    .update(quotationItems)
-    .set({
-      discountPct: String(newDiscountPct),
-      discountAmount: String(discountAmount),
-      lineTotal: String(lineTotal),
-      updatedAt: now,
-    })
-    .where(eq(quotationItems.id, item.id));
+  await query(
+    `UPDATE quotation_items
+     SET discount_pct = $2, discount_amount = $3, line_total = $4, updated_at = $5
+     WHERE id = $1`,
+    [item.id, String(newDiscountPct), String(discountAmount), String(lineTotal), now]
+  );
 
   // Recalculate quotation totals
-  const allItems = await db
-    .select()
-    .from(quotationItems)
-    .where(eq(quotationItems.quotationId, quote.id));
+  const allItems = await query(
+    `SELECT * FROM quotation_items WHERE quotation_id = $1`,
+    [quote.id]
+  );
 
   let subtotal = 0;
   let discountTotal = 0;
@@ -278,19 +268,22 @@ export async function resolveRequest(requestId, { decision, resolutionNote }, au
 
   const grandTotal = Number((subtotal - discountTotal + taxTotal).toFixed(2));
 
-  await db
-    .update(quotations)
-    .set({
-      subtotal: String(subtotal.toFixed(2)),
-      discountTotal: String(discountTotal.toFixed(2)),
-      taxTotal: String(taxTotal.toFixed(2)),
-      grandTotal: String(grandTotal.toFixed(2)),
-      lastActivityAt: now,
-      updatedAt: now,
-    })
-    .where(eq(quotations.id, quote.id));
+  await query(
+    `UPDATE quotations
+     SET subtotal = $2, discount_total = $3, tax_total = $4, grand_total = $5,
+         last_activity_at = $6, updated_at = $6
+     WHERE id = $1`,
+    [
+      quote.id,
+      String(subtotal.toFixed(2)),
+      String(discountTotal.toFixed(2)),
+      String(taxTotal.toFixed(2)),
+      String(grandTotal.toFixed(2)),
+      now,
+    ]
+  );
 
-  // Risk evaluation & automatic re-approval routing trigger!
+  // Risk evaluation & automatic re-approval routing trigger
   const riskPayload = {
     customerId: quote.customerId,
     lines: allItems.map((it) => ({
@@ -307,33 +300,30 @@ export async function resolveRequest(requestId, { decision, resolutionNote }, au
   let approvalReqId = null;
 
   if (riskResult.summary.requiredApprovalLevel !== 'NONE') {
-    // Exceeds thresholds -> Automatically re-enter approval stage!
     updatedQuoteStatus = 'PENDING_APPROVAL';
 
-    // Create approval request entry
     const createdApproval = await createIfRequired(quote.id, riskResult);
     approvalReqId = createdApproval?.id;
 
-    await db
-      .update(quotations)
-      .set({
-        status: 'PENDING_APPROVAL',
-        requiredApprovalLevel: riskResult.summary.requiredApprovalLevel,
-        blendedRiskScore: String(riskResult.summary.blendedRiskScore),
-        updatedAt: now,
-      })
-      .where(eq(quotations.id, quote.id));
+    await query(
+      `UPDATE quotations
+       SET status = 'PENDING_APPROVAL',
+           required_approval_level = $2,
+           blended_risk_score = $3,
+           updated_at = $4
+       WHERE id = $1`,
+      [quote.id, riskResult.summary.requiredApprovalLevel, String(riskResult.summary.blendedRiskScore), now]
+    );
   } else {
-
-    await db
-      .update(quotations)
-      .set({
-        status: 'SENT',
-        requiredApprovalLevel: 'NONE',
-        blendedRiskScore: String(riskResult.summary.blendedRiskScore),
-        updatedAt: now,
-      })
-      .where(eq(quotations.id, quote.id));
+    await query(
+      `UPDATE quotations
+       SET status = 'SENT',
+           required_approval_level = 'NONE',
+           blended_risk_score = $2,
+           updated_at = $3
+       WHERE id = $1`,
+      [quote.id, String(riskResult.summary.blendedRiskScore), now]
+    );
   }
 
   const updatedRequest = await repo.updateRequest(requestId, {
@@ -351,25 +341,27 @@ export async function resolveRequest(requestId, { decision, resolutionNote }, au
     message: resolutionNote,
   });
 
-  await db.insert(auditLogs).values({
-    actorId: authUser.id,
-    entityType: 'QUOTATION_ITEM',
-    entityId: item.id,
-    action: 'DISCOUNT_RENEGOTIATED',
-    reason: resolutionNote,
-    oldValue: JSON.stringify({ discountPct: item.discountPct }),
-    newValue: JSON.stringify({
-      discountPct: newDiscountPct,
-      blendedRiskScore: riskResult.summary.blendedRiskScore,
-      requiredApprovalLevel: riskResult.summary.requiredApprovalLevel,
-      status: updatedQuoteStatus,
-    }),
-  });
+  await query(
+    `INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, reason, old_value, new_value)
+     VALUES ($1, 'QUOTATION_ITEM', $2, 'DISCOUNT_RENEGOTIATED', $3, $4, $5)`,
+    [
+      authUser.id,
+      item.id,
+      resolutionNote,
+      JSON.stringify({ discountPct: item.discountPct }),
+      JSON.stringify({
+        discountPct: newDiscountPct,
+        blendedRiskScore: riskResult.summary.blendedRiskScore,
+        requiredApprovalLevel: riskResult.summary.requiredApprovalLevel,
+        status: updatedQuoteStatus,
+      }),
+    ]
+  );
 
-  const [finalQuote] = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, quote.id));
+  const finalQuote = await queryOne(
+    `SELECT * FROM quotations WHERE id = $1`,
+    [quote.id]
+  );
 
   return {
     negotiationRequest: updatedRequest,

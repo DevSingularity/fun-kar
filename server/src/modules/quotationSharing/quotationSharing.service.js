@@ -1,6 +1,4 @@
-import { getDb } from '../../config/database.js';
-import { quotations, quotationPortalTokens, approvalRequests, auditLogs } from '../../db/schema/index.js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { query, queryOne } from '../../config/database.js';
 import { generateRawToken, hashToken } from '../../common/portalToken.util.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../common/errors.js';
 import { env } from '../../config/env.js';
@@ -8,12 +6,10 @@ import { env } from '../../config/env.js';
 const SHARE_TOKEN_TTL_DAYS = 14;
 
 export async function shareQuotation(quotationId, authUser) {
-  const db = getDb();
-  const [quote] = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, quotationId));
-
+  const quote = await queryOne(
+    `SELECT * FROM quotations WHERE id = $1`,
+    [quotationId]
+  );
 
   if (!quote) {
     throw new NotFoundError(`Quotation with ID '${quotationId}' not found.`, 'QUOTATION_NOT_FOUND');
@@ -24,59 +20,55 @@ export async function shareQuotation(quotationId, authUser) {
   }
 
   // Precondition check: No pending approval request
-  const [pendingApproval] = await db
-    .select()
-    .from(approvalRequests)
-    .where(
-      and(
-        eq(approvalRequests.quotationId, quotationId),
-        eq(approvalRequests.status, 'PENDING')
-      )
-    );
+  const pendingApproval = await queryOne(
+    `SELECT * FROM approval_requests
+     WHERE quotation_id = $1 AND status = 'PENDING'
+     LIMIT 1`,
+    [quotationId]
+  );
 
   if (pendingApproval) {
     throw new ConflictError('Quotation is currently pending internal approval.', 'APPROVAL_PENDING');
   }
 
   // Revoke existing active share tokens for this quotation
-  await db
-    .update(quotationPortalTokens)
-    .set({ revokedAt: new Date() })
-    .where(
-      and(
-        eq(quotationPortalTokens.quotationId, quotationId),
-        isNull(quotationPortalTokens.revokedAt)
-      )
-    );
+  await query(
+    `UPDATE quotation_portal_tokens
+     SET revoked_at = NOW()
+     WHERE quotation_id = $1 AND revoked_at IS NULL`,
+    [quotationId]
+  );
 
   const rawToken = generateRawToken();
   const expiresAt = new Date(Date.now() + SHARE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 
-  const [tokenRow] = await db
-    .insert(quotationPortalTokens)
-    .values({
-      quotationId,
-      tokenHash: hashToken(rawToken),
-      expiresAt,
-    })
-    .returning();
+  const tokenRow = await queryOne(
+    `INSERT INTO quotation_portal_tokens (quotation_id, token_hash, expires_at)
+     VALUES ($1, $2, $3)
+     RETURNING *`,
+    [quotationId, hashToken(rawToken), expiresAt]
+  );
 
   const nonRegressableStatuses = ['SENT', 'UNDER_NEGOTIATION', 'CONFIRMED', 'FULFILLING', 'COMPLETED'];
   if (!nonRegressableStatuses.includes(quote.status)) {
-    await db
-      .update(quotations)
-      .set({ status: 'SENT', lastActivityAt: new Date(), updatedAt: new Date() })
-      .where(eq(quotations.id, quotationId));
+    await query(
+      `UPDATE quotations
+       SET status = 'SENT', last_activity_at = NOW(), updated_at = NOW()
+       WHERE id = $1`,
+      [quotationId]
+    );
   }
 
   // Audit log entry
-  await db.insert(auditLogs).values({
-    actorId: authUser.id,
-    entityType: 'QUOTATION',
-    entityId: quotationId,
-    action: 'PORTAL_SHARED',
-    newValue: JSON.stringify({ tokenId: tokenRow.id, expiresAt: tokenRow.expiresAt }),
-  });
+  await query(
+    `INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, new_value)
+     VALUES ($1, 'QUOTATION', $2, 'PORTAL_SHARED', $3)`,
+    [
+      authUser.id,
+      quotationId,
+      JSON.stringify({ tokenId: tokenRow.id, expiresAt: tokenRow.expiresAt }),
+    ]
+  );
 
   const baseUrl = env.PORTAL_BASE_URL || 'http://localhost:5173';
   return {

@@ -1,41 +1,33 @@
-import { getDb } from '../../config/database.js';
-import { quotations, quotationItems } from '../../db/schema/quotations.js';
-import { customers } from '../../db/schema/customers.js';
-import { products } from '../../db/schema/catalog.js';
-import { approvalRequests, auditLogs } from '../../db/schema/governance.js';
-import { users } from '../../db/schema/users.js';
-import { desc, eq, sql, inArray, and } from 'drizzle-orm';
+import { query } from '../../config/database.js';
 import { resolveRepScope } from '../../common/scope.util.js';
 
 export async function getDashboardOverview(currentUser) {
-  const db = getDb();
-
   // Resolve once: null = unscoped (ADMIN/FINANCE/OPERATIONS org-wide view),
   // array = SALES_REP (self) or SALES_MANAGER (self + managed reps).
   const repScope = await resolveRepScope(currentUser);
 
   // 1. Fetch real quotations from DB
-  const allQuotations = await db
-    .select({
-      id: quotations.id,
-      quoteNumber: quotations.quoteNumber,
-      status: quotations.status,
-      customerId: quotations.customerId,
-      customerName: customers.name,
-      customerTier: customers.tier,
-      salesRepId: quotations.salesRepId,
-      originType: quotations.originType,
-      subtotal: quotations.subtotal,
-      discountAmount: quotations.discountTotal,
-      taxAmount: quotations.taxTotal,
-      grandTotal: quotations.grandTotal,
-      requiredApprovalLevel: quotations.requiredApprovalLevel,
-      createdAt: quotations.createdAt,
-      updatedAt: quotations.updatedAt,
-    })
-    .from(quotations)
-    .leftJoin(customers, eq(quotations.customerId, customers.id))
-    .orderBy(desc(quotations.createdAt));
+  const allQuotations = await query(
+    `SELECT
+       q.id,
+       q.quote_number,
+       q.status,
+       q.customer_id,
+       c.name AS customer_name,
+       c.tier AS customer_tier,
+       q.sales_rep_id,
+       q.origin_type,
+       q.subtotal,
+       q.discount_total AS discount_amount,
+       q.tax_total AS tax_amount,
+       q.grand_total,
+       q.required_approval_level,
+       q.created_at,
+       q.updated_at
+     FROM quotations q
+     LEFT JOIN customers c ON q.customer_id = c.id
+     ORDER BY q.created_at DESC`
+  );
 
   // Role scoping: SALES_REP sees only their own; SALES_MANAGER sees their
   // own + every rep who reports to them; everyone else sees org-wide.
@@ -73,27 +65,42 @@ export async function getDashboardOverview(currentUser) {
 
   let dbLogs = [];
   if (repScope === null || scopedQuoteIds.length > 0) {
-    const logConditions = [eq(auditLogs.entityType, 'QUOTATION')];
-    if (repScope !== null) {
-      logConditions.push(inArray(auditLogs.entityId, scopedQuoteIds));
+    if (repScope === null) {
+      dbLogs = await query(
+        `SELECT
+           al.id,
+           al.action,
+           al.entity_type,
+           al.entity_id,
+           al.reason,
+           al.created_at,
+           u.name AS actor_name,
+           u.role AS actor_role
+         FROM audit_logs al
+         LEFT JOIN users u ON al.actor_id = u.id
+         WHERE al.entity_type = 'QUOTATION'
+         ORDER BY al.created_at DESC
+         LIMIT 10`
+      );
+    } else {
+      dbLogs = await query(
+        `SELECT
+           al.id,
+           al.action,
+           al.entity_type,
+           al.entity_id,
+           al.reason,
+           al.created_at,
+           u.name AS actor_name,
+           u.role AS actor_role
+         FROM audit_logs al
+         LEFT JOIN users u ON al.actor_id = u.id
+         WHERE al.entity_type = 'QUOTATION' AND al.entity_id = ANY($1::uuid[])
+         ORDER BY al.created_at DESC
+         LIMIT 10`,
+        [scopedQuoteIds]
+      );
     }
-
-    dbLogs = await db
-      .select({
-        id: auditLogs.id,
-        action: auditLogs.action,
-        entityType: auditLogs.entityType,
-        entityId: auditLogs.entityId,
-        reason: auditLogs.reason,
-        createdAt: auditLogs.createdAt,
-        actorName: users.name,
-        actorRole: users.role,
-      })
-      .from(auditLogs)
-      .leftJoin(users, eq(auditLogs.actorId, users.id))
-      .where(and(...logConditions))
-      .orderBy(desc(auditLogs.createdAt))
-      .limit(10);
   }
 
   // Format activity feed combining audit logs & recent quote status changes
@@ -140,19 +147,19 @@ export async function getDashboardOverview(currentUser) {
   }
 
   // 5. Fetch Active Catalog Products for Dynamic Upsell Engine (unscoped)
-  const catalogProducts = await db
-    .select({
-      id: products.id,
-      sku: products.sku,
-      name: products.name,
-      basePrice: products.basePrice,
-      estimatedCost: products.estimatedCost,
-      taxRate: products.taxRate,
-      productType: products.productType,
-    })
-    .from(products)
-    .where(eq(products.isActive, true))
-    .limit(6);
+  const catalogProducts = await query(
+    `SELECT
+       id,
+       sku,
+       name,
+       base_price,
+       estimated_cost,
+       tax_rate,
+       product_type
+     FROM products
+     WHERE is_active = true
+     LIMIT 6`
+  );
 
   const upsellSuggestions = catalogProducts.map((prod) => {
     const listPrice = Number(prod.basePrice || 0);

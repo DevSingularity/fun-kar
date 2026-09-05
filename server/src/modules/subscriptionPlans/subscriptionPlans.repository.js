@@ -1,63 +1,109 @@
-import { eq, sql } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { subscriptionPlans } from '../../db/schema/billing.js';
+import { query, queryOne } from '../../config/database.js';
 
-export async function findAllPlans({ isActive } = {}) {
-  const db = getDb();
-  const conditions = [];
-  if (isActive !== undefined) conditions.push(eq(subscriptionPlans.isActive, isActive));
-  return db
-    .select()
-    .from(subscriptionPlans)
-    .where(conditions.length ? conditions[0] : undefined)
-    .orderBy(subscriptionPlans.name);
+export async function findAllPlans({ isActive } = {}, tx = null) {
+  let whereSql = '';
+  const params = [];
+  if (isActive !== undefined) {
+    params.push(isActive);
+    whereSql = `WHERE is_active = $1`;
+  }
+  return query(
+    `SELECT id, name, frequency, price, proration_enabled AS "prorationEnabled",
+            cancellation_notice_days AS "cancellationNoticeDays", is_active AS "isActive",
+            created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM subscription_plans
+     ${whereSql}
+     ORDER BY name ASC`,
+    params,
+    tx
+  );
 }
 
-export async function findPlanById(id, tx = undefined) {
-  const db = tx || getDb();
-  const [row] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id));
-  return row || null;
+export async function findPlanById(id, tx = null) {
+  return queryOne(
+    `SELECT id, name, frequency, price, proration_enabled AS "prorationEnabled",
+            cancellation_notice_days AS "cancellationNoticeDays", is_active AS "isActive",
+            created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM subscription_plans
+     WHERE id = $1
+     LIMIT 1`,
+    [id],
+    tx
+  );
 }
 
-export async function findPlanByName(name) {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(subscriptionPlans)
-    .where(sql`lower(${subscriptionPlans.name}) = lower(${name})`);
-  return row || null;
+export async function findPlanByName(name, tx = null) {
+  return queryOne(
+    `SELECT id, name, frequency, price, proration_enabled AS "prorationEnabled",
+            cancellation_notice_days AS "cancellationNoticeDays", is_active AS "isActive",
+            created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM subscription_plans
+     WHERE LOWER(name) = LOWER($1)
+     LIMIT 1`,
+    [name.trim()],
+    tx
+  );
 }
 
-export async function createPlan(data) {
-  const db = getDb();
-  const [created] = await db
-    .insert(subscriptionPlans)
-    .values({
-      name: data.name.trim(),
-      frequency: data.frequency,
-      price: String(data.price),
-      prorationEnabled: data.prorationEnabled !== undefined ? data.prorationEnabled : true,
-      cancellationNoticeDays: data.cancellationNoticeDays || 0,
-      isActive: data.isActive !== undefined ? data.isActive : true,
-    })
-    .returning();
-  return created;
+export async function createPlan(data, tx = null) {
+  return queryOne(
+    `INSERT INTO subscription_plans (
+       name, frequency, price, proration_enabled, cancellation_notice_days, is_active, created_at, updated_at
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+     RETURNING *`,
+    [
+      data.name.trim(),
+      data.frequency,
+      String(data.price),
+      data.prorationEnabled !== undefined ? data.prorationEnabled : true,
+      data.cancellationNoticeDays || 0,
+      data.isActive !== undefined ? data.isActive : true,
+    ],
+    tx
+  );
 }
 
-export async function updatePlan(id, data) {
-  const db = getDb();
-  const updateData = {};
-  if (data.name !== undefined) updateData.name = data.name.trim();
-  if (data.frequency !== undefined) updateData.frequency = data.frequency;
-  if (data.price !== undefined) updateData.price = String(data.price);
-  if (data.prorationEnabled !== undefined) updateData.prorationEnabled = data.prorationEnabled;
-  if (data.cancellationNoticeDays !== undefined) updateData.cancellationNoticeDays = data.cancellationNoticeDays;
-  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+export async function updatePlan(id, data, tx = null) {
+  const fields = [];
+  const params = [];
 
-  const [updated] = await db
-    .update(subscriptionPlans)
-    .set(updateData)
-    .where(eq(subscriptionPlans.id, id))
-    .returning();
-  return updated || null;
+  if (data.name !== undefined) {
+    params.push(data.name.trim());
+    fields.push(`name = $${params.length}`);
+  }
+  if (data.frequency !== undefined) {
+    params.push(data.frequency);
+    fields.push(`frequency = $${params.length}`);
+  }
+  if (data.price !== undefined) {
+    params.push(String(data.price));
+    fields.push(`price = $${params.length}`);
+  }
+  if (data.prorationEnabled !== undefined) {
+    params.push(data.prorationEnabled);
+    fields.push(`proration_enabled = $${params.length}`);
+  }
+  if (data.cancellationNoticeDays !== undefined) {
+    params.push(data.cancellationNoticeDays);
+    fields.push(`cancellation_notice_days = $${params.length}`);
+  }
+  if (data.isActive !== undefined) {
+    params.push(data.isActive);
+    fields.push(`is_active = $${params.length}`);
+  }
+
+  fields.push(`updated_at = NOW()`);
+
+  params.push(id);
+  const idIdx = params.length;
+
+  return queryOne(
+    `UPDATE subscription_plans
+     SET ${fields.join(', ')}
+     WHERE id = $${idIdx}
+     RETURNING *`,
+    params,
+    tx
+  );
 }

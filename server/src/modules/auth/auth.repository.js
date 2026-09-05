@@ -1,54 +1,39 @@
-import { eq, sql } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { users } from '../../db/schema/users.js';
+import { queryOne } from '../../config/database.js';
 
-export async function findUserByEmail(email, tx = undefined) {
-  const db = tx || getDb();
+export async function findUserByEmail(email, tx = null) {
   const normalizedEmail = email.toLowerCase().trim();
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(sql`lower(${users.email}) = ${normalizedEmail}`)
-    .limit(1);
-  return user || null;
+  return queryOne(
+    `SELECT id, name, email, password_hash AS "passwordHash", role, is_active AS "isActive", manager_id AS "managerId", created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM users
+     WHERE LOWER(email) = $1
+     LIMIT 1`,
+    [normalizedEmail],
+    tx
+  );
 }
 
-export async function findUserById(id, tx = undefined) {
-  const db = tx || getDb();
-  const [user] = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-    })
-    .from(users)
-    .where(eq(users.id, id))
-    .limit(1);
-  return user || null;
+export async function findUserById(id, tx = null) {
+  return queryOne(
+    `SELECT id, name, email, role, is_active AS "isActive", manager_id AS "managerId", created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM users
+     WHERE id = $1
+     LIMIT 1`,
+    [id],
+    tx
+  );
 }
 
-export async function createUser(userData, tx = undefined) {
-  const db = tx || getDb();
-  const [user] = await db
-    .insert(users)
-    .values({
-      name: userData.name.trim(),
-      email: userData.email.toLowerCase().trim(),
-      passwordHash: userData.passwordHash,
-      role: userData.role || 'SALES_REP',
-      isActive: true,
-    })
-    .returning({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-      isActive: users.isActive,
-      createdAt: users.createdAt,
-    });
-  return user;
+export async function createUser(userData, tx = null) {
+  return queryOne(
+    `INSERT INTO users (name, email, password_hash, role, is_active, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, true, NOW(), NOW())
+     RETURNING id, name, email, role, is_active AS "isActive", created_at AS "createdAt"`,
+    [
+      userData.name.trim(),
+      userData.email.toLowerCase().trim(),
+      userData.passwordHash,
+      userData.role || 'SALES_REP',
+    ],
+    tx
+  );
 }

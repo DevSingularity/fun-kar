@@ -1,15 +1,12 @@
-import { getDb } from '../../config/database.js';
-import { customerUsers, customers } from '../../db/schema/index.js';
-import { eq, sql } from 'drizzle-orm';
+import { query, queryOne } from '../../config/database.js';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../common/errors.js';
 import { parseListQuery, buildMeta } from '../../common/pagination.util.js';
 
 export async function checkCustomerAccess(customerId, authUser) {
-  const db = getDb();
-  const [customer] = await db
-    .select()
-    .from(customers)
-    .where(eq(customers.id, customerId));
+  const customer = await queryOne(
+    `SELECT * FROM customers WHERE id = $1`,
+    [customerId]
+  );
 
   if (!customer) {
     throw new NotFoundError(`Customer with ID '${customerId}' not found.`, 'CUSTOMER_NOT_FOUND');
@@ -21,30 +18,27 @@ export async function checkCustomerAccess(customerId, authUser) {
   return customer;
 }
 
-export async function listPortalUsers(customerId, query, authUser) {
+export async function listPortalUsers(customerId, queryParams, authUser) {
   await checkCustomerAccess(customerId, authUser);
 
-  const db = getDb();
-  const { page, limit, offset } = parseListQuery(query);
+  const { page, limit, offset } = parseListQuery(queryParams);
 
-  const rows = await db
-    .select({
-      id: customerUsers.id,
-      customerId: customerUsers.customerId,
-      name: customerUsers.name,
-      email: customerUsers.email,
-      isActive: customerUsers.isActive,
-      createdAt: customerUsers.createdAt,
-    })
-    .from(customerUsers)
-    .where(eq(customerUsers.customerId, customerId))
-    .limit(limit)
-    .offset(offset);
+  const rows = await query(
+    `SELECT id, customer_id, name, email, is_active, created_at
+     FROM customer_users
+     WHERE customer_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [customerId, limit, offset]
+  );
 
-  const [{ count }] = await db
-    .select({ count: sql`count(*)::int` })
-    .from(customerUsers)
-    .where(eq(customerUsers.customerId, customerId));
+  const countRow = await queryOne(
+    `SELECT count(*)::int AS count
+     FROM customer_users
+     WHERE customer_id = $1`,
+    [customerId]
+  );
+  const count = countRow?.count || 0;
 
   return {
     items: rows,
@@ -52,21 +46,16 @@ export async function listPortalUsers(customerId, query, authUser) {
   };
 }
 
-
 export async function createPortalUser(customerId, { name, email }, authUser) {
   await checkCustomerAccess(customerId, authUser);
 
-  const db = getDb();
   try {
-    const [inserted] = await db
-      .insert(customerUsers)
-      .values({
-        customerId,
-        name,
-        email,
-        passwordHash: null,
-      })
-      .returning();
+    const inserted = await queryOne(
+      `INSERT INTO customer_users (customer_id, name, email, password_hash)
+       VALUES ($1, $2, $3, NULL)
+       RETURNING id, customer_id, name, email, is_active, created_at`,
+      [customerId, name, email]
+    );
 
     return {
       id: inserted.id,
@@ -83,4 +72,3 @@ export async function createPortalUser(customerId, { name, email }, authUser) {
     throw err;
   }
 }
-

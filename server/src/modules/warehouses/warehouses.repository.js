@@ -1,115 +1,134 @@
-import { eq, and, sql, desc, ilike } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { warehouses, warehouseStock, fulfillmentAllocations } from '../../db/schema/warehouses.js';
-import { products } from '../../db/schema/catalog.js';
+import { query, queryOne } from '../../config/database.js';
 
 export async function listWarehouses({ isActive, search, offset = 0, limit = 50 } = {}) {
-  const db = getDb();
-  const conditions = [];
+  const whereClauses = [];
+  const params = [];
+  let idx = 1;
 
   if (isActive !== undefined) {
-    conditions.push(eq(warehouses.isActive, isActive));
+    whereClauses.push(`is_active = $${idx++}`);
+    params.push(isActive);
   }
   if (search) {
-    conditions.push(ilike(warehouses.name, `%${search}%`));
+    whereClauses.push(`name ILIKE $${idx++}`);
+    params.push(`%${search}%`);
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-  const rows = await db
-    .select()
-    .from(warehouses)
-    .where(whereClause)
-    .orderBy(desc(warehouses.createdAt))
-    .limit(limit)
-    .offset(offset);
+  const countRow = await queryOne(
+    `SELECT count(*)::int AS total FROM warehouses ${whereSql}`,
+    params
+  );
+  const total = countRow?.total || 0;
 
-  const [countRes] = await db
-    .select({ total: sql`count(*)` })
-    .from(warehouses)
-    .where(whereClause);
+  const dataParams = [...params, limit, offset];
+  const rows = await query(
+    `SELECT * FROM warehouses
+     ${whereSql}
+     ORDER BY created_at DESC
+     LIMIT $${idx++} OFFSET $${idx++}`,
+    dataParams
+  );
 
-  return { rows, total: Number(countRes?.total || 0) };
+  return { rows, total };
 }
 
 export async function findWarehouseById(id) {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(warehouses)
-    .where(eq(warehouses.id, id))
-    .limit(1);
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM warehouses WHERE id = $1 LIMIT 1`,
+    [id]
+  );
 }
 
 export async function insertWarehouse(data) {
-  const db = getDb();
-  const rows = await db
-    .insert(warehouses)
-    .values(data)
-    .returning();
-  return rows[0];
+  return await queryOne(
+    `INSERT INTO warehouses (name, location, is_active, shipping_cost_weight)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [
+      data.name,
+      data.location,
+      data.isActive !== undefined ? data.isActive : true,
+      data.shippingCostWeight ?? '1.00',
+    ]
+  );
 }
 
 export async function updateWarehouse(id, data) {
-  const db = getDb();
-  const rows = await db
-    .update(warehouses)
-    .set(data)
-    .where(eq(warehouses.id, id))
-    .returning();
-  return rows[0] || null;
+  const setParts = [];
+  const params = [id];
+  let idx = 2;
+
+  if (data.name !== undefined) {
+    setParts.push(`name = $${idx++}`);
+    params.push(data.name);
+  }
+  if (data.location !== undefined) {
+    setParts.push(`location = $${idx++}`);
+    params.push(data.location);
+  }
+  if (data.isActive !== undefined) {
+    setParts.push(`is_active = $${idx++}`);
+    params.push(data.isActive);
+  }
+  if (data.shippingCostWeight !== undefined) {
+    setParts.push(`shipping_cost_weight = $${idx++}`);
+    params.push(data.shippingCostWeight);
+  }
+
+  if (setParts.length === 0) return await findWarehouseById(id);
+
+  return await queryOne(
+    `UPDATE warehouses
+     SET ${setParts.join(', ')}
+     WHERE id = $1
+     RETURNING *`,
+    params
+  );
 }
 
 export async function listStockForWarehouse(warehouseId, { offset = 0, limit = 50 } = {}) {
-  const db = getDb();
-  const rows = await db
-    .select({
-      id: warehouseStock.id,
-      warehouseId: warehouseStock.warehouseId,
-      productId: warehouseStock.productId,
-      productName: products.name,
-      productSku: products.sku,
-      unit: products.unit,
-      quantityOnHand: warehouseStock.quantityOnHand,
-      reorderThreshold: warehouseStock.reorderThreshold,
-      updatedAt: warehouseStock.updatedAt,
-    })
-    .from(warehouseStock)
-    .innerJoin(products, eq(products.id, warehouseStock.productId))
-    .where(eq(warehouseStock.warehouseId, warehouseId))
-    .limit(limit)
-    .offset(offset);
+  const countRow = await queryOne(
+    `SELECT count(*)::int AS total FROM warehouse_stock WHERE warehouse_id = $1`,
+    [warehouseId]
+  );
+  const total = countRow?.total || 0;
 
-  const [countRes] = await db
-    .select({ total: sql`count(*)` })
-    .from(warehouseStock)
-    .where(eq(warehouseStock.warehouseId, warehouseId));
+  const rows = await query(
+    `SELECT
+       ws.id,
+       ws.warehouse_id,
+       ws.product_id,
+       p.name AS product_name,
+       p.sku AS product_sku,
+       p.unit AS unit,
+       ws.quantity_on_hand,
+       ws.reorder_threshold,
+       ws.updated_at
+     FROM warehouse_stock ws
+     INNER JOIN products p ON p.id = ws.product_id
+     WHERE ws.warehouse_id = $1
+     ORDER BY ws.created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [warehouseId, limit, offset]
+  );
 
-  return { rows, total: Number(countRes?.total || 0) };
+  return { rows, total };
 }
 
 export async function upsertStock(warehouseId, productId, { quantityOnHand, reorderThreshold }) {
-  const db = getDb();
-  const rows = await db
-    .insert(warehouseStock)
-    .values({
-      warehouseId,
-      productId,
-      quantityOnHand,
-      reorderThreshold,
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: [warehouseStock.warehouseId, warehouseStock.productId],
-      set: {
-        quantityOnHand,
-        reorderThreshold,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
-  return rows[0];
+  return await queryOne(
+    `INSERT INTO warehouse_stock (warehouse_id, product_id, quantity_on_hand, reorder_threshold, updated_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (warehouse_id, product_id)
+     DO UPDATE SET
+       quantity_on_hand = EXCLUDED.quantity_on_hand,
+       reorder_threshold = EXCLUDED.reorder_threshold,
+       updated_at = NOW()
+     RETURNING *`,
+    [warehouseId, productId, quantityOnHand, reorderThreshold]
+  );
 }
 
 /**
@@ -117,34 +136,34 @@ export async function upsertStock(warehouseId, productId, { quantityOnHand, reor
  * Computes In Stock (quantityOnHand), Allocated (from active orders), and Available.
  */
 export async function getAggregatedLiveStock() {
-  const db = getDb();
-
-  const rows = await db
-    .select({
-      stockId: warehouseStock.id,
-      warehouseId: warehouses.id,
-      warehouseName: warehouses.name,
-      warehouseLocation: warehouses.location,
-      shippingCostWeight: warehouses.shippingCostWeight,
-      productId: products.id,
-      productName: products.name,
-      productSku: products.sku,
-      productType: products.productType,
-      unit: products.unit,
-      inStock: warehouseStock.quantityOnHand,
-      reorderThreshold: warehouseStock.reorderThreshold,
-      allocated: sql`COALESCE((
-        SELECT SUM(fa.quantity_allocated) 
-        FROM fulfillment_allocations fa 
+  const sql = `
+    SELECT
+      ws.id AS stock_id,
+      w.id AS warehouse_id,
+      w.name AS warehouse_name,
+      w.location AS warehouse_location,
+      w.shipping_cost_weight,
+      p.id AS product_id,
+      p.name AS product_name,
+      p.sku AS product_sku,
+      p.product_type,
+      p.unit,
+      ws.quantity_on_hand AS in_stock,
+      ws.reorder_threshold,
+      COALESCE((
+        SELECT SUM(fa.quantity_allocated)
+        FROM fulfillment_allocations fa
         INNER JOIN order_items oi ON oi.id = fa.order_item_id
-        WHERE fa.warehouse_id = ${warehouses.id} AND oi.product_id = ${products.id}
-      ), 0)`.as('allocated'),
-    })
-    .from(warehouseStock)
-    .innerJoin(warehouses, eq(warehouses.id, warehouseStock.warehouseId))
-    .innerJoin(products, eq(products.id, warehouseStock.productId))
-    .where(eq(warehouses.isActive, true))
-    .orderBy(warehouses.name, products.name);
+        WHERE fa.warehouse_id = w.id AND oi.product_id = p.id
+      ), 0) AS allocated
+    FROM warehouse_stock ws
+    INNER JOIN warehouses w ON w.id = ws.warehouse_id
+    INNER JOIN products p ON p.id = ws.product_id
+    WHERE w.is_active = true
+    ORDER BY w.name ASC, p.name ASC
+  `;
+
+  const rows = await query(sql);
 
   return rows.map((r) => {
     const inStock = Number(r.inStock || 0);

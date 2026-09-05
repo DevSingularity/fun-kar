@@ -1,6 +1,4 @@
-import { eq } from 'drizzle-orm';
-import { getDb } from '../config/database.js';
-import { users } from '../db/schema/users.js';
+import { query } from '../config/database.js';
 
 /**
  * Returns the list of user IDs whose data `authUser` is allowed to see,
@@ -26,11 +24,10 @@ export async function resolveRepScope(authUser) {
 
 /** Sales reps who report to this manager (users.managerId = managerId). */
 export async function getManagedRepIds(managerId) {
-  const db = getDb();
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.managerId, managerId));
+  const rows = await query(
+    `SELECT id FROM users WHERE manager_id = $1`,
+    [managerId]
+  );
   return rows.map((r) => r.id);
 }
 

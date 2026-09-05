@@ -1,103 +1,103 @@
-import { getDb } from '../../config/database.js';
-import { quotations, quotationItems, quotationPortalTokens, customers, products, orders, invoices } from '../../db/schema/index.js';
-import { eq, and, or, desc, sql, exists } from 'drizzle-orm';
-
-const SAFE_QUOTE_COLUMNS = {
-  id: quotations.id,
-  quoteNumber: quotations.quoteNumber,
-  customerId: quotations.customerId,
-  status: quotations.status,
-  originType: quotations.originType,
-  subtotal: quotations.subtotal,
-  discountTotal: quotations.discountTotal,
-  taxTotal: quotations.taxTotal,
-  grandTotal: quotations.grandTotal,
-  promisedDeliveryDate: quotations.promisedDeliveryDate,
-  createdAt: quotations.createdAt,
-  confirmedAt: quotations.confirmedAt,
-};
-
-const SAFE_ITEM_COLUMNS = {
-  id: quotationItems.id,
-  productId: quotationItems.productId,
-  productName: products.name,
-  productSku: products.sku,
-  quantity: quotationItems.quantity,
-  unitPrice: quotationItems.unitPrice,
-  discountPct: quotationItems.discountPct,
-  discountAmount: quotationItems.discountAmount,
-  taxAmount: quotationItems.taxAmount,
-  lineTotal: quotationItems.lineTotal,
-};
+import { query, queryOne } from '../../config/database.js';
 
 export async function hasBeenShared(quotationId) {
-  const db = getDb();
-  const [row] = await db
-    .select({ id: quotationPortalTokens.id })
-    .from(quotationPortalTokens)
-    .where(eq(quotationPortalTokens.quotationId, quotationId));
+  const row = await queryOne(
+    `SELECT id FROM quotation_portal_tokens WHERE quotation_id = $1 LIMIT 1`,
+    [quotationId]
+  );
   return !!row;
 }
 
 export async function findCustomerWithRep(customerId) {
-  const db = getDb();
-  const [row] = await db
-    .select({ id: customers.id, assignedRepId: customers.assignedRepId, tier: customers.tier })
-    .from(customers)
-    .where(eq(customers.id, customerId));
-  return row || null;
+  return await queryOne(
+    `SELECT id, assigned_rep_id, tier FROM customers WHERE id = $1`,
+    [customerId]
+  );
 }
 
 export async function listForCustomer(customerId, { offset, limit }) {
-  const db = getDb();
-  const sharedQuoteExists = db
-    .select({ id: quotationPortalTokens.id })
-    .from(quotationPortalTokens)
-    .where(eq(quotationPortalTokens.quotationId, quotations.id))
-    .limit(1);
-
-  const filterCondition = and(
-    eq(quotations.customerId, customerId),
-    or(
-      exists(sharedQuoteExists),
-      eq(quotations.originType, 'CUSTOMER_SELF_SERVICE')
-    )
+  const countRow = await queryOne(
+    `SELECT count(*)::int AS count
+     FROM quotations q
+     WHERE q.customer_id = $1
+       AND (
+         EXISTS (SELECT 1 FROM quotation_portal_tokens qpt WHERE qpt.quotation_id = q.id)
+         OR q.origin_type = 'CUSTOMER_SELF_SERVICE'
+       )`,
+    [customerId]
   );
+  const count = countRow?.count || 0;
 
-  const rows = await db
-    .select(SAFE_QUOTE_COLUMNS)
-    .from(quotations)
-    .where(filterCondition)
-    .orderBy(desc(quotations.createdAt))
-    .limit(limit)
-    .offset(offset);
-
-  const [{ count }] = await db
-    .select({ count: sql`count(*)::int` })
-    .from(quotations)
-    .where(filterCondition);
+  const rows = await query(
+    `SELECT
+       q.id,
+       q.quote_number,
+       q.customer_id,
+       q.status,
+       q.origin_type,
+       q.subtotal,
+       q.discount_total,
+       q.tax_total,
+       q.grand_total,
+       q.promised_delivery_date,
+       q.created_at,
+       q.confirmed_at
+     FROM quotations q
+     WHERE q.customer_id = $1
+       AND (
+         EXISTS (SELECT 1 FROM quotation_portal_tokens qpt WHERE qpt.quotation_id = q.id)
+         OR q.origin_type = 'CUSTOMER_SELF_SERVICE'
+       )
+     ORDER BY q.created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [customerId, limit, offset]
+  );
 
   return { rows, count };
 }
 
 export async function findSafeQuote(quotationId) {
-  const db = getDb();
-  const [quote] = await db
-    .select({
-      ...SAFE_QUOTE_COLUMNS,
-      customerName: customers.name,
-    })
-    .from(quotations)
-    .innerJoin(customers, eq(quotations.customerId, customers.id))
-    .where(eq(quotations.id, quotationId));
+  const quote = await queryOne(
+    `SELECT
+       q.id,
+       q.quote_number,
+       q.customer_id,
+       q.status,
+       q.origin_type,
+       q.subtotal,
+       q.discount_total,
+       q.tax_total,
+       q.grand_total,
+       q.promised_delivery_date,
+       q.created_at,
+       q.confirmed_at,
+       c.name AS customer_name
+     FROM quotations q
+     INNER JOIN customers c ON q.customer_id = c.id
+     WHERE q.id = $1`,
+    [quotationId]
+  );
 
   if (!quote) return null;
 
-  const items = await db
-    .select(SAFE_ITEM_COLUMNS)
-    .from(quotationItems)
-    .innerJoin(products, eq(quotationItems.productId, products.id))
-    .where(eq(quotationItems.quotationId, quotationId));
+  const items = await query(
+    `SELECT
+       qi.id,
+       qi.product_id,
+       p.name AS product_name,
+       p.sku AS product_sku,
+       qi.quantity,
+       qi.unit_price,
+       qi.discount_pct,
+       qi.discount_amount,
+       qi.tax_amount,
+       qi.line_total
+     FROM quotation_items qi
+     INNER JOIN products p ON qi.product_id = p.id
+     WHERE qi.quotation_id = $1
+     ORDER BY qi.created_at ASC`,
+    [quotationId]
+  );
 
   return {
     ...quote,
@@ -106,33 +106,22 @@ export async function findSafeQuote(quotationId) {
 }
 
 export async function findRawQuote(quotationId) {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, quotationId));
-  return row || null;
+  return await queryOne(
+    `SELECT * FROM quotations WHERE id = $1`,
+    [quotationId]
+  );
 }
 
 export async function findOrderForQuotation(quotationId) {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.quotationId, quotationId));
-  return row || null;
+  return await queryOne(
+    `SELECT * FROM orders WHERE quotation_id = $1`,
+    [quotationId]
+  );
 }
 
 export async function findDraftOneTimeInvoice(orderId) {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(invoices)
-    .where(
-      and(
-        eq(invoices.orderId, orderId),
-        eq(invoices.status, 'DRAFT')
-      )
-    );
-  return row || null;
+  return await queryOne(
+    `SELECT * FROM invoices WHERE order_id = $1 AND status = 'DRAFT'`,
+    [orderId]
+  );
 }

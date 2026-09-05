@@ -1,6 +1,3 @@
-import { eq } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { billingSchedules } from '../../db/schema/billing.js';
 import * as repo from './billing.repository.js';
 import * as calc from './billing.calc.js';
 import * as repoPlans from '../subscriptionPlans/subscriptionPlans.repository.js';

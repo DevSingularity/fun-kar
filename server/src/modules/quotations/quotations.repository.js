@@ -1,144 +1,240 @@
-import { eq, and, inArray, ilike, desc, asc, sql } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { quotations, quotationItems } from '../../db/schema/quotations.js';
-import { customers } from '../../db/schema/customers.js';
-import { users } from '../../db/schema/users.js';
-import { products, productCategories } from '../../db/schema/catalog.js';
-import { approvalRequests, auditLogs } from '../../db/schema/governance.js';
+import { query, queryOne } from '../../config/database.js';
 
 export async function lockById(id, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .select()
-    .from(quotations)
-    .where(eq(quotations.id, id))
-    .limit(1);
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM quotations WHERE id = $1 LIMIT 1`,
+    [id],
+    tx
+  );
 }
 
 export async function insertHeader(data, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .insert(quotations)
-    .values({
-      quoteNumber: data.quoteNumber,
-      customerId: data.customerId,
-      salesRepId: data.salesRepId,
-      promisedDeliveryDate: data.promisedDeliveryDate || null,
-      status: 'DRAFT',
-      subtotal: '0.00',
-      discountTotal: '0.00',
-      taxTotal: '0.00',
-      grandTotal: '0.00',
-      requiredApprovalLevel: 'NONE',
-    })
-    .returning();
-  return rows[0];
+  return await queryOne(
+    `INSERT INTO quotations (
+       quote_number,
+       customer_id,
+       sales_rep_id,
+       promised_delivery_date,
+       status,
+       subtotal,
+       discount_total,
+       tax_total,
+       grand_total,
+       required_approval_level
+     ) VALUES (
+       $1, $2, $3, $4, 'DRAFT', '0.00', '0.00', '0.00', '0.00', 'NONE'
+     ) RETURNING *`,
+    [
+      data.quoteNumber,
+      data.customerId,
+      data.salesRepId,
+      data.promisedDeliveryDate || null,
+    ],
+    tx
+  );
 }
 
 export async function findByIdJoined(id) {
-  const db = getDb();
-  const rows = await db
-    .select({
-      quotation: quotations,
-      customerName: customers.name,
-      customerEmail: customers.email,
-      customerTier: customers.tier,
-      customerBillingAddress: customers.billingAddress,
-      salesRepName: users.name,
-      salesRepEmail: users.email,
-    })
-    .from(quotations)
-    .innerJoin(customers, eq(customers.id, quotations.customerId))
-    .innerJoin(users, eq(users.id, quotations.salesRepId))
-    .where(eq(quotations.id, id))
-    .limit(1);
+  const sql = `
+    SELECT
+      q.id,
+      q.quote_number,
+      q.customer_id,
+      q.sales_rep_id,
+      q.origin_type,
+      q.status,
+      q.subtotal,
+      q.discount_total,
+      q.tax_total,
+      q.grand_total,
+      q.estimated_margin_pct,
+      q.required_approval_level,
+      q.blended_risk_score,
+      q.submitted_at,
+      q.promised_delivery_date,
+      q.last_activity_at,
+      q.created_at,
+      q.updated_at,
+      c.name AS customer_name,
+      c.email AS customer_email,
+      c.tier AS customer_tier,
+      c.billing_address AS customer_billing_address,
+      u.name AS sales_rep_name,
+      u.email AS sales_rep_email
+    FROM quotations q
+    INNER JOIN customers c ON c.id = q.customer_id
+    INNER JOIN users u ON u.id = q.sales_rep_id
+    WHERE q.id = $1
+    LIMIT 1
+  `;
 
-  return rows[0] || null;
+  const row = await queryOne(sql, [id]);
+  if (!row) return null;
+
+  return {
+    quotation: {
+      id: row.id,
+      quoteNumber: row.quoteNumber,
+      customerId: row.customerId,
+      salesRepId: row.salesRepId,
+      originType: row.originType,
+      status: row.status,
+      subtotal: row.subtotal,
+      discountTotal: row.discountTotal,
+      taxTotal: row.taxTotal,
+      grandTotal: row.grandTotal,
+      estimatedMarginPct: row.estimatedMarginPct,
+      requiredApprovalLevel: row.requiredApprovalLevel,
+      blendedRiskScore: row.blendedRiskScore,
+      submittedAt: row.submittedAt,
+      promisedDeliveryDate: row.promisedDeliveryDate,
+      lastActivityAt: row.lastActivityAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    },
+    customerName: row.customerName,
+    customerEmail: row.customerEmail,
+    customerTier: row.customerTier,
+    customerBillingAddress: row.customerBillingAddress,
+    salesRepName: row.salesRepName,
+    salesRepEmail: row.salesRepEmail,
+  };
 }
 
 export async function findItemsJoined(quotationId, tx = undefined) {
-  const db = tx || getDb();
-  return db
-    .select({
-      item: quotationItems,
-      productName: products.name,
-      productSku: products.sku,
-      categoryName: productCategories.name,
-      productType: products.productType,
-      unit: products.unit,
-    })
-    .from(quotationItems)
-    .innerJoin(products, eq(products.id, quotationItems.productId))
-    .leftJoin(productCategories, eq(productCategories.id, products.categoryId))
-    .where(eq(quotationItems.quotationId, quotationId))
-    .orderBy(asc(quotationItems.createdAt));
+  const sql = `
+    SELECT
+      qi.id,
+      qi.quotation_id,
+      qi.product_id,
+      qi.quantity,
+      qi.unit_price,
+      qi.allowed_discount_pct,
+      qi.discount_pct,
+      qi.discount_amount,
+      qi.tax_amount,
+      qi.line_total,
+      qi.estimated_cost,
+      qi.created_at,
+      qi.updated_at,
+      p.name AS product_name,
+      p.sku AS product_sku,
+      p.product_type AS product_type,
+      p.unit AS unit,
+      pc.name AS category_name
+    FROM quotation_items qi
+    INNER JOIN products p ON p.id = qi.product_id
+    LEFT JOIN product_categories pc ON pc.id = p.category_id
+    WHERE qi.quotation_id = $1
+    ORDER BY qi.created_at ASC
+  `;
+
+  const rows = await query(sql, [quotationId], tx);
+
+  return rows.map((row) => ({
+    item: {
+      id: row.id,
+      quotationId: row.quotationId,
+      productId: row.productId,
+      quantity: row.quantity,
+      unitPrice: row.unitPrice,
+      allowedDiscountPct: row.allowedDiscountPct,
+      discountPct: row.discountPct,
+      discountAmount: row.discountAmount,
+      taxAmount: row.taxAmount,
+      lineTotal: row.lineTotal,
+      estimatedCost: row.estimatedCost,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    },
+    productName: row.productName,
+    productSku: row.productSku,
+    categoryName: row.categoryName,
+    productType: row.productType,
+    unit: row.unit,
+  }));
 }
 
 export async function findLatestApprovalRequest(quotationId) {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(approvalRequests)
-    .where(eq(approvalRequests.quotationId, quotationId))
-    .orderBy(desc(approvalRequests.requestedAt))
-    .limit(1);
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM approval_requests
+     WHERE quotation_id = $1
+     ORDER BY requested_at DESC
+     LIMIT 1`,
+    [quotationId]
+  );
 }
 
 export async function listQuotations({ status, customerId, salesRepId, search, offset = 0, limit = 20 }) {
-  const db = getDb();
-  const conditions = [];
+  const whereClauses = [];
+  const params = [];
+  let idx = 1;
 
-  if (status) conditions.push(eq(quotations.status, status));
-  if (customerId) conditions.push(eq(quotations.customerId, customerId));
-  if (Array.isArray(salesRepId)) {
-    if (salesRepId.length > 0) conditions.push(inArray(quotations.salesRepId, salesRepId));
-  } else if (salesRepId) {
-    conditions.push(eq(quotations.salesRepId, salesRepId));
+  if (status) {
+    whereClauses.push(`q.status = $${idx++}`);
+    params.push(status);
   }
-  if (search) conditions.push(ilike(quotations.quoteNumber, `%${search}%`));
+  if (customerId) {
+    whereClauses.push(`q.customer_id = $${idx++}`);
+    params.push(customerId);
+  }
+  if (Array.isArray(salesRepId) && salesRepId.length > 0) {
+    whereClauses.push(`q.sales_rep_id = ANY($${idx++}::uuid[])`);
+    params.push(salesRepId);
+  } else if (salesRepId && !Array.isArray(salesRepId)) {
+    whereClauses.push(`q.sales_rep_id = $${idx++}`);
+    params.push(salesRepId);
+  }
+  if (search) {
+    whereClauses.push(`q.quote_number ILIKE $${idx++}`);
+    params.push(`%${search}%`);
+  }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-  const rows = await db
-    .select({
-      id: quotations.id,
-      quoteNumber: quotations.quoteNumber,
-      customerId: quotations.customerId,
-      customerName: customers.name,
-      customerTier: customers.tier,
-      salesRepId: quotations.salesRepId,
-      salesRepName: users.name,
-      originType: quotations.originType,
-      status: quotations.status,
-      grandTotal: quotations.grandTotal,
-      subtotal: quotations.subtotal,
-      discountTotal: quotations.discountTotal,
-      estimatedMarginPct: quotations.estimatedMarginPct,
-      requiredApprovalLevel: quotations.requiredApprovalLevel,
-      promisedDeliveryDate: quotations.promisedDeliveryDate,
-      lastActivityAt: quotations.lastActivityAt,
-      createdAt: quotations.createdAt,
-    })
-    .from(quotations)
-    .innerJoin(customers, eq(customers.id, quotations.customerId))
-    .innerJoin(users, eq(users.id, quotations.salesRepId))
-    .where(whereClause)
-    .orderBy(desc(quotations.lastActivityAt))
-    .limit(limit)
-    .offset(offset);
+  const countRow = await queryOne(
+    `SELECT count(*)::int AS total
+     FROM quotations q
+     INNER JOIN customers c ON c.id = q.customer_id
+     INNER JOIN users u ON u.id = q.sales_rep_id
+     ${whereSql}`,
+    params
+  );
+  const total = countRow?.total || 0;
 
-  const [countRes] = await db
-    .select({ total: sql`count(*)` })
-    .from(quotations)
-    .where(whereClause);
+  const dataParams = [...params, limit, offset];
+  const rows = await query(
+    `SELECT
+       q.id,
+       q.quote_number,
+       q.customer_id,
+       c.name AS customer_name,
+       c.tier AS customer_tier,
+       q.sales_rep_id,
+       u.name AS sales_rep_name,
+       q.origin_type,
+       q.status,
+       q.grand_total,
+       q.subtotal,
+       q.discount_total,
+       q.estimated_margin_pct,
+       q.required_approval_level,
+       q.promised_delivery_date,
+       q.last_activity_at,
+       q.created_at
+     FROM quotations q
+     INNER JOIN customers c ON c.id = q.customer_id
+     INNER JOIN users u ON u.id = q.sales_rep_id
+     ${whereSql}
+     ORDER BY q.last_activity_at DESC
+     LIMIT $${idx++} OFFSET $${idx++}`,
+    dataParams
+  );
 
-  return { items: rows, total: Number(countRes?.total || 0) };
+  return { items: rows, total };
 }
 
 export async function listForPipeline({ salesRepId } = {}) {
-  const db = getDb();
   const validStatuses = [
     'DRAFT',
     'PENDING_APPROVAL',
@@ -149,166 +245,236 @@ export async function listForPipeline({ salesRepId } = {}) {
     'COMPLETED',
   ];
 
-  const conditions = [inArray(quotations.status, validStatuses)];
-  if (Array.isArray(salesRepId)) {
-    if (salesRepId.length > 0) conditions.push(inArray(quotations.salesRepId, salesRepId));
-  } else if (salesRepId) {
-    conditions.push(eq(quotations.salesRepId, salesRepId));
+  const whereClauses = [`q.status::text = ANY($1::text[])`];
+  const params = [validStatuses];
+  let idx = 2;
+
+  if (Array.isArray(salesRepId) && salesRepId.length > 0) {
+    whereClauses.push(`q.sales_rep_id = ANY($${idx++}::uuid[])`);
+    params.push(salesRepId);
+  } else if (salesRepId && !Array.isArray(salesRepId)) {
+    whereClauses.push(`q.sales_rep_id = $${idx++}`);
+    params.push(salesRepId);
   }
 
-  return db
-    .select({
-      id: quotations.id,
-      quoteNumber: quotations.quoteNumber,
-      status: quotations.status,
-      grandTotal: quotations.grandTotal,
-      estimatedMarginPct: quotations.estimatedMarginPct,
-      requiredApprovalLevel: quotations.requiredApprovalLevel,
-      lastActivityAt: quotations.lastActivityAt,
-      customerName: customers.name,
-      customerTier: customers.tier,
-      salesRepName: users.name,
-    })
-    .from(quotations)
-    .innerJoin(customers, eq(customers.id, quotations.customerId))
-    .innerJoin(users, eq(users.id, quotations.salesRepId))
-    .where(and(...conditions))
-    .orderBy(desc(quotations.lastActivityAt));
+  const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
+
+  return await query(
+    `SELECT
+       q.id,
+       q.quote_number,
+       q.status,
+       q.grand_total,
+       q.estimated_margin_pct,
+       q.required_approval_level,
+       q.last_activity_at,
+       c.name AS customer_name,
+       c.tier AS customer_tier,
+       u.name AS sales_rep_name
+     FROM quotations q
+     INNER JOIN customers c ON c.id = q.customer_id
+     INNER JOIN users u ON u.id = q.sales_rep_id
+     ${whereSql}
+     ORDER BY q.last_activity_at DESC`,
+    params
+  );
 }
 
 // Items Mutation
 export async function insertItem(data, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .insert(quotationItems)
-    .values({
-      quotationId: data.quotationId,
-      productId: data.productId,
-      quantity: data.quantity,
-      unitPrice: String(data.unitPrice),
-      allowedDiscountPct: String(data.allowedDiscountPct),
-      discountPct: String(data.discountPct),
-      discountAmount: String(data.discountAmount),
-      taxAmount: String(data.taxAmount),
-      lineTotal: String(data.lineTotal),
-      estimatedCost: String(data.estimatedCost),
-    })
-    .returning();
-  return rows[0];
+  return await queryOne(
+    `INSERT INTO quotation_items (
+       quotation_id,
+       product_id,
+       quantity,
+       unit_price,
+       allowed_discount_pct,
+       discount_pct,
+       discount_amount,
+       tax_amount,
+       line_total,
+       estimated_cost
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+     ) RETURNING *`,
+    [
+      data.quotationId,
+      data.productId,
+      data.quantity,
+      String(data.unitPrice),
+      String(data.allowedDiscountPct),
+      String(data.discountPct),
+      String(data.discountAmount),
+      String(data.taxAmount),
+      String(data.lineTotal),
+      String(data.estimatedCost),
+    ],
+    tx
+  );
 }
 
 export async function findItemById(id, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .select()
-    .from(quotationItems)
-    .where(eq(quotationItems.id, id))
-    .limit(1);
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM quotation_items WHERE id = $1 LIMIT 1`,
+    [id],
+    tx
+  );
 }
 
 export async function updateItem(id, data, tx = undefined) {
-  const db = tx || getDb();
-  const updatePayload = { updatedAt: new Date() };
-  if (data.quantity !== undefined) updatePayload.quantity = data.quantity;
-  if (data.discountPct !== undefined) updatePayload.discountPct = String(data.discountPct);
-  if (data.discountAmount !== undefined) updatePayload.discountAmount = String(data.discountAmount);
-  if (data.taxAmount !== undefined) updatePayload.taxAmount = String(data.taxAmount);
-  if (data.lineTotal !== undefined) updatePayload.lineTotal = String(data.lineTotal);
-  if (data.estimatedCost !== undefined) updatePayload.estimatedCost = String(data.estimatedCost);
+  const setParts = ['updated_at = NOW()'];
+  const params = [id];
+  let idx = 2;
 
-  const rows = await db
-    .update(quotationItems)
-    .set(updatePayload)
-    .where(eq(quotationItems.id, id))
-    .returning();
-  return rows[0] || null;
+  if (data.quantity !== undefined) {
+    setParts.push(`quantity = $${idx++}`);
+    params.push(data.quantity);
+  }
+  if (data.discountPct !== undefined) {
+    setParts.push(`discount_pct = $${idx++}`);
+    params.push(String(data.discountPct));
+  }
+  if (data.discountAmount !== undefined) {
+    setParts.push(`discount_amount = $${idx++}`);
+    params.push(String(data.discountAmount));
+  }
+  if (data.taxAmount !== undefined) {
+    setParts.push(`tax_amount = $${idx++}`);
+    params.push(String(data.taxAmount));
+  }
+  if (data.lineTotal !== undefined) {
+    setParts.push(`line_total = $${idx++}`);
+    params.push(String(data.lineTotal));
+  }
+  if (data.estimatedCost !== undefined) {
+    setParts.push(`estimated_cost = $${idx++}`);
+    params.push(String(data.estimatedCost));
+  }
+
+  return await queryOne(
+    `UPDATE quotation_items
+     SET ${setParts.join(', ')}
+     WHERE id = $1
+     RETURNING *`,
+    params,
+    tx
+  );
 }
 
 export async function deleteItem(id, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .delete(quotationItems)
-    .where(eq(quotationItems.id, id))
-    .returning();
-  return rows[0] || null;
+  return await queryOne(
+    `DELETE FROM quotation_items WHERE id = $1 RETURNING *`,
+    [id],
+    tx
+  );
 }
 
 export async function applyAggregateTotals(id, totals, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .update(quotations)
-    .set({
-      subtotal: totals.subtotal,
-      discountTotal: totals.discountTotal,
-      taxTotal: totals.taxTotal,
-      grandTotal: totals.grandTotal,
-      estimatedMarginPct: totals.estimatedMarginPct,
-      lastActivityAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(quotations.id, id))
-    .returning();
-  return rows[0] || null;
+  return await queryOne(
+    `UPDATE quotations
+     SET
+       subtotal = $2,
+       discount_total = $3,
+       tax_total = $4,
+       grand_total = $5,
+       estimated_margin_pct = $6,
+       last_activity_at = NOW(),
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      id,
+      String(totals.subtotal),
+      String(totals.discountTotal),
+      String(totals.taxTotal),
+      String(totals.grandTotal),
+      String(totals.estimatedMarginPct),
+    ],
+    tx
+  );
 }
 
 export async function updateHeaderFields(id, fields, tx = undefined) {
-  const db = tx || getDb();
-  const payload = { updatedAt: new Date(), lastActivityAt: new Date() };
-  if (fields.customerId !== undefined) payload.customerId = fields.customerId;
-  if (fields.status !== undefined) payload.status = fields.status;
-  if (fields.requiredApprovalLevel !== undefined) payload.requiredApprovalLevel = fields.requiredApprovalLevel;
-  if (fields.blendedRiskScore !== undefined) payload.blendedRiskScore = String(fields.blendedRiskScore);
-  if (fields.promisedDeliveryDate !== undefined) payload.promisedDeliveryDate = fields.promisedDeliveryDate;
-  if (fields.salesRepId !== undefined) payload.salesRepId = fields.salesRepId;
+  const setParts = ['updated_at = NOW()', 'last_activity_at = NOW()'];
+  const params = [id];
+  let idx = 2;
 
-  const rows = await db
-    .update(quotations)
-    .set(payload)
-    .where(eq(quotations.id, id))
-    .returning();
-  return rows[0] || null;
+  if (fields.customerId !== undefined) {
+    setParts.push(`customer_id = $${idx++}`);
+    params.push(fields.customerId);
+  }
+  if (fields.status !== undefined) {
+    setParts.push(`status = $${idx++}`);
+    params.push(fields.status);
+  }
+  if (fields.requiredApprovalLevel !== undefined) {
+    setParts.push(`required_approval_level = $${idx++}`);
+    params.push(fields.requiredApprovalLevel);
+  }
+  if (fields.blendedRiskScore !== undefined) {
+    setParts.push(`blended_risk_score = $${idx++}`);
+    params.push(String(fields.blendedRiskScore));
+  }
+  if (fields.promisedDeliveryDate !== undefined) {
+    setParts.push(`promised_delivery_date = $${idx++}`);
+    params.push(fields.promisedDeliveryDate);
+  }
+  if (fields.salesRepId !== undefined) {
+    setParts.push(`sales_rep_id = $${idx++}`);
+    params.push(fields.salesRepId);
+  }
+
+  return await queryOne(
+    `UPDATE quotations
+     SET ${setParts.join(', ')}
+     WHERE id = $1
+     RETURNING *`,
+    params,
+    tx
+  );
 }
 
 export async function applySubmitResult(id, { status, blendedRiskScore, requiredApprovalLevel }, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .update(quotations)
-    .set({
-      status,
-      blendedRiskScore: String(blendedRiskScore),
-      requiredApprovalLevel,
-      submittedAt: new Date(),
-      lastActivityAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(quotations.id, id))
-    .returning();
-  return rows[0] || null;
+  return await queryOne(
+    `UPDATE quotations
+     SET
+       status = $2,
+       blended_risk_score = $3,
+       required_approval_level = $4,
+       submitted_at = NOW(),
+       last_activity_at = NOW(),
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [id, status, String(blendedRiskScore), requiredApprovalLevel],
+    tx
+  );
 }
 
 export async function deleteHeader(id, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .delete(quotations)
-    .where(eq(quotations.id, id))
-    .returning();
-  return rows[0] || null;
+  return await queryOne(
+    `DELETE FROM quotations WHERE id = $1 RETURNING *`,
+    [id],
+    tx
+  );
 }
 
 export async function insertAuditLog(entry, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .insert(auditLogs)
-    .values({
-      actorId: entry.actorId || null,
-      entityType: entry.entityType,
-      entityId: entry.entityId,
-      action: entry.action,
-      reason: entry.reason || null,
-      oldValue: entry.oldValue || null,
-      newValue: entry.newValue || null,
-    })
-    .returning();
-  return rows[0];
+  return await queryOne(
+    `INSERT INTO audit_logs (
+       actor_id, entity_type, entity_id, action, reason, old_value, new_value
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7
+     ) RETURNING *`,
+    [
+      entry.actorId || null,
+      entry.entityType,
+      entry.entityId,
+      entry.action,
+      entry.reason || null,
+      entry.oldValue || null,
+      entry.newValue || null,
+    ],
+    tx
+  );
 }

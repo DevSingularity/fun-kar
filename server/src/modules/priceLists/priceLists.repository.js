@@ -1,120 +1,131 @@
-import { eq, and, count, sql } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { priceLists, priceListItems, products } from '../../db/schema/catalog.js';
+import { query, queryOne } from '../../config/database.js';
 
-export async function findPriceLists({ limit = 20, offset = 0 } = {}, tx = undefined) {
-  const db = tx || getDb();
-  const items = await db
-    .select()
-    .from(priceLists)
-    .limit(limit)
-    .offset(offset)
-    .orderBy(priceLists.name);
-
-  const [totalRes] = await db.select({ total: count() }).from(priceLists);
-  return { items, total: Number(totalRes?.total || 0) };
+export async function findPriceLists({ limit = 20, offset = 0 } = {}, tx = null) {
+  const countRow = await queryOne(`SELECT COUNT(*)::int AS total FROM price_lists`, [], tx);
+  const items = await query(
+    `SELECT id, name, currency, is_active AS "isActive", created_at AS "createdAt"
+     FROM price_lists
+     ORDER BY name ASC
+     LIMIT $1 OFFSET $2`,
+    [limit, offset],
+    tx
+  );
+  return { items, total: countRow?.total || 0 };
 }
 
-export async function findPriceListById(id, tx = undefined) {
-  const db = tx || getDb();
-  const [priceList] = await db
-    .select()
-    .from(priceLists)
-    .where(eq(priceLists.id, id))
-    .limit(1);
+export async function findPriceListById(id, tx = null) {
+  const priceList = await queryOne(
+    `SELECT id, name, currency, is_active AS "isActive", created_at AS "createdAt"
+     FROM price_lists
+     WHERE id = $1
+     LIMIT 1`,
+    [id],
+    tx
+  );
 
   if (!priceList) return null;
 
-  const items = await db
-    .select({
-      id: priceListItems.id,
-      priceListId: priceListItems.priceListId,
-      productId: priceListItems.productId,
-      productName: products.name,
-      productSku: products.sku,
-      productBasePrice: products.basePrice,
-      customerTier: priceListItems.customerTier,
-      unitPrice: priceListItems.unitPrice,
-      createdAt: priceListItems.createdAt,
-    })
-    .from(priceListItems)
-    .leftJoin(products, eq(priceListItems.productId, products.id))
-    .where(eq(priceListItems.priceListId, id));
+  const items = await query(
+    `SELECT 
+       pli.id,
+       pli.price_list_id AS "priceListId",
+       pli.product_id AS "productId",
+       p.name AS "productName",
+       p.sku AS "productSku",
+       p.base_price AS "productBasePrice",
+       pli.customer_tier AS "customerTier",
+       pli.unit_price AS "unitPrice",
+       pli.created_at AS "createdAt",
+       pli.updated_at AS "updatedAt"
+     FROM price_list_items pli
+     LEFT JOIN products p ON pli.product_id = p.id
+     WHERE pli.price_list_id = $1`,
+    [id],
+    tx
+  );
 
   return { ...priceList, items };
 }
 
-export async function createPriceList(data, tx = undefined) {
-  const db = tx || getDb();
-  const [created] = await db
-    .insert(priceLists)
-    .values({
-      name: data.name.trim(),
-      currency: data.currency?.trim() || 'INR',
-      isActive: data.isActive !== undefined ? data.isActive : true,
-    })
-    .returning();
-  return created;
+export async function createPriceList(data, tx = null) {
+  return queryOne(
+    `INSERT INTO price_lists (name, currency, is_active, created_at)
+     VALUES ($1, $2, $3, NOW())
+     RETURNING *`,
+    [
+      data.name.trim(),
+      data.currency?.trim() || 'INR',
+      data.isActive !== undefined ? data.isActive : true,
+    ],
+    tx
+  );
 }
 
-export async function updatePriceList(id, data, tx = undefined) {
-  const db = tx || getDb();
-  const updateData = {};
-  if (data.name !== undefined) updateData.name = data.name.trim();
-  if (data.currency !== undefined) updateData.currency = data.currency.trim();
-  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+export async function updatePriceList(id, data, tx = null) {
+  const fields = [];
+  const params = [];
 
-  const [updated] = await db
-    .update(priceLists)
-    .set(updateData)
-    .where(eq(priceLists.id, id))
-    .returning();
-  return updated || null;
+  if (data.name !== undefined) {
+    params.push(data.name.trim());
+    fields.push(`name = $${params.length}`);
+  }
+  if (data.currency !== undefined) {
+    params.push(data.currency.trim());
+    fields.push(`currency = $${params.length}`);
+  }
+  if (data.isActive !== undefined) {
+    params.push(data.isActive);
+    fields.push(`is_active = $${params.length}`);
+  }
+
+  if (fields.length === 0) return await findPriceListById(id, tx);
+
+  params.push(id);
+  const idIdx = params.length;
+
+  return queryOne(
+    `UPDATE price_lists
+     SET ${fields.join(', ')}
+     WHERE id = $${idIdx}
+     RETURNING *`,
+    params,
+    tx
+  );
 }
 
-export async function upsertPriceListItem(data, tx = undefined) {
-  const db = tx || getDb();
-  const [upserted] = await db
-    .insert(priceListItems)
-    .values({
-      priceListId: data.priceListId,
-      productId: data.productId,
-      customerTier: data.customerTier,
-      unitPrice: String(data.unitPrice),
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: [priceListItems.priceListId, priceListItems.productId, priceListItems.customerTier],
-      set: {
-        unitPrice: String(data.unitPrice),
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
-  return upserted;
+export async function upsertPriceListItem(data, tx = null) {
+  return queryOne(
+    `INSERT INTO price_list_items (price_list_id, product_id, customer_tier, unit_price, updated_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (price_list_id, product_id, customer_tier)
+     DO UPDATE SET unit_price = EXCLUDED.unit_price, updated_at = NOW()
+     RETURNING *`,
+    [
+      data.priceListId,
+      data.productId,
+      data.customerTier,
+      String(data.unitPrice),
+    ],
+    tx
+  );
 }
 
-export async function deletePriceListItem(priceListId, itemId, tx = undefined) {
-  const db = tx || getDb();
-  const [deleted] = await db
-    .delete(priceListItems)
-    .where(and(eq(priceListItems.priceListId, priceListId), eq(priceListItems.id, itemId)))
-    .returning();
-  return deleted || null;
+export async function deletePriceListItem(priceListId, itemId, tx = null) {
+  return queryOne(
+    `DELETE FROM price_list_items
+     WHERE price_list_id = $1 AND id = $2
+     RETURNING *`,
+    [priceListId, itemId],
+    tx
+  );
 }
 
-export async function findTierPriceForProduct(priceListId, productId, customerTier, tx = undefined) {
-  const db = tx || getDb();
-  const [item] = await db
-    .select()
-    .from(priceListItems)
-    .where(
-      and(
-        eq(priceListItems.priceListId, priceListId),
-        eq(priceListItems.productId, productId),
-        eq(priceListItems.customerTier, customerTier)
-      )
-    )
-    .limit(1);
-  return item || null;
+export async function findTierPriceForProduct(priceListId, productId, customerTier, tx = null) {
+  return queryOne(
+    `SELECT * FROM price_list_items
+     WHERE price_list_id = $1 AND product_id = $2 AND customer_tier = $3
+     LIMIT 1`,
+    [priceListId, productId, customerTier],
+    tx
+  );
 }
