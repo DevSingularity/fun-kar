@@ -17,6 +17,8 @@ import ProductsPage from '../pages/catalog/ProductsPage.jsx';
 import PricingPage from '../pages/catalog/PricingPage.jsx';
 import DiscountsPage from '../pages/governance/DiscountsPage.jsx';
 import CustomersPage from '../pages/customers/CustomersPage.jsx';
+import QuotationsPage from '../pages/quotations/QuotationsPage.jsx';
+import QuotationDetailPage from '../pages/quotations/QuotationDetailPage.jsx';
 
 import useAuthStore from '../store/auth.store.js';
 
@@ -62,6 +64,8 @@ export default function AppRoutes() {
             <Route path="/dashboard/pricing" element={<PricingPage />} />
             <Route path="/dashboard/governance" element={<DiscountsPage />} />
             <Route path="/dashboard/customers" element={<CustomersPage />} />
+            <Route path="/dashboard/quotations" element={<QuotationsPage />} />
+            <Route path="/dashboard/quotations/:id" element={<QuotationDetailPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -13,6 +13,28 @@ const DEFAULT_TIER_LIMITS = {
   GOLD: 30,
 };
 
+/**
+ * Pure calculation to resolve allowed discount limit for a given tier and product category
+ */
+export async function resolveAllowedDiscount(tier = 'BRONZE', categoryId = null) {
+  const tierLimitRecord = await findTierLimitByTier(tier);
+  const tierMaxDiscountPct = tierLimitRecord
+    ? Number(tierLimitRecord.maxDiscountPct)
+    : (DEFAULT_TIER_LIMITS[tier] || 15);
+
+  let categoryMaxDiscountPct = null;
+  if (categoryId) {
+    const catLimitRecord = await findCategoryLimitByCategoryId(categoryId);
+    if (catLimitRecord) {
+      categoryMaxDiscountPct = Number(catLimitRecord.maxDiscountPct);
+    }
+  }
+
+  return categoryMaxDiscountPct !== null
+    ? Math.min(tierMaxDiscountPct, categoryMaxDiscountPct)
+    : tierMaxDiscountPct;
+}
+
 export async function evaluateQuoteRisk({ customerId, lines }) {
   if (!customerId) {
     throw new ValidationError('customerId is required for risk evaluation.');

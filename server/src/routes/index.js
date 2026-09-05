@@ -7,6 +7,7 @@ import priceListsRoutes from '../modules/priceLists/priceLists.routes.js';
 import customersRoutes from '../modules/customers/customers.routes.js';
 import governanceRoutes from '../modules/governance/governance.routes.js';
 import riskRoutes from '../modules/risk/risk.routes.js';
+import quotationsRoutes from '../modules/quotations/quotations.routes.js';
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use('/price-lists', priceListsRoutes);
 router.use('/customers', customersRoutes);
 router.use('/governance', governanceRoutes);
 router.use('/risk', riskRoutes);
+router.use('/quotations', quotationsRoutes);
 
 export default router;
