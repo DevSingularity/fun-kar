@@ -16,24 +16,24 @@ const router = Router();
 router.use(authenticate);
 
 // Orders listing awaiting fulfillment (Table 2 on Wireframe 7)
-router.get('/', authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE'), asyncHandler(handleListFulfillmentOrders));
+router.get('/', authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE', 'SALES_REP'), asyncHandler(handleListFulfillmentOrders));
 
 // Convert approved quotation to order (Plan §5.2 gap fill)
 router.post(
   '/from-quotation/:quotationId',
-  authorize('SALES_REP', 'SALES_MANAGER', 'OPERATIONS', 'ADMIN'),
+  authorize('SALES_REP', 'SALES_MANAGER', 'OPERATIONS', 'ADMIN', 'FINANCE'),
   asyncHandler(handleCreateOrderFromQuotation)
 );
 
 // Order Fulfillment Detail & Split view (Wireframe 8)
 router.get(
   '/:id',
-  authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE'),
+  authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE', 'SALES_REP'),
   asyncHandler(handleGetOrderFulfillmentDetail)
 );
 router.get(
   '/:id/allocation',
-  authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE'),
+  authorize('OPERATIONS', 'ADMIN', 'SALES_MANAGER', 'FINANCE', 'SALES_REP'),
   asyncHandler(handleGetOrderFulfillmentDetail)
 );
 

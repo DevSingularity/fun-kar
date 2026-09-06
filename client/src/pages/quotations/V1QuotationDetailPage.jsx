@@ -32,6 +32,7 @@ import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
 import Spinner from '../../components/Spinner.jsx';
+import NegotiationPanel from '../../components/negotiation/NegotiationPanel.jsx';
 
 const STATUS_BADGES = {
   DRAFT: 'bg-slate-100 text-slate-700 border-slate-300',
@@ -536,8 +537,10 @@ export default function V1QuotationDetailPage() {
       let approvalId = latestApprovalRequest?.id;
 
       if (!approvalId) {
-        const appRes = await api.get('/approvals', { params: { limit: 50 } });
-        const matched = appRes.data?.data?.find((a) => a.quotationId === quoteData.id && a.status === 'PENDING');
+        const appRes = await api.get('/approvals', { params: { limit: 100 } });
+        const list = Array.isArray(appRes.data?.data) ? appRes.data?.data : (appRes.data?.data?.items || []);
+        const targetQuoteId = quoteData?.id || id;
+        const matched = list.find((a) => a.quotationId === targetQuoteId && a.status === 'PENDING');
         if (matched) approvalId = matched.id;
       }
 
@@ -1115,6 +1118,11 @@ export default function V1QuotationDetailPage() {
               })}
             </div>
           </div>
+        )}
+
+        {/* ── Customer Negotiation Thread & Decision Actions ── */}
+        {!isNew && quoteData && (
+          <NegotiationPanel quotationId={id} onResolution={fetchData} />
         )}
 
         {/* ── ENTERPRISE ACTION BAR (STRICTLY STATE-SCOPED) ── */}

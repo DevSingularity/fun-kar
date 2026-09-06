@@ -179,7 +179,7 @@ export async function decideApproval(id, action, payload, auth) {
   const isFinalStep =
     action !== 'APPROVED'
       ? true
-      : request.requiredLevel === 'MANAGER' || step === 'FINANCE' || auth.role === 'ADMIN';
+      : request.requiredLevel === 'MANAGER' || step === 'FINANCE' || auth.role === 'ADMIN' || auth.role === 'OPERATIONS' || auth.role === 'FINANCE';
 
   let newRequestStatus = request.status;
   let newQuotationStatus = 'PENDING_APPROVAL';
@@ -224,9 +224,21 @@ export async function decideApproval(id, action, payload, auth) {
     newValue: { status: newQuotationStatus, level: step, action },
   });
 
+  // End-to-end Pipeline Flow: Automatically persist into Fulfillment, Invoicing & Subscriptions upon approval
+  let orderData = null;
+  if (newQuotationStatus === 'APPROVED') {
+    try {
+      const { createOrderFromQuotation } = await import('../fulfillment/fulfillment.service.js');
+      orderData = await createOrderFromQuotation(request.quotationId, auth);
+    } catch (orderErr) {
+      console.warn('[PIPELINE] Auto order creation on final approval notice:', orderErr.message);
+    }
+  }
+
   return {
     approvalRequest: updatedRequest,
     quotation: updatedQuotation,
+    order: orderData?.order || null,
   };
 }
 

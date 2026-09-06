@@ -1,11 +1,35 @@
 import { query, queryOne } from '../../config/database.js';
 
 export async function findActiveByEmail(email) {
-  return await queryOne(
+  let user = await queryOne(
     `SELECT * FROM customer_users
      WHERE LOWER(email) = LOWER($1) AND is_active = true`,
     [email]
   );
+  if (user) return user;
+
+  // Fallback: check if the email matches a company in `customers` table
+  const cust = await queryOne(
+    `SELECT * FROM customers WHERE LOWER(email) = LOWER($1)`,
+    [email]
+  );
+  if (cust) {
+    user = await queryOne(
+      `SELECT * FROM customer_users WHERE customer_id = $1 AND is_active = true LIMIT 1`,
+      [cust.id]
+    );
+    if (user) return user;
+
+    user = await queryOne(
+      `INSERT INTO customer_users (customer_id, name, email, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, true, NOW(), NOW())
+       RETURNING *`,
+      [cust.id, cust.name + ' Contact', email]
+    );
+    return user;
+  }
+
+  return null;
 }
 
 export async function findById(id) {

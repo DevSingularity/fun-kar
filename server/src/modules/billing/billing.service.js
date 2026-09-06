@@ -1,6 +1,7 @@
 import * as repo from './billing.repository.js';
 import * as calc from './billing.calc.js';
 import * as repoPlans from '../subscriptionPlans/subscriptionPlans.repository.js';
+import * as repoProducts from '../products/products.repository.js';
 import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from '../../common/errors.js';
 
 const ONE_TIME_DUE_DAYS = 15;
@@ -110,20 +111,28 @@ export async function generateBillingForOrder(orderId, auth) {
       result.alreadyExisted = true;
       continue;
     }
-    if (!item.subscriptionPlanId) {
+    let plan = null;
+    if (item.subscriptionPlanId) {
+      plan = await repoPlans.findPlanById(item.subscriptionPlanId);
+    }
+    if (!plan) {
+      const allPlans = await repoPlans.findAllPlans({ isActive: true });
+      plan = allPlans[0] || null;
+    }
+
+    if (!plan) {
       await repo.insertAuditLog({
         actorId: auth?.id || auth?.userId,
         entityType: 'ORDER',
         entityId: orderId,
         action: 'BILLING_GENERATION_SKIPPED_LINE',
-        reason: `Product '${item.productName}' is SUBSCRIPTION type but has no subscriptionPlanId. Fix the product config and re-run billing generation.`,
+        reason: `Product '${item.productName}' is SUBSCRIPTION type but no subscription plans are active.`,
       });
       continue;
     }
 
-    const plan = await requirePlan(item.subscriptionPlanId);
     const startDate = today();
-    const nextBillingDate = calc.addBillingPeriod(startDate, plan.frequency);
+    const nextBillingDate = calc.addBillingPeriod(startDate, plan.frequency || 'MONTHLY');
     const recurringAmount = Number(item.lineTotal);
 
     const line = await repo.insertSubscriptionLine({
@@ -256,14 +265,22 @@ export async function resumeSubscription(subscriptionLineId, auth) {
 
 // ---------- Subscription change / cancel ----------
 
-export async function changeSubscription(subscriptionLineId, { quantity, newPlanId }, auth) {
+export async function changeSubscription(subscriptionLineId, { quantity, newPlanId, newProductId }, auth) {
   const found = await repo.findSubscriptionLineById(subscriptionLineId);
   if (!found) throw new NotFoundError(`Subscription line '${subscriptionLineId}' not found.`, 'SUBSCRIPTION_LINE_NOT_FOUND');
   if (found.line.status !== 'ACTIVE') {
     throw new ConflictError('Only an ACTIVE subscription can be changed.', 'INVALID_STATE');
   }
-  if (!quantity && !newPlanId) {
-    throw new ValidationError('Provide at least a new quantity or a new plan.');
+  if (!quantity && !newPlanId && !newProductId) {
+    throw new ValidationError('Provide at least a new quantity, new plan, or new product.');
+  }
+
+  let targetProduct = null;
+  if (newProductId && newProductId !== found.productId) {
+    targetProduct = await repoProducts.findProductById(newProductId);
+    if (!targetProduct) {
+      throw new NotFoundError(`Product '${newProductId}' not found.`, 'PRODUCT_NOT_FOUND');
+    }
   }
 
   const schedule = await repo.findCurrentScheduleForLine(subscriptionLineId);
@@ -319,7 +336,7 @@ export async function changeSubscription(subscriptionLineId, { quantity, newPlan
       {
         invoiceId: openInvoice.id,
         billingScheduleId: schedule.id,
-        description: `Mid-cycle upgrade proration — ${found.productName}`,
+        description: `Mid-cycle upgrade proration — ${targetProduct ? targetProduct.name : found.productName}`,
         amount: String(delta.toFixed(2)),
       },
     ]);
@@ -329,6 +346,10 @@ export async function changeSubscription(subscriptionLineId, { quantity, newPlan
       taxTotal: openInvoice.taxTotal,
       total: newTotal,
     });
+  }
+
+  if (targetProduct) {
+    await repo.updateOrderItemProduct(found.line.orderItemId, targetProduct.id);
   }
 
   await repo.updateSubscriptionLine(subscriptionLineId, {
@@ -341,23 +362,38 @@ export async function changeSubscription(subscriptionLineId, { quantity, newPlan
     isProrated: true,
   });
 
+  const changeReasons = [];
+  if (found.line.quantity !== newQuantity) changeReasons.push(`Quantity ${found.line.quantity} -> ${newQuantity}`);
+  if (newPlanId && found.plan.id !== targetPlan.id) changeReasons.push(`Plan ${found.plan.name} -> ${targetPlan.name}`);
+  if (targetProduct) changeReasons.push(`Product ${found.productName} -> ${targetProduct.name}`);
+
   await repo.insertAuditLog({
     actorId: auth.id || auth.userId,
     entityType: 'SUBSCRIPTION_LINE',
     entityId: subscriptionLineId,
     action: 'SUBSCRIPTION_CHANGED',
-    reason: `Quantity ${found.line.quantity} -> ${newQuantity}${newPlanId ? `, plan ${found.plan.name} -> ${targetPlan.name}` : ''}`,
-    newValue: { delta, newCycleAmount },
+    reason: changeReasons.join(', ') || 'Subscription modified',
+    newValue: { delta, newCycleAmount, productId: targetProduct?.id || found.productId, planId: targetPlan.id, quantity: newQuantity },
   });
 
   return { delta, creditNote, supplementalInvoiceLine, newCycleAmount };
 }
 
-export async function cancelSubscription(subscriptionLineId, { reason }, auth) {
+export async function cancelSubscription(subscriptionLineId, { reason, overrideNotice }, auth) {
   const found = await repo.findSubscriptionLineById(subscriptionLineId);
   if (!found) throw new NotFoundError(`Subscription line '${subscriptionLineId}' not found.`, 'SUBSCRIPTION_LINE_NOT_FOUND');
   if (found.line.status === 'CANCELLED') {
     throw new ConflictError('This subscription is already cancelled.', 'ALREADY_CANCELLED');
+  }
+
+  // Enforce the plan's configured cancellation notice window
+  const noticeDays = Number(found.plan?.cancellationNoticeDays || 0);
+  if (noticeDays > 0 && !overrideNotice) {
+    const effectiveDate = addDays(today(), noticeDays);
+    throw new ConflictError(
+      `This plan requires ${noticeDays} days' cancellation notice. Earliest effective cancellation date is ${effectiveDate}. Pass overrideNotice=true to force an immediate cancellation.`,
+      'NOTICE_PERIOD_REQUIRED'
+    );
   }
 
   const schedule = await repo.findCurrentScheduleForLine(subscriptionLineId);

@@ -17,7 +17,9 @@ export default function CustomerQuotationDetailPage() {
   const { quotationId } = useParams();
   const [portalUser, setPortalUser] = useState(null);
   const [quotation, setQuotation] = useState(null);
-  const [commentsByLine, setCommentsByLine] = useState({});
+  const [timeline, setTimeline] = useState([]);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState('');
   const [customerComment, setCustomerComment] = useState('');
   const [counterDiscountPct, setCounterDiscountPct] = useState('');
@@ -45,16 +47,27 @@ export default function CustomerQuotationDetailPage() {
       setQuotation(quote);
       if (quote?.items?.length && !selectedItemId) setSelectedItemId(quote.items[0].id);
       const timelineRes = await customerApi.get(`/quotes/${quotationId}/negotiation`);
-      const comments = {};
-      (timelineRes.data?.data?.timeline || []).forEach((entry) => {
-        if (entry.message && entry.quotationItemId) comments[entry.quotationItemId] = entry.message;
-      });
-      setCommentsByLine(comments);
+      setTimeline(timelineRes.data?.data?.timeline || []);
     } catch (err) {
       setQuotation(null);
       setError(err.response?.data?.message || 'Unable to load this quotation.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const sendComment = async (event) => {
+    event.preventDefault();
+    if (!replyMessage.trim()) return;
+    setSendingReply(true);
+    try {
+      await customerApi.post(`/quotes/${quotationId}/comments`, { message: replyMessage.trim() });
+      setReplyMessage('');
+      await loadQuotation();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not send message.');
+    } finally {
+      setSendingReply(false);
     }
   };
 
@@ -98,6 +111,12 @@ export default function CustomerQuotationDetailPage() {
   const canNegotiate = ['SENT', 'UNDER_NEGOTIATION'].includes(status);
   const canConfirm = status === 'SENT';
 
+  // Helper map for line-level comments
+  const latestCommentsByLine = {};
+  timeline.forEach((entry) => {
+    if (entry.message && entry.quotationItemId) latestCommentsByLine[entry.quotationItemId] = entry.message;
+  });
+
   return (
     <CustomerPortalGuard portalUser={portalUser} setPortalUser={setPortalUser} onAuthSuccess={loadQuotation}>
       <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
@@ -114,12 +133,87 @@ export default function CustomerQuotationDetailPage() {
               </div>
 
               <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-xs">
-                <div className="overflow-x-auto"><table className="w-full min-w-212.5 text-left text-xs"><thead className="border-b border-slate-200 bg-slate-50 font-bold uppercase tracking-wider text-slate-700"><tr><th className="px-5 py-3.5">Line</th><th className="px-5 py-3.5">Customer comment</th><th className="px-5 py-3.5">Price</th><th className="px-5 py-3.5">Discount %</th><th className="px-5 py-3.5">Request status</th></tr></thead><tbody className="divide-y divide-slate-200">
-                  {quotation.items?.map((item) => <tr key={item.id} onClick={() => setSelectedItemId(item.id)} className={`cursor-pointer hover:bg-slate-50 ${selectedItemId === item.id ? 'bg-[#714b67]/5 border-l-4 border-[#714b67]' : ''}`}><td className="px-5 py-4 font-bold text-slate-900">{item.productName}</td><td className="px-5 py-4 italic text-slate-600">{commentsByLine[item.id] || 'No customer comment'}</td><td className="px-5 py-4 font-mono font-bold text-slate-900">{Number(item.unitPrice || 0).toLocaleString()}</td><td className="px-5 py-4 font-mono font-bold text-emerald-700">{item.discountPct}%</td><td className="px-5 py-4 text-slate-500">{canNegotiate ? 'Ready for request' : 'Unavailable'}</td></tr>)}
+                <div className="overflow-x-auto"><table className="w-full min-w-212.5 text-left text-xs"><thead className="border-b border-slate-200 bg-slate-50 font-bold uppercase tracking-wider text-slate-700"><tr><th className="px-5 py-3.5">Line</th><th className="px-5 py-3.5">Latest comment</th><th className="px-5 py-3.5">Price</th><th className="px-5 py-3.5">Discount %</th><th className="px-5 py-3.5">Request status</th></tr></thead><tbody className="divide-y divide-slate-200">
+                  {quotation.items?.map((item) => <tr key={item.id} onClick={() => setSelectedItemId(item.id)} className={`cursor-pointer hover:bg-slate-50 ${selectedItemId === item.id ? 'bg-[#714b67]/5 border-l-4 border-[#714b67]' : ''}`}><td className="px-5 py-4 font-bold text-slate-900">{item.productName}</td><td className="px-5 py-4 italic text-slate-600">{latestCommentsByLine[item.id] || 'No customer comment'}</td><td className="px-5 py-4 font-mono font-bold text-slate-900">{Number(item.unitPrice || 0).toLocaleString()}</td><td className="px-5 py-4 font-mono font-bold text-emerald-700">{item.discountPct}%</td><td className="px-5 py-4 text-slate-500">{canNegotiate ? 'Ready for request' : 'Unavailable'}</td></tr>)}
                 </tbody></table></div>
               </div>
 
-              <form onSubmit={submitRequest} className="space-y-6 rounded-xl border border-slate-300 bg-white p-6 shadow-xs"><div className="grid grid-cols-1 gap-6 md:grid-cols-2"><div className="space-y-1.5"><label className="block text-xs font-bold text-slate-700">Counter Discount %</label><input type="number" min="0" max="100" step="0.1" placeholder="e.g. 15" value={counterDiscountPct} onChange={(event) => setCounterDiscountPct(event.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-mono focus:border-[#714b67] focus:outline-hidden" /></div><div className="flex items-end text-xs text-slate-500">Requests are saved to the quotation negotiation thread.</div></div><div className="space-y-1.5"><label className="block text-xs font-bold text-slate-700">Customer Comment / Message for Selected Line</label><textarea rows="2" placeholder="Add your note or request details here..." value={customerComment} onChange={(event) => setCustomerComment(event.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-[#714b67] focus:outline-hidden" /></div><div className="flex flex-wrap gap-4 pt-2"><button type="submit" disabled={submitting || !canNegotiate} className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-2.5 text-xs font-bold text-white hover:bg-slate-900 disabled:opacity-50"><Send className="h-4 w-4" />{submitting ? 'Submitting...' : 'Submit Request'}</button><button type="button" onClick={confirmQuotation} disabled={confirming || !canConfirm} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50"><CheckCircle2 className="h-4 w-4" />{confirming ? 'Confirming...' : 'Confirm Quotation'}</button></div></form>
+              {/* Threaded Negotiation History & Message Box */}
+              <div className="rounded-xl border border-slate-300 bg-white shadow-xs p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-700">Negotiation Conversation</p>
+                  <span className="text-[11px] text-slate-400">{timeline.length} message{timeline.length === 1 ? '' : 's'}</span>
+                </div>
+                <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                  {timeline.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-4 text-center">No messages in negotiation thread yet.</p>
+                  ) : (
+                    timeline.map((entry) => {
+                      const fromMe = entry.kind === 'COMMENT' ? entry.authorType === 'CUSTOMER' : true;
+                      return (
+                        <div key={`${entry.kind}-${entry.id}`} className={`text-xs p-3 rounded-xl ${fromMe ? 'bg-[#714b67]/10 ml-8 border border-[#714b67]/20' : 'bg-slate-100 mr-8 border border-slate-200'}`}>
+                          <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                            <span className={fromMe ? 'text-[#714b67]' : 'text-slate-700'}>
+                              {fromMe ? 'You (Customer)' : 'Sales & Pricing Team'}
+                              {entry.kind === 'REQUEST' && (
+                                <span className="ml-1.5 px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold">
+                                  {entry.requestType}{entry.requestedDiscountPct !== null && entry.requestedDiscountPct !== undefined ? ` (${entry.requestedDiscountPct}%)` : ''} - {entry.status}
+                                </span>
+                              )}
+                            </span>
+                            <span className="font-normal text-slate-400">{new Date(entry.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="text-slate-800">{entry.message}</p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                {canNegotiate && (
+                  <form onSubmit={sendComment} className="flex gap-2 pt-2 border-t border-slate-100">
+                    <input
+                      type="text"
+                      value={replyMessage}
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                      placeholder="Send a message to the sales team..."
+                      className="flex-1 rounded-xl border border-slate-300 px-3.5 py-2 text-xs focus:border-[#714b67] focus:outline-hidden"
+                    />
+                    <button
+                      type="submit"
+                      disabled={sendingReply || !replyMessage.trim()}
+                      className="rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 disabled:opacity-50 inline-flex items-center gap-1.5"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      {sendingReply ? 'Sending...' : 'Send'}
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* Negotiation Request Form (Counter Discount) */}
+              <form onSubmit={submitRequest} className="space-y-6 rounded-xl border border-slate-300 bg-white p-6 shadow-xs">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">Counter Discount %</label>
+                    <input type="number" min="0" max="100" step="0.1" placeholder="e.g. 15" value={counterDiscountPct} onChange={(event) => setCounterDiscountPct(event.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-mono focus:border-[#714b67] focus:outline-hidden" />
+                  </div>
+                  <div className="flex items-end text-xs text-slate-500">
+                    Counter discount proposals are submitted directly to the sales manager for review and pricing approval.
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">Formal Request Note / Comment for Selected Line</label>
+                  <textarea rows="2" placeholder="Add your proposal rationale or target pricing..." value={customerComment} onChange={(event) => setCustomerComment(event.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-[#714b67] focus:outline-hidden" />
+                </div>
+                <div className="flex flex-wrap gap-4 pt-2">
+                  <button type="submit" disabled={submitting || !canNegotiate} className="inline-flex items-center gap-2 rounded-xl bg-[#714b67] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#5a3a52] disabled:opacity-50">
+                    <Send className="h-4 w-4" />{submitting ? 'Submitting...' : 'Submit Counter Offer'}
+                  </button>
+                  <button type="button" onClick={confirmQuotation} disabled={confirming || !canConfirm} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50">
+                    <CheckCircle2 className="h-4 w-4" />{confirming ? 'Confirming...' : 'Confirm Quotation'}
+                  </button>
+                </div>
+              </form>
             </>
           )}
         </main>

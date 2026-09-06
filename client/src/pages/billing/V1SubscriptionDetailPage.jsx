@@ -42,7 +42,7 @@ const SCHEDULE_STATUS_STYLES = {
 export default function V1SubscriptionDetailPage() {
   const { id } = useParams();
   const user = useAuthStore((s) => s.user);
-  const canManageSubscriptions = ['FINANCE', 'ADMIN'].includes(user?.role);
+  const canManageSubscriptions = ['SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'].includes(user?.role);
 
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(null);
@@ -51,6 +51,10 @@ export default function V1SubscriptionDetailPage() {
   // Change Modal State
   const [showChangeModal, setShowChangeModal] = useState(false);
   const [newQuantity, setNewQuantity] = useState('1');
+  const [availablePlans, setAvailablePlans] = useState([]);
+  const [newPlanId, setNewPlanId] = useState('');
+  const [availableProducts, setAvailableProducts] = useState([]);
+  const [newProductId, setNewProductId] = useState('');
   const [submittingChange, setSubmittingChange] = useState(false);
 
   const fetchData = async () => {
@@ -59,7 +63,11 @@ export default function V1SubscriptionDetailPage() {
       const res = await api.get(`/subscriptions/${id}`);
       const data = res.data?.data;
       setSubscription(data || null);
-      if (data) setNewQuantity(String(data.quantity));
+      if (data) {
+        setNewQuantity(String(data.quantity));
+        setNewPlanId(data.subscriptionPlanId || '');
+        setNewProductId(data.productId || '');
+      }
     } catch (err) {
       console.warn('Subscription detail fetch note:', err);
     } finally {
@@ -70,6 +78,37 @@ export default function V1SubscriptionDetailPage() {
   useEffect(() => {
     fetchData();
   }, [id]);
+
+  const openChangeModal = async () => {
+    if (subscription) {
+      setNewQuantity(String(subscription.quantity || 1));
+      setNewPlanId(subscription.subscriptionPlanId || '');
+      setNewProductId(subscription.productId || '');
+    }
+    setShowChangeModal(true);
+    try {
+      const [plansRes, prodsRes] = await Promise.all([
+        api.get('/subscription-plans', { params: { isActive: true } }),
+        api.get('/products', { params: { isActive: true, limit: 100 } }),
+      ]);
+      setAvailablePlans(plansRes.data?.data || []);
+      const prods = prodsRes.data?.data;
+      const prodList = Array.isArray(prods) ? prods : prods?.items || [];
+      const subProds = prodList.filter((p) => p.productType === 'SUBSCRIPTION');
+      setAvailableProducts(subProds.length > 0 ? subProds : prodList);
+    } catch {
+      setAvailablePlans([]);
+      setAvailableProducts([]);
+    }
+  };
+
+  const handleProductChange = (prodId) => {
+    setNewProductId(prodId);
+    const selectedProd = availableProducts.find((p) => p.id === prodId);
+    if (selectedProd && selectedProd.subscriptionPlanId) {
+      setNewPlanId(selectedProd.subscriptionPlanId);
+    }
+  };
 
   const handlePause = async () => {
     setActionLoading(true);
@@ -114,6 +153,30 @@ export default function V1SubscriptionDetailPage() {
       }
       fetchData();
     } catch (err) {
+      const code = err?.response?.data?.error?.code;
+      if (code === 'NOTICE_PERIOD_REQUIRED') {
+        const msg = err.response?.data?.error?.message || 'Cancellation notice period required.';
+        if (window.confirm(`${msg}\n\nCancel immediately anyway?`)) {
+          try {
+            const overrideRes = await api.post(`/subscriptions/${id}/cancel`, {
+              reason: 'Immediate cancellation override',
+              overrideNotice: true,
+            });
+            const cn = overrideRes.data?.data?.creditNote;
+            if (cn && Number(cn.amount) > 0) {
+              toast.success(`Subscription cancelled immediately. Credit note of ₹${Number(cn.amount).toFixed(2)} issued.`);
+            } else {
+              toast.success('Subscription cancelled immediately (notice period overridden).');
+            }
+            fetchData();
+            return;
+          } catch (overrideErr) {
+            toast.error(overrideErr?.response?.data?.error?.message || 'Could not cancel subscription.');
+            return;
+          }
+        }
+        return;
+      }
       toast.error(err?.response?.data?.error?.message || 'Could not cancel subscription.');
     } finally {
       setActionLoading(false);
@@ -128,16 +191,21 @@ export default function V1SubscriptionDetailPage() {
     }
     setSubmittingChange(true);
     try {
-      const res = await api.post(`/subscriptions/${id}/change`, {
-        quantity: Number(newQuantity),
-      });
+      const payload = { quantity: Number(newQuantity) };
+      if (newPlanId && newPlanId !== subscription.subscriptionPlanId) {
+        payload.newPlanId = newPlanId;
+      }
+      if (newProductId && newProductId !== subscription.productId) {
+        payload.newProductId = newProductId;
+      }
+      const res = await api.post(`/subscriptions/${id}/change`, payload);
       const { delta } = res.data?.data || {};
       if (delta > 0) {
         toast.success(`Subscription upgraded! Supplemental proration charge of ₹${Number(delta).toFixed(2)} applied.`);
       } else if (delta < 0) {
         toast.success(`Subscription downgraded! Credit note of ₹${Math.abs(Number(delta)).toFixed(2)} issued.`);
       } else {
-        toast.success('Subscription quantity updated.');
+        toast.success('Subscription updated successfully.');
       }
       setShowChangeModal(false);
       fetchData();
@@ -303,7 +371,7 @@ export default function V1SubscriptionDetailPage() {
             <div className="p-5 bg-slate-50/40 border-t border-slate-100 flex flex-wrap items-center gap-3">
               {subscription.status !== 'CANCELLED' && (
                 <button
-                  onClick={() => setShowChangeModal(true)}
+                  onClick={openChangeModal}
                   disabled={actionLoading}
                   className="px-5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
                 >
@@ -412,16 +480,17 @@ export default function V1SubscriptionDetailPage() {
           )}
         </div>
 
-        {/* Credit Notes Ledger */}
+        {/* Audit / Credit Notes section */}
         {subscription.creditNotes && subscription.creditNotes.length > 0 && (
-          <div className="rounded-xl border border-amber-200 bg-white shadow-xs overflow-hidden">
-            <div className="px-5 py-4 border-b border-amber-100 flex items-center justify-between bg-amber-50/50">
-              <h2 className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Undo2 className="h-3.5 w-3.5 text-amber-700" /> Issued Credit Notes & Proration Refunds
-              </h2>
-              <span className="text-xs font-bold text-amber-700">{subscription.creditNotes.length} Credit Notes</span>
+          <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-4 bg-amber-50/50 border-b border-amber-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 flex items-center gap-2">
+                <Undo2 className="h-4 w-4 text-amber-600" /> Credit Notes Issued
+              </span>
+              <span className="text-[11px] font-medium text-amber-700">
+                {subscription.creditNotes.length} credit note(s)
+              </span>
             </div>
-
             <div className="divide-y divide-slate-100">
               {subscription.creditNotes.map((cn) => (
                 <div key={cn.id} className="p-4 px-5 flex items-center justify-between hover:bg-slate-50/60 text-xs">
@@ -444,12 +513,12 @@ export default function V1SubscriptionDetailPage() {
           </div>
         )}
 
-        {/* Change Quantity Modal */}
+        {/* Change Quantity & Plan Modal */}
         {showChangeModal && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-800">Change Subscription Quantity</h3>
+                <h3 className="text-sm font-bold text-slate-800">Modify Subscription</h3>
                 <button onClick={() => setShowChangeModal(false)} className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                   <X className="h-4 w-4" />
                 </button>
@@ -458,11 +527,46 @@ export default function V1SubscriptionDetailPage() {
               <form onSubmit={handleChangeQuantity} className="space-y-4 text-xs">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Product</label>
-                  <input
-                    disabled
-                    value={subscription.productName}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 font-semibold"
-                  />
+                  <select
+                    value={newProductId}
+                    onChange={(e) => handleProductChange(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#008784]/20 text-xs text-slate-800 font-semibold"
+                  >
+                    {availableProducts.length > 0 ? (
+                      availableProducts.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} {p.sku ? `(${p.sku})` : ''}
+                        </option>
+                      ))
+                    ) : (
+                      <option value={subscription.productId || ''}>
+                        {subscription.productName}
+                      </option>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Subscription Plan
+                  </label>
+                  <select
+                    value={newPlanId}
+                    onChange={(e) => setNewPlanId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#008784]/20 text-xs text-slate-800 font-medium"
+                  >
+                    {availablePlans.length > 0 ? (
+                      availablePlans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.frequency}) — ₹{Number(p.price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}/cycle
+                        </option>
+                      ))
+                    ) : (
+                      <option value={subscription.subscriptionPlanId || ''}>
+                        {subscription.planName || 'Current Plan'} ({subscription.frequency})
+                      </option>
+                    )}
+                  </select>
                 </div>
 
                 <div>
