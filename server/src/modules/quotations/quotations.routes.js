@@ -45,7 +45,7 @@ router.delete('/:id/items/:itemId', authorize('SALES_REP', 'SALES_MANAGER', 'ADM
 router.post('/:id/submit', authorize('SALES_REP', 'SALES_MANAGER', 'ADMIN'), asyncHandler(handleSubmitQuotation));
 
 // Self-service Withdraw back to DRAFT
-router.post('/:id/withdraw', authorize('SALES_REP', 'SALES_MANAGER', 'ADMIN'), asyncHandler(handleWithdrawQuotation));
+router.post('/:id/withdraw', authorize('SALES_REP', 'ADMIN'), asyncHandler(handleWithdrawQuotation));
 
 export default router;
 

@@ -34,7 +34,7 @@ export function determineCurrentStep(requiredLevel, actions = []) {
 }
 
 function assertActorCanAct(auth, step) {
-  if (auth.role === 'ADMIN') return; // Admin override privilege
+  if (auth.role === 'ADMIN' || auth.role === 'OPERATIONS') return; // Admin & Operations privilege
   if (step === 'MANAGER' && auth.role !== 'SALES_MANAGER') {
     throw new ForbiddenError('Only a Sales Manager can act at this approval step.', 'STEP_MISMATCH');
   }

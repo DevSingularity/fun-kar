@@ -102,7 +102,7 @@ export default function V1QuotationDetailPage() {
   const patchTimerRef = useRef({});
 
   // Roles check
-  const isApprover = ['SALES_MANAGER', 'FINANCE', 'ADMIN'].includes(user?.role);
+  const isApprover = ['SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'].includes(user?.role);
   const isSalesRep = user?.role === 'SALES_REP';
 
   // Fetch initial data
@@ -196,7 +196,7 @@ export default function V1QuotationDetailPage() {
   // Enterprise RBAC Persona Permissions
   const canEditQuote = ['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role);
   const canConvertOrder = ['SALES_REP', 'SALES_MANAGER', 'OPERATIONS', 'ADMIN'].includes(user?.role);
-  const canWithdraw = ['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role);
+  const canWithdraw = ['SALES_REP', 'ADMIN'].includes(user?.role);
 
   // State flags for strictly partitioned UI behavior (gated by edit permissions)
   const isDraft = (isNew || !quoteData?.status || quoteData?.status === 'DRAFT' || quoteData?.status === 'RETURNED' || quoteData?.status === 'CHANGES_REQUESTED') && canEditQuote;
@@ -1146,15 +1146,17 @@ export default function V1QuotationDetailPage() {
           {/* Action Set 2: PENDING_APPROVAL */}
           {isPendingApproval && (
             <>
-              {/* Sales Rep can withdraw */}
-              <button
-                onClick={handleWithdrawQuotation}
-                disabled={withdrawing}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-all shadow-xs disabled:opacity-50"
-              >
-                <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
-                <span>{withdrawing ? 'Withdrawing...' : 'Withdraw to Draft'}</span>
-              </button>
+              {/* Sales Rep (and Admin) can withdraw */}
+              {canWithdraw && (
+                <button
+                  onClick={handleWithdrawQuotation}
+                  disabled={withdrawing}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-xs font-bold border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-all shadow-xs disabled:opacity-50"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-amber-700" />
+                  <span>{withdrawing ? 'Withdrawing...' : 'Withdraw to Draft'}</span>
+                </button>
+              )}
 
               {/* Approvers can Approve / Return / Reject directly */}
               {isApprover && (

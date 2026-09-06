@@ -74,8 +74,8 @@ export default function AppRoutes() {
             <Route path="/v1/product" element={<V1ProductsPage />} />
           </Route>
 
-          {/* Approvals: Sales Manager, Finance, Admin */}
-          <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'FINANCE', 'ADMIN']} />}>
+          {/* Approvals: Sales Manager, Finance, Operations, Admin */}
+          <Route element={<RoleRoute allowedRoles={['SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN']} />}>
             <Route path="/v1/approvals" element={<V1ApprovalsPage />} />
             <Route path="/v1/approvals/:id" element={<V1ApprovalDetailPage />} />
           </Route>

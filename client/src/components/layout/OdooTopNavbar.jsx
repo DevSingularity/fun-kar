@@ -35,7 +35,7 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
     { label: 'Quotations', path: '/v1/quotations', id: 'Quotations', roles: ['ADMIN', 'SALES_REP'] },
     { label: 'Customers', path: '/v1/customers', id: 'Customers', roles: ['ADMIN', 'SALES_REP'] },
     { label: 'Deal Health', path: '/v1/deal-health', id: 'Deal Health', roles: ['ADMIN', 'SALES_MANAGER'] },
-    { label: 'Approvals', path: '/v1/approvals', id: 'Approvals', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE'] },
+    { label: 'Approvals', path: '/v1/approvals', id: 'Approvals', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
     { label: 'Fulfillment', path: '/v1/fulfillment', id: 'Fulfillment', roles: ['ADMIN', 'OPERATIONS', 'FINANCE'] },
     { label: 'Invoices', path: '/v1/invoices', id: 'Invoices', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },
     { label: 'Subscriptions', path: '/v1/subscriptions', id: 'Subscriptions', roles: ['ADMIN', 'SALES_MANAGER', 'FINANCE', 'OPERATIONS'] },

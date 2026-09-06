@@ -59,7 +59,7 @@ export default function V1DashboardPage() {
   const recentActivities = dashboardData?.recentActivities || [];
 
   // Role-aware navigation destinations
-  const isApprover = ['SALES_MANAGER', 'FINANCE', 'ADMIN'].includes(user?.role);
+  const isApprover = ['SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'].includes(user?.role);
   const hasDealHealthAccess = ['SALES_MANAGER', 'ADMIN'].includes(user?.role);
   const approvalsTarget = isApprover ? '/v1/approvals' : '/v1/quotations';
   const atRiskTarget = hasDealHealthAccess ? '/v1/deal-health' : isApprover ? '/v1/approvals' : '/v1/quotations';
