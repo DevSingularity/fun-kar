@@ -540,6 +540,7 @@ export default function V1PricingPage() {
                       onChange={(e) => setOverrideTier(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white"
                     >
+                      <option value="DEFAULT">DEFAULT</option>
                       <option value="BRONZE">BRONZE</option>
                       <option value="SILVER">SILVER</option>
                       <option value="GOLD">GOLD</option>

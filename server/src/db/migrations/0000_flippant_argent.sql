@@ -6,7 +6,7 @@ CREATE TYPE "public"."billing_frequency" AS ENUM('MONTHLY', 'QUARTERLY', 'YEARLY
 CREATE TYPE "public"."billing_line_type" AS ENUM('ONE_TIME', 'RECURRING');--> statement-breakpoint
 CREATE TYPE "public"."billing_schedule_status" AS ENUM('SCHEDULED', 'INVOICED', 'PAID', 'SKIPPED');--> statement-breakpoint
 CREATE TYPE "public"."credit_note_status" AS ENUM('ISSUED', 'APPLIED', 'VOID');--> statement-breakpoint
-CREATE TYPE "public"."customer_tier" AS ENUM('BRONZE', 'SILVER', 'GOLD');--> statement-breakpoint
+CREATE TYPE "public"."customer_tier" AS ENUM('DEFAULT', 'BRONZE', 'SILVER', 'GOLD');--> statement-breakpoint
 CREATE TYPE "public"."deal_alert_severity" AS ENUM('LOW', 'MEDIUM', 'HIGH');--> statement-breakpoint
 CREATE TYPE "public"."deal_alert_status" AS ENUM('OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'DISMISSED');--> statement-breakpoint
 CREATE TYPE "public"."deal_alert_type" AS ENUM('STALLED', 'DISCOUNT_ANOMALY', 'DELIVERY_SLIPPAGE', 'LOW_MARGIN');--> statement-breakpoint

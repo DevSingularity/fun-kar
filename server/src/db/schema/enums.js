@@ -10,7 +10,7 @@ export const userRoleEnum = pgEnum('user_role', [
   'OPERATIONS',
 ]);
 
-export const customerTierEnum = pgEnum('customer_tier', ['BRONZE', 'SILVER', 'GOLD']);
+export const customerTierEnum = pgEnum('customer_tier', ['DEFAULT', 'BRONZE', 'SILVER', 'GOLD']);
 
 export const productTypeEnum = pgEnum('product_type', ['ONE_TIME', 'SERVICE', 'SUBSCRIPTION']);
 

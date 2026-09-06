@@ -1,7 +1,7 @@
 import { ValidationError } from '../../common/errors.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const VALID_TIERS = ['BRONZE', 'SILVER', 'GOLD'];
+const VALID_TIERS = ['DEFAULT', 'BRONZE', 'SILVER', 'GOLD'];
 
 export function validateCreateCustomer(req, res, next) {
   const { name, email, tier } = req.body || {};

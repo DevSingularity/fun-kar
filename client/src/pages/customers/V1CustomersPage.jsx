@@ -156,7 +156,7 @@ export default function V1CustomersPage() {
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            {['ALL', 'GOLD', 'SILVER', 'BRONZE'].map((tier) => {
+            {['ALL', 'DEFAULT', 'GOLD', 'SILVER', 'BRONZE'].map((tier) => {
               const active = selectedTier === tier;
               const count =
                 tier === 'ALL'
@@ -232,11 +232,13 @@ export default function V1CustomersPage() {
                           ? 'bg-amber-50 text-amber-800 border border-amber-300'
                           : cust.tier === 'SILVER'
                           ? 'bg-slate-100 text-slate-800 border border-slate-300'
-                          : 'bg-orange-50 text-orange-800 border border-orange-300'
+                          : cust.tier === 'BRONZE'
+                          ? 'bg-orange-50 text-orange-800 border border-orange-300'
+                          : 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                       }`}
                     >
                       <Award className="h-3.5 w-3.5" />
-                      {cust.tier} ({cust.tier === 'GOLD' ? '30%' : cust.tier === 'SILVER' ? '20%' : '10%'})
+                      {cust.tier} ({cust.tier === 'GOLD' ? '30%' : cust.tier === 'SILVER' ? '20%' : cust.tier === 'BRONZE' ? '10%' : '0%'})
                     </span>
                   </div>
 
@@ -357,6 +359,7 @@ export default function V1CustomersPage() {
                     onChange={(e) => setFormData({ ...formData, tier: e.target.value })}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 font-medium text-slate-900 outline-hidden focus:border-[#714b67] focus:ring-1 focus:ring-[#714b67] transition-all cursor-pointer"
                   >
+                    <option value="DEFAULT">Default (0% Threshold - No Auto-Discount)</option>
                     <option value="BRONZE">Bronze (10% Max Delegation)</option>
                     <option value="SILVER">Silver (20% Max Delegation)</option>
                     <option value="GOLD">Gold (30% Max Delegation)</option>

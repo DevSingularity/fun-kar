@@ -1,6 +1,6 @@
 import { ValidationError } from '../../common/errors.js';
 
-const VALID_TIERS = ['BRONZE', 'SILVER', 'GOLD'];
+const VALID_TIERS = ['DEFAULT', 'BRONZE', 'SILVER', 'GOLD'];
 
 export function validateCreatePriceList(req, res, next) {
   const { name } = req.body || {};

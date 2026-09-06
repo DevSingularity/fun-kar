@@ -464,7 +464,7 @@ export default function V1GovernancePage() {
               >
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} — {c.tier} Tier ({c.tier === 'GOLD' ? '30%' : c.tier === 'SILVER' ? '20%' : '10%'} Max)
+                    {c.name} — {c.tier} Tier ({c.tier === 'GOLD' ? '30%' : c.tier === 'SILVER' ? '20%' : c.tier === 'BRONZE' ? '10%' : '0%'} Max)
                   </option>
                 ))}
               </select>

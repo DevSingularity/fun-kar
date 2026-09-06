@@ -128,6 +128,7 @@ async function seed() {
     }
 
     await many(tx, customerTierDiscountLimits, [
+      { tier: 'DEFAULT', maxDiscountPct: '0.00' },
       { tier: 'BRONZE', maxDiscountPct: '8.00' },
       { tier: 'SILVER', maxDiscountPct: '16.00' },
       { tier: 'GOLD', maxDiscountPct: '24.00' },

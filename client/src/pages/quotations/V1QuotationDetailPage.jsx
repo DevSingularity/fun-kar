@@ -187,11 +187,13 @@ export default function V1QuotationDetailPage() {
   const customerName = selectedCustomer?.name || quoteData?.customerName || 'Customer';
 
   // Dynamic Tier Limit & Price List
-  const tierLimitPct = customerTier === 'GOLD' ? 30 : customerTier === 'SILVER' ? 20 : 10;
+  const tierLimitPct = customerTier === 'GOLD' ? 30 : customerTier === 'SILVER' ? 20 : customerTier === 'BRONZE' ? 10 : 0;
   const assignedPriceList = customerTier === 'GOLD' 
     ? 'Gold Partner Negotiated Matrix' 
     : customerTier === 'SILVER' 
     ? 'Silver Preferential Matrix' 
+    : customerTier === 'BRONZE'
+    ? 'Bronze Enterprise Price List'
     : 'Standard Enterprise Price List';
 
   // Enterprise RBAC Persona Permissions

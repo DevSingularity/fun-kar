@@ -63,6 +63,7 @@ const SEED_CATEGORIES = [
 ];
 
 const SEED_TIER_LIMITS = [
+  { tier: 'DEFAULT', maxDiscountPct: '0.00' },
   { tier: 'BRONZE', maxDiscountPct: '10.00' },
   { tier: 'SILVER', maxDiscountPct: '20.00' },
   { tier: 'GOLD', maxDiscountPct: '30.00' },

@@ -1,6 +1,6 @@
 import { ValidationError } from '../../common/errors.js';
 
-const VALID_TIERS = ['BRONZE', 'SILVER', 'GOLD'];
+const VALID_TIERS = ['DEFAULT', 'BRONZE', 'SILVER', 'GOLD'];
 const VALID_APPROVAL_LEVELS = ['NONE', 'MANAGER', 'MANAGER_FINANCE'];
 
 export function validateSetTierLimit(req, res, next) {

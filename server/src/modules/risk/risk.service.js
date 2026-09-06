@@ -8,6 +8,7 @@ import {
 import { NotFoundError, ValidationError } from '../../common/errors.js';
 
 const DEFAULT_TIER_LIMITS = {
+  DEFAULT: 0,
   BRONZE: 10,
   SILVER: 20,
   GOLD: 30,
@@ -16,11 +17,11 @@ const DEFAULT_TIER_LIMITS = {
 /**
  * Pure calculation to resolve allowed discount limit for a given tier and product category
  */
-export async function resolveAllowedDiscount(tier = 'BRONZE', categoryId = null) {
+export async function resolveAllowedDiscount(tier = 'DEFAULT', categoryId = null) {
   const tierLimitRecord = await findTierLimitByTier(tier);
   const tierMaxDiscountPct = tierLimitRecord
     ? Number(tierLimitRecord.maxDiscountPct)
-    : (DEFAULT_TIER_LIMITS[tier] || 15);
+    : (DEFAULT_TIER_LIMITS[tier] !== undefined ? DEFAULT_TIER_LIMITS[tier] : 0);
 
   let categoryMaxDiscountPct = null;
   if (categoryId) {
@@ -52,7 +53,7 @@ export async function evaluateQuoteRisk({ customerId, lines }) {
   const tierLimitRecord = await findTierLimitByTier(customer.tier);
   const tierMaxDiscountPct = tierLimitRecord
     ? Number(tierLimitRecord.maxDiscountPct)
-    : (DEFAULT_TIER_LIMITS[customer.tier] || 15);
+    : (DEFAULT_TIER_LIMITS[customer.tier] !== undefined ? DEFAULT_TIER_LIMITS[customer.tier] : 0);
 
   // Fetch active approval rules
   const allApprovalRules = await findApprovalRules();
