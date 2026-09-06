@@ -60,8 +60,13 @@ export default function CustomerPortalGuard({ children, portalUser, setPortalUse
       try {
         const res = await customerApi.post('/auth/magic-link', { email: email.trim() });
         const devToken = res.data?.data?.devMagicLink;
-        if (devToken) setMagicToken(devToken);
-        toast.success('Magic link request sent.');
+        if (devToken) {
+          setMagicToken(devToken);
+          toast.success('Magic link token generated!');
+        } else {
+          setMagicToken('');
+          toast.error('No customer account found for this email.');
+        }
       } catch (err) {
         toast.error(err.response?.data?.message || 'Magic link request failed.');
       } finally {
@@ -114,26 +119,54 @@ export default function CustomerPortalGuard({ children, portalUser, setPortalUse
                 />
               </div>
             </label>
+
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className="text-[11px] font-semibold text-slate-400">Quick Demo Accounts:</span>
+              <button
+                type="button"
+                onClick={() => setEmail('customer@harborline.example')}
+                className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-[#714b67]/10 hover:text-[#714b67] text-slate-600 font-medium transition-colors"
+              >
+                customer@harborline.example
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmail('procurement@harborline.example')}
+                className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-[#714b67]/10 hover:text-[#714b67] text-slate-600 font-medium transition-colors"
+              >
+                procurement@harborline.example
+              </button>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
               className="w-full rounded-xl bg-[#714b67] px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
             >
-              {loading ? 'Sending...' : 'Send Magic Link'}
+              {loading ? 'Generating...' : 'Generate Magic Link'}
             </button>
           </form>
 
           {magicToken && (
             <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">Dev token</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">Magic Link Token</p>
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                  Demo Only
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-emerald-700">
+                In production this token is emailed to the customer instead of being shown on screen.
+              </p>
               <code className="mt-2 block break-all rounded-lg bg-white p-3 text-xs text-slate-800">{magicToken}</code>
               <button
                 type="button"
                 onClick={consumeMagicToken}
                 disabled={loading}
-                className="mt-3 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
+                className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
               >
-                Consume token
+                <KeyRound className="h-4 w-4" />
+                {loading ? 'Logging in...' : 'Log In Quickly (Demo Only)'}
               </button>
             </div>
           )}
