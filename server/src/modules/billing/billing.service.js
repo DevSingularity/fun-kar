@@ -110,20 +110,28 @@ export async function generateBillingForOrder(orderId, auth) {
       result.alreadyExisted = true;
       continue;
     }
-    if (!item.subscriptionPlanId) {
+    let plan = null;
+    if (item.subscriptionPlanId) {
+      plan = await repoPlans.findPlanById(item.subscriptionPlanId);
+    }
+    if (!plan) {
+      const allPlans = await repoPlans.findAllPlans({ isActive: true });
+      plan = allPlans[0] || null;
+    }
+
+    if (!plan) {
       await repo.insertAuditLog({
         actorId: auth?.id || auth?.userId,
         entityType: 'ORDER',
         entityId: orderId,
         action: 'BILLING_GENERATION_SKIPPED_LINE',
-        reason: `Product '${item.productName}' is SUBSCRIPTION type but has no subscriptionPlanId. Fix the product config and re-run billing generation.`,
+        reason: `Product '${item.productName}' is SUBSCRIPTION type but no subscription plans are active.`,
       });
       continue;
     }
 
-    const plan = await requirePlan(item.subscriptionPlanId);
     const startDate = today();
-    const nextBillingDate = calc.addBillingPeriod(startDate, plan.frequency);
+    const nextBillingDate = calc.addBillingPeriod(startDate, plan.frequency || 'MONTHLY');
     const recurringAmount = Number(item.lineTotal);
 
     const line = await repo.insertSubscriptionLine({

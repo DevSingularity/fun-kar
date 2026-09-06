@@ -536,8 +536,10 @@ export default function V1QuotationDetailPage() {
       let approvalId = latestApprovalRequest?.id;
 
       if (!approvalId) {
-        const appRes = await api.get('/approvals', { params: { limit: 50 } });
-        const matched = appRes.data?.data?.find((a) => a.quotationId === quoteData.id && a.status === 'PENDING');
+        const appRes = await api.get('/approvals', { params: { limit: 100 } });
+        const list = Array.isArray(appRes.data?.data) ? appRes.data?.data : (appRes.data?.data?.items || []);
+        const targetQuoteId = quoteData?.id || id;
+        const matched = list.find((a) => a.quotationId === targetQuoteId && a.status === 'PENDING');
         if (matched) approvalId = matched.id;
       }
 

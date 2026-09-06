@@ -6,7 +6,8 @@ import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '.
 
 function assertOwnership(orderRow, auth) {
   if (!auth) return;
-  if (auth.role === 'SALES_REP' && orderRow.salesRepId !== auth.id && orderRow.salesRepId !== auth.userId) {
+  const salesRepId = orderRow?.salesRepId || orderRow?.order?.salesRepId;
+  if (auth.role === 'SALES_REP' && salesRepId && salesRepId !== auth.id && salesRepId !== auth.userId) {
     throw new ForbiddenError('You do not have permission to access or modify this order.');
   }
 }
@@ -38,11 +39,11 @@ export async function createOrderFromQuotation(quotationId, auth) {
   }
 
   const quotation = quoteJoined.quotation;
-  if (auth?.role === 'SALES_REP' && quotation.salesRepId !== auth.id && quotation.salesRepId !== auth.userId) {
+  if (auth && auth.role === 'SALES_REP' && quotation.salesRepId !== auth.id && quotation.salesRepId !== auth.userId) {
     throw new ForbiddenError('You do not have permission to convert this quotation.');
   }
 
-  if (quotation.status !== 'APPROVED') {
+  if (quotation.status !== 'APPROVED' && quotation.status !== 'CONFIRMED') {
     throw new ConflictError('Only an approved quotation can be converted to an order.', 'INVALID_STATE');
   }
 

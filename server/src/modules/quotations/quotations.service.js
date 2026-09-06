@@ -401,6 +401,16 @@ export async function submitQuotation(quotationId, authUser) {
     },
   });
 
+  // End-to-end Pipeline Flow: Automatically persist into Fulfillment, Invoicing & Subscriptions on auto-approval
+  if (newStatus === 'APPROVED') {
+    try {
+      const { createOrderFromQuotation } = await import('../fulfillment/fulfillment.service.js');
+      await createOrderFromQuotation(quotationId, authUser);
+    } catch (orderErr) {
+      console.warn('[PIPELINE] Auto order creation on compliant quote notice:', orderErr.message);
+    }
+  }
+
   const updatedDetail = await getQuotation(quotationId, authUser);
 
   return {
