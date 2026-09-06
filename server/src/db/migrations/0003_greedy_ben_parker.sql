@@ -1,0 +1,2 @@
+ALTER TYPE "public"."approval_level" ADD VALUE 'FINANCE' BEFORE 'MANAGER_FINANCE';--> statement-breakpoint
+ALTER TABLE "subscription_plans" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
