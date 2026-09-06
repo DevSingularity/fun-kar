@@ -46,7 +46,7 @@ export default function V1SubscriptionsPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'ADMIN';
-  const canManageSubscriptions = ['FINANCE', 'ADMIN'].includes(user?.role);
+  const canManageSubscriptions = ['SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'].includes(user?.role);
 
   const [loading, setLoading] = useState(true);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -159,6 +159,30 @@ export default function V1SubscriptionsPage() {
       }
       fetchData();
     } catch (err) {
+      const code = err?.response?.data?.error?.code;
+      if (code === 'NOTICE_PERIOD_REQUIRED') {
+        const msg = err.response?.data?.error?.message || 'Cancellation notice required.';
+        if (window.confirm(`${msg}\n\nCancel immediately anyway?`)) {
+          try {
+            const overrideRes = await api.post(`/subscriptions/${id}/cancel`, {
+              reason: 'Immediate cancellation override',
+              overrideNotice: true,
+            });
+            const cn = overrideRes.data?.data?.creditNote;
+            if (cn && Number(cn.amount) > 0) {
+              toast.success(`Cancelled immediately (notice overridden). Credit note for ₹${Number(cn.amount).toFixed(2)} issued.`);
+            } else {
+              toast.success('Subscription cancelled immediately (notice period overridden).');
+            }
+            fetchData();
+            return;
+          } catch (overrideErr) {
+            toast.error(overrideErr?.response?.data?.error?.message || 'Could not cancel subscription.');
+            return;
+          }
+        }
+        return;
+      }
       toast.error(err?.response?.data?.error?.message || 'Could not cancel subscription.');
     } finally {
       setBusy(id, false);

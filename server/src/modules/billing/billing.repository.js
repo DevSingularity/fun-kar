@@ -512,7 +512,10 @@ export async function findSubscriptionLineById(id, tx = undefined) {
       sp.name AS sp_name,
       sp.frequency AS sp_frequency,
       sp.price AS sp_price,
+      sp.cancellation_notice_days AS sp_cancellation_notice_days,
       oi.order_id,
+      oi.id AS oi_id,
+      p.id AS product_id,
       p.name AS product_name,
       q.sales_rep_id
     FROM subscription_lines sl
@@ -548,8 +551,10 @@ export async function findSubscriptionLineById(id, tx = undefined) {
       name: row.spName,
       frequency: row.spFrequency,
       price: row.spPrice,
+      cancellationNoticeDays: row.spCancellationNoticeDays,
     },
     orderId: row.orderId,
+    productId: row.productId,
     productName: row.productName,
     salesRepId: row.salesRepId,
   };
@@ -575,6 +580,7 @@ export async function findSubscriptionDetailFull(id) {
       sp.name AS plan_name,
       sp.frequency,
       sp.price AS plan_price,
+      sp.cancellation_notice_days,
       sl.quantity,
       sl.recurring_amount,
       sl.start_date,
@@ -689,6 +695,18 @@ export async function updateSubscriptionLine(id, data, tx = undefined) {
     setParts.push(`status = $${idx++}`);
     params.push(data.status);
   }
+  if (data.quantity !== undefined) {
+    setParts.push(`quantity = $${idx++}`);
+    params.push(data.quantity);
+  }
+  if (data.recurringAmount !== undefined) {
+    setParts.push(`recurring_amount = $${idx++}`);
+    params.push(String(data.recurringAmount));
+  }
+  if (data.subscriptionPlanId !== undefined) {
+    setParts.push(`subscription_plan_id = $${idx++}`);
+    params.push(data.subscriptionPlanId);
+  }
   if (data.nextBillingDate !== undefined) {
     setParts.push(`next_billing_date = $${idx++}`);
     params.push(data.nextBillingDate);
@@ -712,6 +730,17 @@ export async function updateSubscriptionLine(id, data, tx = undefined) {
      WHERE id = $1
      RETURNING *`,
     params,
+    tx
+  );
+}
+
+export async function updateOrderItemProduct(orderItemId, productId, tx = undefined) {
+  return await queryOne(
+    `UPDATE order_items
+     SET product_id = $2
+     WHERE id = $1
+     RETURNING *`,
+    [orderItemId, productId],
     tx
   );
 }
