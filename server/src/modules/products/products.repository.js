@@ -263,3 +263,34 @@ export async function findActiveProductsForPortal({ search, limit = 50, offset =
     tx
   );
 }
+
+export async function findActiveProductsForPortal({ search, limit = 50, offset = 0 } = {}, tx = undefined) {
+  const db = tx || getDb();
+  const conditions = [eq(products.isActive, true)];
+  if (search) {
+    conditions.push(
+      sql`(${ilike(products.name, `%${search}%`)} OR ${ilike(products.sku, `%${search}%`)})`
+    );
+  }
+
+  return db
+    .select({
+      id: products.id,
+      sku: products.sku,
+      name: products.name,
+      description: products.description,
+      unit: products.unit,
+      basePrice: products.basePrice,
+      taxRate: products.taxRate,
+      productType: products.productType,
+      categoryId: products.categoryId,
+      categoryName: productCategories.name,
+    })
+    .from(products)
+    .leftJoin(productCategories, eq(productCategories.id, products.categoryId))
+    .where(and(...conditions))
+    .orderBy(products.name)
+    .limit(limit)
+    .offset(offset);
+}
+
