@@ -32,6 +32,7 @@ import api from '../../services/api.js';
 import useAuthStore from '../../store/auth.store.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
 import Spinner from '../../components/Spinner.jsx';
+import NegotiationPanel from '../../components/negotiation/NegotiationPanel.jsx';
 
 const STATUS_BADGES = {
   DRAFT: 'bg-slate-100 text-slate-700 border-slate-300',
@@ -1117,6 +1118,11 @@ export default function V1QuotationDetailPage() {
               })}
             </div>
           </div>
+        )}
+
+        {/* ── Customer Negotiation Thread & Decision Actions ── */}
+        {!isNew && quoteData && (
+          <NegotiationPanel quotationId={id} onResolution={fetchData} />
         )}
 
         {/* ── ENTERPRISE ACTION BAR (STRICTLY STATE-SCOPED) ── */}
