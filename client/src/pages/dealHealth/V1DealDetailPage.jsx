@@ -351,14 +351,14 @@ export default function V1DealDetailPage() {
                           <button
                             onClick={() => handleAlertAction(alert.id, 'acknowledge')}
                             disabled={actionInProgress}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-xs transition-colors disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-xs transition-colors disabled:opacity-50 whitespace-nowrap"
                           >
                             Acknowledge
                           </button>
                           <button
                             onClick={() => handleAlertAction(alert.id, 'escalate')}
                             disabled={actionInProgress}
-                            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors disabled:opacity-50"
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors disabled:opacity-50 whitespace-nowrap"
                           >
                             Escalate
                           </button>

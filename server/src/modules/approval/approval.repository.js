@@ -1,24 +1,15 @@
-import { eq, and, or, sql, inArray, asc, desc } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { approvalRequests, approvalActions, auditLogs } from '../../db/schema/governance.js';
-import { quotations } from '../../db/schema/quotations.js';
-import { customers } from '../../db/schema/customers.js';
-import { users } from '../../db/schema/users.js';
+import { query, queryOne } from '../../config/database.js';
 import { ConflictError } from '../../common/errors.js';
 
 export async function createRequest(data, tx = undefined) {
-  const db = tx || getDb();
   try {
-    const rows = await db
-      .insert(approvalRequests)
-      .values({
-        quotationId: data.quotationId,
-        blendedRiskScore: String(data.blendedRiskScore),
-        requiredLevel: data.requiredLevel,
-        status: 'PENDING',
-      })
-      .returning();
-    return rows[0];
+    return await queryOne(
+      `INSERT INTO approval_requests (quotation_id, blended_risk_score, required_level, status)
+       VALUES ($1, $2, $3, 'PENDING')
+       RETURNING *`,
+      [data.quotationId, String(data.blendedRiskScore), data.requiredLevel],
+      tx
+    );
   } catch (err) {
     if (err.code === '23505') {
       throw new ConflictError('This quotation already has a pending approval request.', 'APPROVAL_ALREADY_PENDING');
@@ -28,199 +19,257 @@ export async function createRequest(data, tx = undefined) {
 }
 
 export async function getPendingByQuotationId(quotationId, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .select()
-    .from(approvalRequests)
-    .where(
-      and(
-        eq(approvalRequests.quotationId, quotationId),
-        eq(approvalRequests.status, 'PENDING')
-      )
-    )
-    .limit(1);
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM approval_requests
+     WHERE quotation_id = $1 AND status = 'PENDING'
+     LIMIT 1`,
+    [quotationId],
+    tx
+  );
 }
 
 export async function lockById(id, tx) {
-  const db = tx || getDb();
-  const rows = await db
-    .select()
-    .from(approvalRequests)
-    .where(eq(approvalRequests.id, id))
-    .for('update');
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM approval_requests WHERE id = $1 FOR UPDATE`,
+    [id],
+    tx
+  );
 }
 
 export async function findByIdJoined(id) {
-  const db = getDb();
-  const rows = await db
-    .select({
-      request: approvalRequests,
-      quotation: quotations,
-      customerName: customers.name,
-      customerTier: customers.tier,
-      requesterName: users.name,
-      requesterEmail: users.email,
-      requesterId: quotations.salesRepId,
-      originType: quotations.originType,
-    })
-    .from(approvalRequests)
-    .innerJoin(quotations, eq(quotations.id, approvalRequests.quotationId))
-    .innerJoin(customers, eq(customers.id, quotations.customerId))
-    .innerJoin(users, eq(users.id, quotations.salesRepId))
-    .where(eq(approvalRequests.id, id))
-    .limit(1);
+  const sql = `
+    SELECT
+      ar.id AS ar_id,
+      ar.quotation_id AS ar_quotation_id,
+      ar.blended_risk_score AS ar_blended_risk_score,
+      ar.required_level AS ar_required_level,
+      ar.status AS ar_status,
+      ar.requested_at AS ar_requested_at,
+      ar.resolved_at AS ar_resolved_at,
+      q.id AS q_id,
+      q.quote_number AS q_quote_number,
+      q.customer_id AS q_customer_id,
+      q.sales_rep_id AS q_sales_rep_id,
+      q.origin_type AS q_origin_type,
+      q.status AS q_status,
+      q.subtotal AS q_subtotal,
+      q.discount_total AS q_discount_total,
+      q.tax_total AS q_tax_total,
+      q.grand_total AS q_grand_total,
+      q.estimated_margin_pct AS q_estimated_margin_pct,
+      q.required_approval_level AS q_required_approval_level,
+      q.blended_risk_score AS q_blended_risk_score,
+      q.submitted_at AS q_submitted_at,
+      q.promised_delivery_date AS q_promised_delivery_date,
+      q.last_activity_at AS q_last_activity_at,
+      q.created_at AS q_created_at,
+      q.updated_at AS q_updated_at,
+      c.name AS customer_name,
+      c.tier AS customer_tier,
+      u.name AS requester_name,
+      u.email AS requester_email,
+      q.sales_rep_id AS requester_id,
+      q.origin_type AS origin_type
+    FROM approval_requests ar
+    INNER JOIN quotations q ON q.id = ar.quotation_id
+    INNER JOIN customers c ON c.id = q.customer_id
+    INNER JOIN users u ON u.id = q.sales_rep_id
+    WHERE ar.id = $1
+    LIMIT 1
+  `;
 
-  return rows[0] || null;
+  const row = await queryOne(sql, [id]);
+  if (!row) return null;
+
+  return {
+    request: {
+      id: row.arId,
+      quotationId: row.arQuotationId,
+      blendedRiskScore: row.arBlendedRiskScore,
+      requiredLevel: row.arRequiredLevel,
+      status: row.arStatus,
+      requestedAt: row.arRequestedAt,
+      resolvedAt: row.arResolvedAt,
+    },
+    quotation: {
+      id: row.qId,
+      quoteNumber: row.qQuoteNumber,
+      customerId: row.qCustomerId,
+      salesRepId: row.qSalesRepId,
+      originType: row.qOriginType,
+      status: row.qStatus,
+      subtotal: row.qSubtotal,
+      discountTotal: row.qDiscountTotal,
+      taxTotal: row.qTaxTotal,
+      grandTotal: row.qGrandTotal,
+      estimatedMarginPct: row.qEstimatedMarginPct,
+      requiredApprovalLevel: row.qRequiredApprovalLevel,
+      blendedRiskScore: row.qBlendedRiskScore,
+      submittedAt: row.qSubmittedAt,
+      promisedDeliveryDate: row.qPromisedDeliveryDate,
+      lastActivityAt: row.qLastActivityAt,
+      createdAt: row.qCreatedAt,
+      updatedAt: row.qUpdatedAt,
+    },
+    customerName: row.customerName,
+    customerTier: row.customerTier,
+    requesterName: row.requesterName,
+    requesterEmail: row.requesterEmail,
+    requesterId: row.requesterId,
+    originType: row.originType,
+  };
 }
 
 export async function findActions(requestId) {
-  const db = getDb();
-  return db
-    .select({
-      id: approvalActions.id,
-      approvalRequestId: approvalActions.approvalRequestId,
-      actorId: approvalActions.actorId,
-      actorName: users.name,
-      actorRole: users.role,
-      level: approvalActions.level,
-      action: approvalActions.action,
-      reason: approvalActions.reason,
-      createdAt: approvalActions.createdAt,
-    })
-    .from(approvalActions)
-    .innerJoin(users, eq(users.id, approvalActions.actorId))
-    .where(eq(approvalActions.approvalRequestId, requestId))
-    .orderBy(asc(approvalActions.createdAt));
+  return await query(
+    `SELECT
+       aa.id,
+       aa.approval_request_id,
+       aa.actor_id,
+       u.name AS actor_name,
+       u.role AS actor_role,
+       aa.level,
+       aa.action,
+       aa.reason,
+       aa.created_at
+     FROM approval_actions aa
+     INNER JOIN users u ON u.id = aa.actor_id
+     WHERE aa.approval_request_id = $1
+     ORDER BY aa.created_at ASC`,
+    [requestId]
+  );
 }
 
 export async function listApprovalRequests({ role, repScope, status, offset = 0, limit = 20 } = {}) {
-  const db = getDb();
-  const conditions = [];
+  const whereClauses = [];
+  const params = [];
+  let idx = 1;
 
   if (status && status !== 'ALL') {
-    conditions.push(eq(approvalRequests.status, status));
+    whereClauses.push(`ar.status = $${idx++}`);
+    params.push(status);
   }
 
-  // Correlated subquery for whether Manager has approved
-  const managerApprovedSql = sql`EXISTS (
+  const managerApprovedSql = `EXISTS (
     SELECT 1 FROM approval_actions
-    WHERE approval_actions.approval_request_id = ${approvalRequests.id}
+    WHERE approval_actions.approval_request_id = ar.id
       AND approval_actions.level = 'MANAGER'
       AND approval_actions.action = 'APPROVED'
   )`;
 
   if (role === 'SALES_MANAGER') {
-    conditions.push(
-      or(
-        eq(approvalRequests.requiredLevel, 'MANAGER'),
-        and(
-          eq(approvalRequests.requiredLevel, 'MANAGER_FINANCE'),
-          sql`NOT ${managerApprovedSql}`
-        )
-      )
-    );
+    whereClauses.push(`(
+      ar.required_level = 'MANAGER'
+      OR (ar.required_level = 'MANAGER_FINANCE' AND NOT (${managerApprovedSql}))
+    )`);
     if (repScope && repScope.length > 0) {
-      conditions.push(inArray(quotations.salesRepId, repScope));
+      whereClauses.push(`q.sales_rep_id = ANY($${idx++}::uuid[])`);
+      params.push(repScope);
     }
   } else if (role === 'SALES_REP') {
     if (repScope && repScope.length > 0) {
-      conditions.push(inArray(quotations.salesRepId, repScope));
+      whereClauses.push(`q.sales_rep_id = ANY($${idx++}::uuid[])`);
+      params.push(repScope);
     }
   } else if (role === 'FINANCE') {
-    conditions.push(
-      and(
-        eq(approvalRequests.requiredLevel, 'MANAGER_FINANCE'),
-        managerApprovedSql
-      )
-    );
+    whereClauses.push(`(
+      (ar.required_level = 'MANAGER_FINANCE' AND (${managerApprovedSql}))
+      OR (ar.required_level = 'MANAGER_FINANCE' AND ar.status != 'PENDING')
+    )`);
   }
-  // ADMIN can view all approval requests
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-  const rows = await db
-    .select({
-      id: approvalRequests.id,
-      quotationId: approvalRequests.quotationId,
-      quoteNumber: quotations.quoteNumber,
-      customerId: quotations.customerId,
-      customerName: customers.name,
-      customerTier: customers.tier,
-      salesRepId: quotations.salesRepId,
-      salesRepName: users.name,
-      originType: quotations.originType,
-      grandTotal: quotations.grandTotal,
-      blendedRiskScore: approvalRequests.blendedRiskScore,
-      requiredLevel: approvalRequests.requiredLevel,
-      status: approvalRequests.status,
-      requestedAt: approvalRequests.requestedAt,
-      resolvedAt: approvalRequests.resolvedAt,
-      currentStep: sql`CASE 
-        WHEN ${approvalRequests.requiredLevel} = 'MANAGER' THEN 'MANAGER'
-        WHEN ${managerApprovedSql} THEN 'FINANCE' 
-        ELSE 'MANAGER' 
-      END`,
-    })
-    .from(approvalRequests)
-    .innerJoin(quotations, eq(quotations.id, approvalRequests.quotationId))
-    .innerJoin(customers, eq(customers.id, quotations.customerId))
-    .innerJoin(users, eq(users.id, quotations.salesRepId))
-    .where(whereClause)
-    .orderBy(desc(approvalRequests.requestedAt))
-    .limit(limit)
-    .offset(offset);
+  const countRow = await queryOne(
+    `SELECT count(*)::int AS count
+     FROM approval_requests ar
+     INNER JOIN quotations q ON q.id = ar.quotation_id
+     INNER JOIN customers c ON c.id = q.customer_id
+     INNER JOIN users u ON u.id = q.sales_rep_id
+     ${whereSql}`,
+    params
+  );
+  const total = countRow?.count || 0;
 
-  const countResult = await db
-    .select({ count: sql`count(*)` })
-    .from(approvalRequests)
-    .innerJoin(quotations, eq(quotations.id, approvalRequests.quotationId))
-    .where(whereClause);
+  const dataParams = [...params, limit, offset];
+  const rows = await query(
+    `SELECT
+       ar.id,
+       ar.quotation_id,
+       q.quote_number,
+       q.customer_id,
+       c.name AS customer_name,
+       c.tier AS customer_tier,
+       q.sales_rep_id,
+       u.name AS sales_rep_name,
+       q.origin_type,
+       q.grand_total,
+       ar.blended_risk_score,
+       ar.required_level,
+       ar.status,
+       ar.requested_at,
+       ar.resolved_at,
+       CASE
+         WHEN ar.required_level = 'MANAGER' THEN 'MANAGER'
+         WHEN (${managerApprovedSql}) THEN 'FINANCE'
+         ELSE 'MANAGER'
+       END AS current_step
+     FROM approval_requests ar
+     INNER JOIN quotations q ON q.id = ar.quotation_id
+     INNER JOIN customers c ON c.id = q.customer_id
+     INNER JOIN users u ON u.id = q.sales_rep_id
+     ${whereSql}
+     ORDER BY ar.requested_at DESC
+     LIMIT $${idx++} OFFSET $${idx++}`,
+    dataParams
+  );
 
   return {
     rows,
-    total: Number(countResult[0]?.count || 0),
+    total,
   };
 }
 
 export async function insertAction(data, tx) {
-  const db = tx || getDb();
-  const rows = await db
-    .insert(approvalActions)
-    .values({
-      approvalRequestId: data.approvalRequestId,
-      actorId: data.actorId,
-      level: data.level,
-      action: data.action,
-      reason: data.reason || null,
-    })
-    .returning();
-  return rows[0];
+  return await queryOne(
+    `INSERT INTO approval_actions (approval_request_id, actor_id, level, action, reason)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      data.approvalRequestId,
+      data.actorId,
+      data.level,
+      data.action,
+      data.reason || null,
+    ],
+    tx
+  );
 }
 
 export async function resolveRequest(id, status, tx) {
-  const db = tx || getDb();
-  const rows = await db
-    .update(approvalRequests)
-    .set({
-      status,
-      resolvedAt: new Date(),
-    })
-    .where(eq(approvalRequests.id, id))
-    .returning();
-  return rows[0];
+  return await queryOne(
+    `UPDATE approval_requests
+     SET status = $2, resolved_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [id, status],
+    tx
+  );
 }
 
 export async function insertAuditLog(entry, tx) {
-  const db = tx || getDb();
-  return db.insert(auditLogs).values({
-    actorId: entry.actorId,
-    entityType: entry.entityType || 'QUOTATION',
-    entityId: entry.entityId,
-    action: entry.action,
-    reason: entry.reason || null,
-    oldValue: entry.oldValue ? JSON.stringify(entry.oldValue) : null,
-    newValue: entry.newValue ? JSON.stringify(entry.newValue) : null,
-  });
+  return await query(
+    `INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, reason, old_value, new_value)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      entry.actorId,
+      entry.entityType || 'QUOTATION',
+      entry.entityId,
+      entry.action,
+      entry.reason || null,
+      entry.oldValue ? JSON.stringify(entry.oldValue) : null,
+      entry.newValue ? JSON.stringify(entry.newValue) : null,
+    ],
+    tx
+  );
 }

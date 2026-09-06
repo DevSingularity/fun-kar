@@ -171,9 +171,9 @@ export default function V1DealHealthPage() {
                 <tr>
                   <th className="py-3.5 px-5">Deal</th>
                   <th className="py-3.5 px-5">Issue</th>
-                  <th className="py-3.5 px-5">Flagged</th>
-                  <th className="py-3.5 px-5">Action / Status</th>
-                  <th className="py-3.5 px-5 text-right">Quick Response</th>
+                  <th className="py-3.5 px-5 whitespace-nowrap">Flagged</th>
+                  <th className="py-3.5 px-5 whitespace-nowrap min-w-[170px]">Action / Status</th>
+                  <th className="py-3.5 px-5 text-right whitespace-nowrap min-w-[210px]">Quick Response</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800 font-medium">
@@ -220,14 +220,14 @@ export default function V1DealHealthPage() {
                       </td>
 
                       {/* Column 3: Flagged */}
-                      <td className="py-4 px-5 text-slate-500 font-medium">
+                      <td className="py-4 px-5 text-slate-500 font-medium whitespace-nowrap">
                         {formatDate(item.flaggedDate)}
                       </td>
 
                       {/* Column 4: Action / Status */}
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 whitespace-nowrap">
                         <span
-                          className={`inline-flex rounded-md px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border ${
+                          className={`inline-flex items-center whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border shrink-0 ${
                             item.status === 'ESCALATED' || item.action === 'Escalated to Manager'
                               ? 'bg-purple-50 text-purple-700 border-purple-200'
                               : item.status === 'ACKNOWLEDGED' || item.action === 'Nudge sent'
@@ -240,23 +240,23 @@ export default function V1DealHealthPage() {
                       </td>
 
                       {/* Column 5: Quick Response Buttons (From Wireframe 14) */}
-                      <td className="py-4 px-5 text-right">
-                        <div className="inline-flex items-center gap-2">
+                      <td className="py-4 px-5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-2 shrink-0">
                           <button
                             onClick={(e) => handleEscalate(e, item.quotationId)}
                             disabled={actionLoadingId === `escalate-${item.quotationId}`}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#ff7675] hover:bg-[#d63031] text-white shadow-xs transition-all active:scale-95 disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#ff7675] hover:bg-[#d63031] text-white shadow-xs transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap shrink-0"
                           >
                             {actionLoadingId === `escalate-${item.quotationId}` ? 'Escalating...' : 'Escalate'}
                           </button>
                           <button
                             onClick={(e) => handleNudge(e, item.quotationId)}
                             disabled={actionLoadingId === `nudge-${item.quotationId}`}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#74b9ff] hover:bg-[#0984e3] text-white shadow-xs transition-all active:scale-95 disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#74b9ff] hover:bg-[#0984e3] text-white shadow-xs transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap shrink-0"
                           >
                             {actionLoadingId === `nudge-${item.quotationId}` ? 'Nudging...' : 'Nudge Rep'}
                           </button>
-                          <span className="p-1 rounded text-slate-400 group-hover:text-slate-700 transition-colors">
+                          <span className="p-1 rounded text-slate-400 group-hover:text-slate-700 transition-colors shrink-0">
                             <ChevronRight className="h-4 w-4" />
                           </span>
                         </div>

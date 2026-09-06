@@ -3,7 +3,7 @@ import { ValidationError } from '../../common/errors.js';
 const VALID_PRODUCT_TYPES = ['ONE_TIME', 'SERVICE', 'SUBSCRIPTION'];
 
 export function validateCreateProduct(req, res, next) {
-  const { categoryId, sku, name, basePrice, productType } = req.body || {};
+  const { categoryId, sku, name, basePrice, productType, subscriptionPlanId } = req.body || {};
   const errors = [];
 
   if (!categoryId) errors.push({ field: 'categoryId', message: 'Category ID is required.' });
@@ -22,6 +22,12 @@ export function validateCreateProduct(req, res, next) {
       message: `Product type must be one of: ${VALID_PRODUCT_TYPES.join(', ')}`,
     });
   }
+  if (productType === 'SUBSCRIPTION' && !subscriptionPlanId) {
+    errors.push({
+      field: 'subscriptionPlanId',
+      message: 'A subscription plan is required for SUBSCRIPTION-type products.',
+    });
+  }
 
   if (errors.length > 0) {
     return next(new ValidationError('Validation failed for product creation.', errors));
@@ -30,7 +36,7 @@ export function validateCreateProduct(req, res, next) {
 }
 
 export function validateUpdateProduct(req, res, next) {
-  const { basePrice, estimatedCost, taxRate, productType } = req.body || {};
+  const { basePrice, estimatedCost, taxRate, productType, subscriptionPlanId } = req.body || {};
   const errors = [];
 
   if (basePrice !== undefined && (isNaN(Number(basePrice)) || Number(basePrice) < 0)) {
@@ -46,6 +52,12 @@ export function validateUpdateProduct(req, res, next) {
     errors.push({
       field: 'productType',
       message: `Product type must be one of: ${VALID_PRODUCT_TYPES.join(', ')}`,
+    });
+  }
+  if (productType === 'SUBSCRIPTION' && subscriptionPlanId === undefined) {
+    errors.push({
+      field: 'subscriptionPlanId',
+      message: 'A subscription plan is required when setting productType to SUBSCRIPTION.',
     });
   }
 

@@ -21,10 +21,14 @@ import {
 import toast from 'react-hot-toast';
 import api from '../../services/api.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
+import useAuthStore from '../../store/auth.store.js';
+import Spinner from '../../components/Spinner.jsx';
 
 export default function V1FulfillmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const canManageFulfillment = ['OPERATIONS', 'FINANCE', 'ADMIN'].includes(user?.role);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -97,8 +101,9 @@ export default function V1FulfillmentDetailPage() {
     return (
       <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
         <OdooTopNavbar activeTab="Fulfillment" />
-        <main className="max-w-[1440px] w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 flex-1 text-center py-16">
-          <p className="text-xs font-semibold text-slate-400">Loading order fulfillment details...</p>
+        <main className="max-w-[1440px] w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 flex-1 flex flex-col items-center justify-center text-center py-24 gap-3">
+          <Spinner size="lg" variant="primary" />
+          <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading order fulfillment details...</p>
         </main>
       </div>
     );
@@ -172,16 +177,22 @@ export default function V1FulfillmentDetailPage() {
     setActionLoading(true);
     try {
       const res = await api.post(`/orders/${id}/backorder/consolidate`);
-      const resolved = res.data?.data?.resolved || [];
+      const dataPayload = res.data?.data;
+      const resolved = dataPayload?.resolved || [];
       if (resolved.length > 0) {
-        toast.success(`Consolidated ${resolved.length} backordered lines with newly available stock!`);
+        toast.success(`Consolidated ${resolved.length} backordered line(s) with available warehouse inventory!`);
       } else {
-        toast.info('No newly available warehouse stock to fulfill remaining backorders.');
+        toast(dataPayload?.message || 'No open backorders to consolidate.', { icon: 'ℹ️' });
       }
       setShowConsolidateModal(false);
-      fetchDetail();
+      await fetchDetail();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to consolidate backorders');
+      const errorMsg =
+        err.response?.data?.error?.message ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to consolidate backorders';
+      toast.error(errorMsg);
     } finally {
       setActionLoading(false);
     }
@@ -315,12 +326,14 @@ export default function V1FulfillmentDetailPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowConsolidateModal(true)}
-            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition-all shrink-0 active:scale-95"
-          >
-            Check &amp; Consolidate Backorders
-          </button>
+          {canManageFulfillment && (
+            <button
+              onClick={() => setShowConsolidateModal(true)}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition-all shrink-0 active:scale-95"
+            >
+              Check &amp; Consolidate Backorders
+            </button>
+          )}
         </div>
 
         {/* ── Section 2: Open Backorders (If any exist) ── */}
@@ -369,25 +382,34 @@ export default function V1FulfillmentDetailPage() {
 
         {/* ── Section 3: Bottom Action Buttons (From Wireframe 8) ── */}
         <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-200/80">
-          {/* Accept Suggested Split Button (Blue / Teal) */}
-          <button
-            onClick={() => setShowAcceptModal(true)}
-            disabled={actionLoading}
-            className="px-6 py-2.5 rounded-lg text-xs font-bold bg-[#008784] hover:bg-[#006e6c] text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            <span>Accept Suggested Split</span>
-          </button>
+          {canManageFulfillment ? (
+            <>
+              {/* Accept Suggested Split Button (Blue / Teal) */}
+              <button
+                onClick={() => setShowAcceptModal(true)}
+                disabled={actionLoading}
+                className="px-6 py-2.5 rounded-lg text-xs font-bold bg-[#008784] hover:bg-[#006e6c] text-white shadow-xs hover:shadow-sm transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Accept Suggested Split</span>
+              </button>
 
-          {/* Manual Override Button (Bordered / Secondary) */}
-          <button
-            onClick={() => setShowOverrideModal(true)}
-            disabled={actionLoading}
-            className="px-6 py-2.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-2xs hover:shadow-xs transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            <Edit3 className="h-4 w-4 text-slate-600" />
-            <span>Manual Override</span>
-          </button>
+              {/* Manual Override Button (Bordered / Secondary) */}
+              <button
+                onClick={() => setShowOverrideModal(true)}
+                disabled={actionLoading}
+                className="px-6 py-2.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-2xs hover:shadow-xs transition-all active:scale-98 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <Edit3 className="h-4 w-4 text-slate-600" />
+                <span>Manual Override</span>
+              </button>
+            </>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold border border-slate-200">
+              <Info className="h-4 w-4 text-slate-400" />
+              <span>Read-Only Fulfillment View (Operations / Admin role required to allocate stock)</span>
+            </div>
+          )}
 
           <Link
             to="/v1/fulfillment"

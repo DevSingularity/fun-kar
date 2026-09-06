@@ -1,9 +1,7 @@
 import { verifyToken } from '../common/jwt.util.js';
 import { UnauthenticatedError, ForbiddenError } from '../common/errors.js';
 import { hashToken } from '../common/portalToken.util.js';
-import { getDb } from '../config/database.js';
-import { quotationPortalTokens, quotations } from '../db/schema/index.js';
-import { eq, and, isNull, gt } from 'drizzle-orm';
+import { queryOne } from '../config/database.js';
 
 export function authenticatePortal(req, res, next) {
   let token = null;
@@ -36,7 +34,6 @@ export function authenticatePortal(req, res, next) {
   }
 }
 
-
 export async function attachShareTokenIfPresent(req, res, next) {
   const rawToken = req.headers['x-quote-token'];
   if (!rawToken || !req.params.id) {
@@ -44,25 +41,21 @@ export async function attachShareTokenIfPresent(req, res, next) {
   }
 
   try {
-    const db = getDb();
     const tokenHash = hashToken(rawToken);
-    const [tokenRow] = await db
-      .select()
-      .from(quotationPortalTokens)
-      .where(
-        and(
-          eq(quotationPortalTokens.quotationId, req.params.id),
-          eq(quotationPortalTokens.tokenHash, tokenHash),
-          isNull(quotationPortalTokens.revokedAt),
-          gt(quotationPortalTokens.expiresAt, new Date())
-        )
-      );
+    const tokenRow = await queryOne(
+      `SELECT * FROM quotation_portal_tokens
+       WHERE quotation_id = $1
+         AND token_hash = $2
+         AND revoked_at IS NULL
+         AND expires_at > NOW()`,
+      [req.params.id, tokenHash]
+    );
 
     if (tokenRow) {
-      const [quoteRow] = await db
-        .select({ customerId: quotations.customerId })
-        .from(quotations)
-        .where(eq(quotations.id, req.params.id));
+      const quoteRow = await queryOne(
+        `SELECT customer_id FROM quotations WHERE id = $1`,
+        [req.params.id]
+      );
 
       if (quoteRow) {
         req.shareTokenAuth = {
@@ -76,4 +69,3 @@ export async function attachShareTokenIfPresent(req, res, next) {
     next(err);
   }
 }
-

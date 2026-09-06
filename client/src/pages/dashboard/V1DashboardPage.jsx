@@ -58,6 +58,12 @@ export default function V1DashboardPage() {
   // Real live activity feed from audit logs
   const recentActivities = dashboardData?.recentActivities || [];
 
+  // Role-aware navigation destinations
+  const isApprover = ['SALES_MANAGER', 'FINANCE', 'OPERATIONS', 'ADMIN'].includes(user?.role);
+  const hasDealHealthAccess = ['SALES_MANAGER', 'ADMIN'].includes(user?.role);
+  const approvalsTarget = isApprover ? '/v1/approvals' : '/v1/quotations';
+  const atRiskTarget = hasDealHealthAccess ? '/v1/deal-health' : isApprover ? '/v1/approvals' : '/v1/quotations';
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans">
       {/* ── Enterprise Global Navbar ── */}
@@ -70,7 +76,7 @@ export default function V1DashboardPage() {
           
           {/* Card 1: Pending Approvals */}
           <Link
-            to="/v1/approvals"
+            to={approvalsTarget}
             className="group block p-6 rounded-xl border border-slate-200 bg-white hover:border-[#714b67] hover:shadow-md transition-all duration-200 shadow-xs"
           >
             <div className="flex items-start justify-between">
@@ -110,7 +116,7 @@ export default function V1DashboardPage() {
 
           {/* Card 3: At-Risk Deals */}
           <Link
-            to="/v1/approvals"
+            to={atRiskTarget}
             className="group block p-6 rounded-xl border border-slate-200 bg-white hover:border-rose-400 hover:shadow-md transition-all duration-200 shadow-xs"
           >
             <div className="flex items-start justify-between">
@@ -132,29 +138,23 @@ export default function V1DashboardPage() {
         {/* ── Action Buttons Row ── */}
         <div className="flex flex-wrap items-center gap-3">
           
-          {/* New Quotation Button */}
-          <button
-            onClick={() => navigate('/v1/quotations/new')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
-          >
-            <Plus className="h-4 w-4" />
-            <span>New Quotation</span>
-          </button>
+          {/* New Quotation Button (Strictly gated for Sales & Admin personas) */}
+          {['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role) && (
+            <button
+              onClick={() => navigate('/v1/quotations/new')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
+            >
+              <Plus className="h-4 w-4" />
+              <span>New Quotation</span>
+            </button>
+          )}
 
           {/* View Approvals Button */}
           <Link
-            to="/v1/approvals"
+            to={approvalsTarget}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all shadow-xs"
           >
-            View Approvals
-          </Link>
-
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors ml-auto"
-          >
-            <span>Switch to Classic Workspace</span>
-            <ArrowUpRight className="h-3.5 w-3.5" />
+            {isApprover ? 'View Approvals' : 'View Pending Deals'}
           </Link>
         </div>
 

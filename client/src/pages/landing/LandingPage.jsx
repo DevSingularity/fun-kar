@@ -2,35 +2,45 @@
  * LandingPage — DealFlow360 B2B Sales Operations Platform
  */
 import { Link } from 'react-router-dom';
+import { 
+  FileText, 
+  Scale, 
+  Boxes, 
+  CreditCard, 
+  Users, 
+  TrendingUp, 
+  ArrowRight,
+  ShieldCheck 
+} from 'lucide-react';
 
 const FEATURES = [
   { 
-    icon: '📋', 
+    icon: FileText, 
     title: 'Intelligent Quotation Engine', 
     desc: 'Configure complex multi-line B2B quotes with dynamic pricing tiers, customer discounts, and instant margin impact analysis.' 
   },
   { 
-    icon: '⚖️', 
+    icon: Scale, 
     title: 'Autonomous Discount Governance', 
     desc: 'Self-governing approval workflows with role-based routing (Sales Manager, Finance) based on margin erosion and discount limits.' 
   },
   { 
-    icon: '📦', 
+    icon: Boxes, 
     title: 'Multi-Warehouse Allocation', 
     desc: 'Automated inventory fulfillment across regional warehouses with real-time split deliveries and backorder management.' 
   },
   { 
-    icon: '💳', 
+    icon: CreditCard, 
     title: 'Hybrid Billing & Subscriptions', 
     desc: 'Combine one-time products and recurring subscription contracts in single orders with automated proration and billing schedules.' 
   },
   { 
-    icon: '🤝', 
+    icon: Users, 
     title: 'Client Negotiation Portal', 
     desc: 'Empower buyers to review terms, submit structured counter-proposals, and trigger automated re-approval under clear guardrails.' 
   },
   { 
-    icon: '📈', 
+    icon: TrendingUp, 
     title: 'Deal Health & Risk Radar', 
     desc: 'Live anomaly detection, SLA tracking, approval audit logs, and actionable executive insights into conversion velocity.' 
   },
@@ -79,10 +89,11 @@ export default function LandingPage() {
         </p>
 
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-          <Link to="/register" className="w-full sm:w-auto rounded-xl bg-(--app-color-primary) px-8 py-3.5 text-sm font-bold text-white shadow-md hover:bg-(--app-color-primary-hover) transition-all hover:scale-[1.02]">
-            Launch DealFlow360 →
+          <Link to="/register" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#714b67] px-8 py-3.5 text-sm font-bold !text-white shadow-md hover:bg-[#56324e] transition-all hover:scale-[1.02]">
+            <span>Launch DealFlow360</span>
+            <ArrowRight className="h-4 w-4 text-white" />
           </Link>
-          <Link to="/login" className="w-full sm:w-auto rounded-xl border border-(--app-color-border) bg-white/90 px-8 py-3.5 text-sm font-semibold text-(--app-color-text) shadow-sm backdrop-blur hover:bg-white transition-colors">
+          <Link to="/login" className="w-full sm:w-auto rounded-xl border border-slate-300 bg-white/90 px-8 py-3.5 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white transition-colors">
             Access Sales Console
           </Link>
         </div>
@@ -91,10 +102,10 @@ export default function LandingPage() {
       {/* ── Features grid ── */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
         <div className="text-center mb-12">
-          <h2 className="mb-3 text-2xl sm:text-3xl font-bold tracking-tight text-(--app-color-text)">
+          <h2 className="mb-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             Engineered for High-Velocity Deal Execution
           </h2>
-          <p className="mx-auto max-w-xl text-sm sm:text-base text-(--app-color-text-muted)">
+          <p className="mx-auto max-w-xl text-sm sm:text-base text-slate-600">
             Eliminate margin leakage, accelerate quotation approval velocity, and streamline buyer negotiations with rule-driven automation.
           </p>
         </div>
@@ -102,22 +113,25 @@ export default function LandingPage() {
           {FEATURES.map((feat) => (
             <div
               key={feat.title}
-              className="rounded-xl border border-(--app-color-border) bg-white/90 p-6 shadow-sm backdrop-blur transition-all hover:shadow-md hover:border-(--app-color-primary)/30"
+              className="rounded-xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur transition-all hover:shadow-md hover:border-[#714b67]/30"
             >
-              <div className="mb-4 text-2xl p-2 w-10 h-10 rounded-lg bg-(--app-color-primary-soft) flex items-center justify-center">{feat.icon}</div>
-              <h3 className="mb-2 text-base font-bold text-(--app-color-text)">{feat.title}</h3>
-              <p className="text-sm text-(--app-color-text-muted) leading-relaxed">{feat.desc}</p>
+              <div className="mb-4 p-2.5 w-10 h-10 rounded-lg bg-[#f5edf3] flex items-center justify-center">
+                <feat.icon className="h-5 w-5 text-[#714b67]" />
+              </div>
+              <h3 className="mb-2 text-base font-bold text-slate-900">{feat.title}</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">{feat.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── Bottom CTA ── */}
-      <section className="relative z-10 py-16 text-center border-t border-(--app-color-border)/60 bg-white/50 backdrop-blur">
-        <h2 className="mb-3 text-2xl sm:text-3xl font-bold text-(--app-color-text)">Ready to optimize your sales operations?</h2>
-        <p className="mb-8 text-sm sm:text-base text-(--app-color-text-muted)">Experience end-to-end deal flow governance designed for modern B2B enterprises.</p>
-        <Link to="/register" className="rounded-xl bg-(--app-color-primary) px-9 py-3.5 text-sm font-bold text-white shadow-md hover:bg-(--app-color-primary-hover) transition-all hover:scale-[1.02]">
-          Get Started Now →
+      <section className="relative z-10 py-16 text-center border-t border-slate-200 bg-white/50 backdrop-blur">
+        <h2 className="mb-3 text-2xl sm:text-3xl font-bold text-slate-900">Ready to optimize your sales operations?</h2>
+        <p className="mb-8 text-sm sm:text-base text-slate-600">Experience end-to-end deal flow governance designed for modern B2B enterprises.</p>
+        <Link to="/register" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#714b67] px-9 py-3.5 text-sm font-bold !text-white shadow-md hover:bg-[#56324e] transition-all hover:scale-[1.02]">
+          <span>Get Started Now</span>
+          <ArrowRight className="h-4 w-4 text-white" />
         </Link>
       </section>
     </div>

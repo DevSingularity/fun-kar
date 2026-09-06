@@ -1,7 +1,7 @@
 {
-  "name": "pern-template-server",
+  "name": "dealflow360-server",
   "version": "1.0.0",
-  "description": "PERN stack server — Express + PostgreSQL + Drizzle ORM",
+  "description": "DealFlow360 — Intelligent B2B Sales Operations Platform Server",
   "license": "MIT",
   "type": "module",
   "main": "src/index.js",

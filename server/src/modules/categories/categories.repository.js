@@ -1,85 +1,112 @@
-import { eq, sql, ilike, count } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { productCategories, products } from '../../db/schema/catalog.js';
+import { query, queryOne } from '../../config/database.js';
 
-export async function findCategories({ search, limit = 20, offset = 0 } = {}, tx = undefined) {
-  const db = tx || getDb();
-  let query = db.select().from(productCategories);
-
+export async function findCategories({ search, limit = 20, offset = 0 } = {}, tx = null) {
+  let whereSql = '';
+  const params = [];
   if (search) {
-    query = query.where(ilike(productCategories.name, `%${search}%`));
+    params.push(`%${search}%`);
+    whereSql = `WHERE name ILIKE $${params.length}`;
   }
 
-  const items = await query.limit(limit).offset(offset).orderBy(productCategories.name);
-  
-  const [totalRes] = await db
-    .select({ total: count() })
-    .from(productCategories)
-    .where(search ? ilike(productCategories.name, `%${search}%`) : undefined);
+  const countRow = await queryOne(
+    `SELECT COUNT(*)::int AS total FROM product_categories ${whereSql}`,
+    params,
+    tx
+  );
 
-  return { items, total: Number(totalRes?.total || 0) };
+  params.push(limit);
+  const limitIdx = params.length;
+  params.push(offset);
+  const offsetIdx = params.length;
+
+  const items = await query(
+    `SELECT id, name, description, created_at AS "createdAt"
+     FROM product_categories
+     ${whereSql}
+     ORDER BY name ASC
+     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+    params,
+    tx
+  );
+
+  return { items, total: countRow?.total || 0 };
 }
 
-export async function findCategoryById(id, tx = undefined) {
-  const db = tx || getDb();
-  const [item] = await db
-    .select()
-    .from(productCategories)
-    .where(eq(productCategories.id, id))
-    .limit(1);
-  return item || null;
+export async function findCategoryById(id, tx = null) {
+  return queryOne(
+    `SELECT id, name, description, created_at AS "createdAt"
+     FROM product_categories
+     WHERE id = $1
+     LIMIT 1`,
+    [id],
+    tx
+  );
 }
 
-export async function findCategoryByName(name, tx = undefined) {
-  const db = tx || getDb();
-  const [item] = await db
-    .select()
-    .from(productCategories)
-    .where(sql`lower(${productCategories.name}) = ${name.toLowerCase().trim()}`)
-    .limit(1);
-  return item || null;
+export async function findCategoryByName(name, tx = null) {
+  return queryOne(
+    `SELECT id, name, description, created_at AS "createdAt"
+     FROM product_categories
+     WHERE LOWER(name) = $1
+     LIMIT 1`,
+    [name.toLowerCase().trim()],
+    tx
+  );
 }
 
-export async function createCategory(data, tx = undefined) {
-  const db = tx || getDb();
-  const [created] = await db
-    .insert(productCategories)
-    .values({
-      name: data.name.trim(),
-      description: data.description?.trim() || null,
-    })
-    .returning();
-  return created;
+export async function createCategory(data, tx = null) {
+  return queryOne(
+    `INSERT INTO product_categories (name, description, created_at)
+     VALUES ($1, $2, NOW())
+     RETURNING id, name, description, created_at AS "createdAt"`,
+    [data.name.trim(), data.description?.trim() || null],
+    tx
+  );
 }
 
-export async function updateCategory(id, data, tx = undefined) {
-  const db = tx || getDb();
-  const updateData = {};
-  if (data.name !== undefined) updateData.name = data.name.trim();
-  if (data.description !== undefined) updateData.description = data.description?.trim() || null;
+export async function updateCategory(id, data, tx = null) {
+  const fields = [];
+  const params = [];
 
-  const [updated] = await db
-    .update(productCategories)
-    .set(updateData)
-    .where(eq(productCategories.id, id))
-    .returning();
-  return updated || null;
+  if (data.name !== undefined) {
+    params.push(data.name.trim());
+    fields.push(`name = $${params.length}`);
+  }
+  if (data.description !== undefined) {
+    params.push(data.description?.trim() || null);
+    fields.push(`description = $${params.length}`);
+  }
+
+  if (fields.length === 0) return await findCategoryById(id, tx);
+
+  params.push(id);
+  const idIdx = params.length;
+
+  return queryOne(
+    `UPDATE product_categories
+     SET ${fields.join(', ')}
+     WHERE id = $${idIdx}
+     RETURNING id, name, description, created_at AS "createdAt"`,
+    params,
+    tx
+  );
 }
 
-export async function countProductsInCategory(categoryId, tx = undefined) {
-  const db = tx || getDb();
-  const [res] = await db
-    .select({ total: count() })
-    .from(products)
-    .where(eq(products.categoryId, categoryId));
-  return Number(res?.total || 0);
+export async function countProductsInCategory(categoryId, tx = null) {
+  const row = await queryOne(
+    `SELECT COUNT(*)::int AS total FROM products WHERE category_id = $1`,
+    [categoryId],
+    tx
+  );
+  return row?.total || 0;
 }
 
-export async function deleteCategory(id, tx = undefined) {
-  const db = tx || getDb();
-  const [deleted] = await db
-    .delete(productCategories)
-    .where(eq(productCategories.id, id))
-    .returning();
-  return deleted || null;
+export async function deleteCategory(id, tx = null) {
+  return queryOne(
+    `DELETE FROM product_categories
+     WHERE id = $1
+     RETURNING id, name`,
+    [id],
+    tx
+  );
 }

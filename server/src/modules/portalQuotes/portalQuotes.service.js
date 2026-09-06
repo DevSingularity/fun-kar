@@ -1,7 +1,5 @@
 import * as repo from './portalQuotes.repository.js';
-import { getDb } from '../../config/database.js';
-import { quotations, quotationItems, negotiationRequests, orders, invoices, auditLogs } from '../../db/schema/index.js';
-import { eq, and } from 'drizzle-orm';
+import { query, queryOne } from '../../config/database.js';
 import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '../../common/errors.js';
 import { parseListQuery, buildMeta } from '../../common/pagination.util.js';
 import { getProduct } from '../products/products.service.js';
@@ -18,8 +16,8 @@ export function resolveCallerCustomerId(req) {
   throw new ForbiddenError('Customer authentication or share token required.', 'CUSTOMER_AUTH_REQUIRED');
 }
 
-export async function listQuotes(portalAuth, query) {
-  const { page, limit, offset } = parseListQuery(query);
+export async function listQuotes(portalAuth, queryParams) {
+  const { page, limit, offset } = parseListQuery(queryParams);
   const { rows, count } = await repo.listForCustomer(portalAuth.customerId, { offset, limit });
   return {
     items: rows,
@@ -62,27 +60,21 @@ export async function createSelfServiceQuote(portalAuth) {
   }
 
   const quoteNumber = await nextQuoteNumber();
-  const db = getDb();
-  const [quotation] = await db
-    .insert(quotations)
-    .values({
-      quoteNumber,
-      customerId: customer.id,
-      salesRepId: customer.assignedRepId,
-      originType: 'CUSTOMER_SELF_SERVICE',
-      createdByCustomerUserId: portalAuth.customerUserId,
-      status: 'DRAFT',
-    })
-    .returning();
 
-  await db.insert(auditLogs).values({
-    actorId: null,
-    entityType: 'QUOTATION',
-    entityId: quotation.id,
-    action: 'CUSTOMER_SELF_SERVICE_CREATED',
-    reason: 'Customer created a self-service quote request from the portal.',
-    newValue: JSON.stringify({ customerUserId: portalAuth.customerUserId, quoteNumber }),
-  });
+  const quotation = await queryOne(
+    `INSERT INTO quotations (
+       quote_number, customer_id, sales_rep_id, origin_type, created_by_customer_user_id, status
+     ) VALUES (
+       $1, $2, $3, 'CUSTOMER_SELF_SERVICE', $4, 'DRAFT'
+     ) RETURNING *`,
+    [quoteNumber, customer.id, customer.assignedRepId, portalAuth.customerUserId]
+  );
+
+  await query(
+    `INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, reason, new_value)
+     VALUES (NULL, 'QUOTATION', $1, 'CUSTOMER_SELF_SERVICE_CREATED', 'Customer created a self-service quote request from the portal.', $2)`,
+    [quotation.id, JSON.stringify({ customerUserId: portalAuth.customerUserId, quoteNumber })]
+  );
 
   return quotation;
 }
@@ -123,16 +115,26 @@ export async function addSelfServiceItem(quotationId, itemData, portalAuth) {
     estimatedCostPerUnit: product.estimatedCost,
   });
 
-  const db = getDb();
-  await db.insert(quotationItems).values({
-    quotationId,
-    productId: product.id,
-    quantity: itemData.quantity,
-    unitPrice: pricing.tierPrice,
-    allowedDiscountPct,
-    discountPct: '0',
-    ...lineCalc,
-  });
+  await query(
+    `INSERT INTO quotation_items (
+       quotation_id, product_id, quantity, unit_price, allowed_discount_pct, discount_pct,
+       discount_amount, tax_amount, line_total, estimated_cost
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+     )`,
+    [
+      quotationId,
+      product.id,
+      itemData.quantity,
+      pricing.tierPrice,
+      allowedDiscountPct,
+      '0',
+      lineCalc.discountAmount,
+      lineCalc.taxAmount,
+      lineCalc.lineTotal,
+      lineCalc.estimatedCost,
+    ]
+  );
 
   const itemsJoined = await quotationsRepo.findItemsJoined(quotationId);
   const totals = computeQuotationTotals(itemsJoined.map((r) => r.item));
@@ -200,7 +202,6 @@ export async function submitSelfServiceQuote(quotationId, portalAuth) {
 }
 
 export async function confirmQuote(quotationId, portalAuth) {
-  const db = getDb();
   const quote = await repo.findRawQuote(quotationId);
   if (!quote || quote.customerId !== portalAuth.customerId) {
     throw new NotFoundError(`Quotation with ID '${quotationId}' not found.`, 'QUOTATION_NOT_FOUND');
@@ -218,49 +219,50 @@ export async function confirmQuote(quotationId, portalAuth) {
     );
   }
 
-  const [openRequest] = await db
-    .select()
-    .from(negotiationRequests)
-    .where(
-      and(
-        eq(negotiationRequests.quotationId, quotationId),
-        eq(negotiationRequests.status, 'OPEN')
-      )
-    );
+  const openRequest = await queryOne(
+    `SELECT * FROM negotiation_requests
+     WHERE quotation_id = $1 AND status = 'OPEN'
+     LIMIT 1`,
+    [quotationId]
+  );
 
   if (openRequest) {
     throw new ConflictError('You have an open negotiation request on this quotation.', 'OPEN_NEGOTIATION');
   }
 
   const now = new Date();
-  await db
-    .update(quotations)
-    .set({ status: 'CONFIRMED', confirmedAt: now, updatedAt: now })
-    .where(eq(quotations.id, quotationId));
+  await query(
+    `UPDATE quotations
+     SET status = 'CONFIRMED', confirmed_at = $2, updated_at = $2
+     WHERE id = $1`,
+    [quotationId, now]
+  );
 
   const order = await repo.findOrderForQuotation(quotationId);
   if (order) {
-    await db
-      .update(orders)
-      .set({ confirmedAt: now, updatedAt: now })
-      .where(eq(orders.id, order.id));
+    await query(
+      `UPDATE orders
+       SET confirmed_at = $2, updated_at = $2
+       WHERE id = $1`,
+      [order.id, now]
+    );
 
     const draftInvoice = await repo.findDraftOneTimeInvoice(order.id);
     if (draftInvoice) {
-      await db
-        .update(invoices)
-        .set({ status: 'ISSUED', issuedAt: now, updatedAt: now })
-        .where(eq(invoices.id, draftInvoice.id));
+      await query(
+        `UPDATE invoices
+         SET status = 'ISSUED', issued_at = $2, updated_at = $2
+         WHERE id = $1`,
+        [draftInvoice.id, now]
+      );
     }
   }
 
-  await db.insert(auditLogs).values({
-    actorId: null,
-    entityType: 'QUOTATION',
-    entityId: quotationId,
-    action: 'CUSTOMER_CONFIRMED',
-    newValue: JSON.stringify({ customerUserId: portalAuth.customerUserId }),
-  });
+  await query(
+    `INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, new_value)
+     VALUES (NULL, 'QUOTATION', $1, 'CUSTOMER_CONFIRMED', $2)`,
+    [quotationId, JSON.stringify({ customerUserId: portalAuth.customerUserId })]
+  );
 
   const updatedQuote = await repo.findSafeQuote(quotationId);
   return { quotation: updatedQuote, alreadyConfirmed: false };

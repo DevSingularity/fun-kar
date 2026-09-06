@@ -1,172 +1,171 @@
-import { eq, asc } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import {
-  customerTierDiscountLimits,
-  categoryDiscountLimits,
-  approvalRules,
-  productCategories,
-} from '../../db/schema/index.js';
+import { query, queryOne } from '../../config/database.js';
 
 // --- Customer Tier Discount Limits ---
 export async function findTierLimits(tx = undefined) {
-  const db = tx || getDb();
-  return db
-    .select()
-    .from(customerTierDiscountLimits)
-    .orderBy(customerTierDiscountLimits.tier);
+  return await query(
+    `SELECT * FROM customer_tier_discount_limits ORDER BY tier ASC`,
+    [],
+    tx
+  );
 }
 
 export async function findTierLimitByTier(tier, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .select()
-    .from(customerTierDiscountLimits)
-    .where(eq(customerTierDiscountLimits.tier, tier))
-    .limit(1);
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM customer_tier_discount_limits WHERE tier = $1 LIMIT 1`,
+    [tier],
+    tx
+  );
 }
 
 export async function upsertTierLimit(tier, maxDiscountPct, tx = undefined) {
-  const db = tx || getDb();
   const existing = await findTierLimitByTier(tier, tx);
   if (existing) {
-    const updated = await db
-      .update(customerTierDiscountLimits)
-      .set({
-        maxDiscountPct: String(maxDiscountPct),
-        updatedAt: new Date(),
-      })
-      .where(eq(customerTierDiscountLimits.id, existing.id))
-      .returning();
-    return updated[0];
+    return await queryOne(
+      `UPDATE customer_tier_discount_limits
+       SET max_discount_pct = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [String(maxDiscountPct), existing.id],
+      tx
+    );
   }
 
-  const inserted = await db
-    .insert(customerTierDiscountLimits)
-    .values({
-      tier,
-      maxDiscountPct: String(maxDiscountPct),
-    })
-    .returning();
-  return inserted[0];
+  return await queryOne(
+    `INSERT INTO customer_tier_discount_limits (tier, max_discount_pct)
+     VALUES ($1, $2)
+     RETURNING *`,
+    [tier, String(maxDiscountPct)],
+    tx
+  );
 }
 
 // --- Category Discount Limits ---
 export async function findCategoryLimits(tx = undefined) {
-  const db = tx || getDb();
-  return db
-    .select({
-      id: categoryDiscountLimits.id,
-      categoryId: categoryDiscountLimits.categoryId,
-      categoryName: productCategories.name,
-      maxDiscountPct: categoryDiscountLimits.maxDiscountPct,
-      createdAt: categoryDiscountLimits.createdAt,
-      updatedAt: categoryDiscountLimits.updatedAt,
-    })
-    .from(categoryDiscountLimits)
-    .leftJoin(productCategories, eq(categoryDiscountLimits.categoryId, productCategories.id));
+  return await query(
+    `SELECT
+       cdl.id,
+       cdl.category_id,
+       pc.name AS category_name,
+       cdl.max_discount_pct,
+       cdl.created_at,
+       cdl.updated_at
+     FROM category_discount_limits cdl
+     LEFT JOIN product_categories pc ON cdl.category_id = pc.id`,
+    [],
+    tx
+  );
 }
 
 export async function findCategoryLimitByCategoryId(categoryId, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .select()
-    .from(categoryDiscountLimits)
-    .where(eq(categoryDiscountLimits.categoryId, categoryId))
-    .limit(1);
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM category_discount_limits WHERE category_id = $1 LIMIT 1`,
+    [categoryId],
+    tx
+  );
 }
 
 export async function upsertCategoryLimit(categoryId, maxDiscountPct, tx = undefined) {
-  const db = tx || getDb();
   const existing = await findCategoryLimitByCategoryId(categoryId, tx);
   if (existing) {
-    const updated = await db
-      .update(categoryDiscountLimits)
-      .set({
-        maxDiscountPct: String(maxDiscountPct),
-        updatedAt: new Date(),
-      })
-      .where(eq(categoryDiscountLimits.id, existing.id))
-      .returning();
-    return updated[0];
+    return await queryOne(
+      `UPDATE category_discount_limits
+       SET max_discount_pct = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [String(maxDiscountPct), existing.id],
+      tx
+    );
   }
 
-  const inserted = await db
-    .insert(categoryDiscountLimits)
-    .values({
-      categoryId,
-      maxDiscountPct: String(maxDiscountPct),
-    })
-    .returning();
-  return inserted[0];
+  return await queryOne(
+    `INSERT INTO category_discount_limits (category_id, max_discount_pct)
+     VALUES ($1, $2)
+     RETURNING *`,
+    [categoryId, String(maxDiscountPct)],
+    tx
+  );
 }
 
 export async function deleteCategoryLimit(id, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .delete(categoryDiscountLimits)
-    .where(eq(categoryDiscountLimits.id, id))
-    .returning();
-  return rows[0] || null;
+  return await queryOne(
+    `DELETE FROM category_discount_limits WHERE id = $1 RETURNING *`,
+    [id],
+    tx
+  );
 }
 
 // --- Approval Rules ---
 export async function findApprovalRules(tx = undefined) {
-  const db = tx || getDb();
-  return db
-    .select()
-    .from(approvalRules)
-    .orderBy(asc(approvalRules.minOveragePct));
+  return await query(
+    `SELECT * FROM approval_rules ORDER BY min_overage_pct ASC`,
+    [],
+    tx
+  );
 }
 
 export async function findApprovalRuleById(id, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .select()
-    .from(approvalRules)
-    .where(eq(approvalRules.id, id))
-    .limit(1);
-  return rows[0] || null;
+  return await queryOne(
+    `SELECT * FROM approval_rules WHERE id = $1 LIMIT 1`,
+    [id],
+    tx
+  );
 }
 
 export async function createApprovalRule(data, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .insert(approvalRules)
-    .values({
-      minOveragePct: String(data.minOveragePct),
-      maxOveragePct: data.maxOveragePct !== undefined && data.maxOveragePct !== null ? String(data.maxOveragePct) : null,
-      requiredLevel: data.requiredLevel,
-      isActive: data.isActive !== undefined ? data.isActive : true,
-    })
-    .returning();
-  return rows[0];
+  return await queryOne(
+    `INSERT INTO approval_rules (min_overage_pct, max_overage_pct, required_level, is_active)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [
+      String(data.minOveragePct),
+      data.maxOveragePct !== undefined && data.maxOveragePct !== null ? String(data.maxOveragePct) : null,
+      data.requiredLevel,
+      data.isActive !== undefined ? data.isActive : true,
+    ],
+    tx
+  );
 }
 
 export async function updateApprovalRule(id, data, tx = undefined) {
-  const db = tx || getDb();
-  const updateData = {};
-  if (data.minOveragePct !== undefined) updateData.minOveragePct = String(data.minOveragePct);
-  if (data.maxOveragePct !== undefined) {
-    updateData.maxOveragePct = data.maxOveragePct !== null ? String(data.maxOveragePct) : null;
-  }
-  if (data.requiredLevel !== undefined) updateData.requiredLevel = data.requiredLevel;
-  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  const setParts = [];
+  const params = [id];
+  let idx = 2;
 
-  const rows = await db
-    .update(approvalRules)
-    .set(updateData)
-    .where(eq(approvalRules.id, id))
-    .returning();
-  return rows[0] || null;
+  if (data.minOveragePct !== undefined) {
+    setParts.push(`min_overage_pct = $${idx++}`);
+    params.push(String(data.minOveragePct));
+  }
+  if (data.maxOveragePct !== undefined) {
+    setParts.push(`max_overage_pct = $${idx++}`);
+    params.push(data.maxOveragePct !== null ? String(data.maxOveragePct) : null);
+  }
+  if (data.requiredLevel !== undefined) {
+    setParts.push(`required_level = $${idx++}`);
+    params.push(data.requiredLevel);
+  }
+  if (data.isActive !== undefined) {
+    setParts.push(`is_active = $${idx++}`);
+    params.push(data.isActive);
+  }
+
+  if (setParts.length === 0) {
+    return await findApprovalRuleById(id, tx);
+  }
+
+  return await queryOne(
+    `UPDATE approval_rules
+     SET ${setParts.join(', ')}
+     WHERE id = $1
+     RETURNING *`,
+    params,
+    tx
+  );
 }
 
 export async function deleteApprovalRule(id, tx = undefined) {
-  const db = tx || getDb();
-  const rows = await db
-    .delete(approvalRules)
-    .where(eq(approvalRules.id, id))
-    .returning();
-  return rows[0] || null;
+  return await queryOne(
+    `DELETE FROM approval_rules WHERE id = $1 RETURNING *`,
+    [id],
+    tx
+  );
 }

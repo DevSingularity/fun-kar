@@ -12,6 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { productTypeEnum, customerTierEnum } from './enums.js';
+import { subscriptionPlans } from './billing.js';
 
 export const productCategories = pgTable(
   'product_categories',
@@ -40,6 +41,9 @@ export const products = pgTable(
     estimatedCost: numeric('estimated_cost', { precision: 12, scale: 2 }).notNull().default('0'),
     taxRate: numeric('tax_rate', { precision: 5, scale: 2 }).notNull().default('0'),
     productType: productTypeEnum('product_type').notNull(),
+    subscriptionPlanId: uuid('subscription_plan_id').references(() => subscriptionPlans.id, {
+      onDelete: 'restrict',
+    }),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -49,6 +53,7 @@ export const products = pgTable(
     index('products_category_id_idx').on(table.categoryId),
     index('products_is_active_idx').on(table.isActive),
     index('products_product_type_idx').on(table.productType),
+    index('products_subscription_plan_id_idx').on(table.subscriptionPlanId),
     check('products_base_price_nonneg', sql`${table.basePrice} >= 0`),
     check('products_estimated_cost_nonneg', sql`${table.estimatedCost} >= 0`),
     check('products_tax_rate_range', sql`${table.taxRate} >= 0 AND ${table.taxRate} <= 100`),

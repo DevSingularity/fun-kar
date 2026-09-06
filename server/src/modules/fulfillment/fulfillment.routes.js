@@ -40,21 +40,21 @@ router.get(
 // Auto Allocation Engine execution
 router.post(
   '/:id/allocate',
-  authorize('OPERATIONS', 'ADMIN'),
+  authorize('OPERATIONS', 'FINANCE', 'ADMIN'),
   asyncHandler(handleAllocateOrder)
 );
 
 // Manual Override execution
 router.put(
   '/:id/allocation',
-  authorize('OPERATIONS', 'ADMIN'),
+  authorize('OPERATIONS', 'FINANCE', 'ADMIN'),
   asyncHandler(handleOverrideAllocation)
 );
 
 // Backorder Consolidation execution
 router.post(
   '/:id/backorder/consolidate',
-  authorize('OPERATIONS', 'ADMIN'),
+  authorize('OPERATIONS', 'FINANCE', 'ADMIN'),
   asyncHandler(handleConsolidateBackorder)
 );
 

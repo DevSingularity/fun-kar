@@ -1,219 +1,221 @@
-import { eq, inArray, and, desc, sql } from 'drizzle-orm';
-import { getDb } from '../../config/database.js';
-import { dealAlerts } from '../../db/schema/dealhealth.js';
-import { quotations, quotationItems } from '../../db/schema/quotations.js';
-import { customers } from '../../db/schema/customers.js';
-import { users } from '../../db/schema/users.js';
-import { products, productCategories } from '../../db/schema/catalog.js';
-import { negotiationComments, negotiationRequests } from '../../db/schema/negotiation.js';
-import { auditLogs } from '../../db/schema/governance.js';
+import { query, queryOne } from '../../config/database.js';
 
 export async function listAlerts({ repScope, status, offset = 0, limit = 50 }) {
-  const db = getDb();
-  const conditions = [];
-  if (status) conditions.push(eq(dealAlerts.status, status));
+  const whereClauses = [];
+  const params = [];
+  let idx = 1;
+
+  if (status) {
+    whereClauses.push(`da.status = $${idx++}`);
+    params.push(status);
+  }
   if (repScope && repScope.length > 0) {
-    conditions.push(inArray(quotations.salesRepId, repScope));
+    whereClauses.push(`q.sales_rep_id = ANY($${idx++}::uuid[])`);
+    params.push(repScope);
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-  return db
-    .select({
-      id: dealAlerts.id,
-      quotationId: dealAlerts.quotationId,
-      quoteNumber: quotations.quoteNumber,
-      customerName: customers.name,
-      customerTier: customers.tier,
-      salesRepId: quotations.salesRepId,
-      salesRepName: users.name,
-      alertType: dealAlerts.alertType,
-      severity: dealAlerts.severity,
-      message: dealAlerts.message,
-      status: dealAlerts.status,
-      grandTotal: quotations.grandTotal,
-      subtotal: quotations.subtotal,
-      discountTotal: quotations.discountTotal,
-      estimatedMarginPct: quotations.estimatedMarginPct,
-      promisedDeliveryDate: quotations.promisedDeliveryDate,
-      lastActivityAt: quotations.lastActivityAt,
-      createdAt: dealAlerts.createdAt,
-      resolvedAt: dealAlerts.resolvedAt,
-    })
-    .from(dealAlerts)
-    .leftJoin(quotations, eq(quotations.id, dealAlerts.quotationId))
-    .leftJoin(customers, eq(customers.id, quotations.customerId))
-    .leftJoin(users, eq(users.id, quotations.salesRepId))
-    .where(whereClause)
-    .orderBy(desc(dealAlerts.createdAt))
-    .limit(limit)
-    .offset(offset);
+  const dataParams = [...params, limit, offset];
+  return await query(
+    `SELECT
+       da.id,
+       da.quotation_id,
+       q.quote_number,
+       c.name AS customer_name,
+       c.tier AS customer_tier,
+       q.sales_rep_id,
+       u.name AS sales_rep_name,
+       da.alert_type,
+       da.severity,
+       da.message,
+       da.status,
+       q.grand_total,
+       q.subtotal,
+       q.discount_total,
+       q.estimated_margin_pct,
+       q.promised_delivery_date,
+       q.last_activity_at,
+       da.created_at,
+       da.resolved_at
+     FROM deal_alerts da
+     LEFT JOIN quotations q ON q.id = da.quotation_id
+     LEFT JOIN customers c ON c.id = q.customer_id
+     LEFT JOIN users u ON u.id = q.sales_rep_id
+     ${whereSql}
+     ORDER BY da.created_at DESC
+     LIMIT $${idx++} OFFSET $${idx++}`,
+    dataParams
+  );
 }
 
 export async function listScopedQuotations(repScope) {
-  const db = getDb();
-  const conditions = [];
-  if (repScope && repScope.length > 0) {
-    conditions.push(inArray(quotations.salesRepId, repScope));
-  }
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClauses = [];
+  const params = [];
+  let idx = 1;
 
-  return db
-    .select({
-      id: quotations.id,
-      quoteNumber: quotations.quoteNumber,
-      status: quotations.status,
-      customerId: quotations.customerId,
-      customerName: customers.name,
-      customerTier: customers.tier,
-      customerEmail: customers.email,
-      salesRepId: quotations.salesRepId,
-      salesRepName: users.name,
-      subtotal: quotations.subtotal,
-      discountTotal: quotations.discountTotal,
-      taxTotal: quotations.taxTotal,
-      grandTotal: quotations.grandTotal,
-      estimatedMarginPct: quotations.estimatedMarginPct,
-      requiredApprovalLevel: quotations.requiredApprovalLevel,
-      promisedDeliveryDate: quotations.promisedDeliveryDate,
-      lastActivityAt: quotations.lastActivityAt,
-      createdAt: quotations.createdAt,
-    })
-    .from(quotations)
-    .leftJoin(customers, eq(quotations.customerId, customers.id))
-    .leftJoin(users, eq(quotations.salesRepId, users.id))
-    .where(whereClause)
-    .orderBy(desc(quotations.lastActivityAt));
+  if (repScope && repScope.length > 0) {
+    whereClauses.push(`q.sales_rep_id = ANY($${idx++}::uuid[])`);
+    params.push(repScope);
+  }
+
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  return await query(
+    `SELECT
+       q.id,
+       q.quote_number,
+       q.status,
+       q.customer_id,
+       c.name AS customer_name,
+       c.tier AS customer_tier,
+       c.email AS customer_email,
+       q.sales_rep_id,
+       u.name AS sales_rep_name,
+       q.subtotal,
+       q.discount_total,
+       q.tax_total,
+       q.grand_total,
+       q.estimated_margin_pct,
+       q.required_approval_level,
+       q.promised_delivery_date,
+       q.last_activity_at,
+       q.created_at
+     FROM quotations q
+     LEFT JOIN customers c ON q.customer_id = c.id
+     LEFT JOIN users u ON q.sales_rep_id = u.id
+     ${whereSql}
+     ORDER BY q.last_activity_at DESC`,
+    params
+  );
 }
 
 export async function findQuotationOwnerRep(quotationId) {
-  const db = getDb();
-  const [row] = await db
-    .select({ salesRepId: quotations.salesRepId })
-    .from(quotations)
-    .where(eq(quotations.id, quotationId));
+  const row = await queryOne(
+    `SELECT sales_rep_id FROM quotations WHERE id = $1`,
+    [quotationId]
+  );
   return row?.salesRepId || null;
 }
 
 export async function findFullQuotation(quotationId) {
-  const db = getDb();
-  const [quote] = await db
-    .select({
-      id: quotations.id,
-      quoteNumber: quotations.quoteNumber,
-      status: quotations.status,
-      originType: quotations.originType,
-      customerId: quotations.customerId,
-      customerName: customers.name,
-      customerEmail: customers.email,
-      customerPhone: customers.phone,
-      customerTier: customers.tier,
-      customerBillingAddress: customers.billingAddress,
-      salesRepId: quotations.salesRepId,
-      salesRepName: users.name,
-      salesRepEmail: users.email,
-      subtotal: quotations.subtotal,
-      discountTotal: quotations.discountTotal,
-      taxTotal: quotations.taxTotal,
-      grandTotal: quotations.grandTotal,
-      estimatedMarginPct: quotations.estimatedMarginPct,
-      requiredApprovalLevel: quotations.requiredApprovalLevel,
-      promisedDeliveryDate: quotations.promisedDeliveryDate,
-      lastActivityAt: quotations.lastActivityAt,
-      createdAt: quotations.createdAt,
-      updatedAt: quotations.updatedAt,
-    })
-    .from(quotations)
-    .leftJoin(customers, eq(quotations.customerId, customers.id))
-    .leftJoin(users, eq(quotations.salesRepId, users.id))
-    .where(eq(quotations.id, quotationId));
+  const quote = await queryOne(
+    `SELECT
+       q.id,
+       q.quote_number,
+       q.status,
+       q.origin_type,
+       q.customer_id,
+       c.name AS customer_name,
+       c.email AS customer_email,
+       c.phone AS customer_phone,
+       c.tier AS customer_tier,
+       c.billing_address AS customer_billing_address,
+       q.sales_rep_id,
+       u.name AS sales_rep_name,
+       u.email AS sales_rep_email,
+       q.subtotal,
+       q.discount_total,
+       q.tax_total,
+       q.grand_total,
+       q.estimated_margin_pct,
+       q.required_approval_level,
+       q.promised_delivery_date,
+       q.last_activity_at,
+       q.created_at,
+       q.updated_at
+     FROM quotations q
+     LEFT JOIN customers c ON q.customer_id = c.id
+     LEFT JOIN users u ON q.sales_rep_id = u.id
+     WHERE q.id = $1`,
+    [quotationId]
+  );
 
   if (!quote) return null;
 
-  const items = await db
-    .select({
-      id: quotationItems.id,
-      productId: quotationItems.productId,
-      productName: products.name,
-      productSku: products.sku,
-      categoryName: productCategories.name,
-      unit: products.unit,
-      quantity: quotationItems.quantity,
-      unitPrice: quotationItems.unitPrice,
-      discountPct: quotationItems.discountPct,
-      discountAmount: quotationItems.discountAmount,
-      taxAmount: quotationItems.taxAmount,
-      lineTotal: quotationItems.lineTotal,
-      estimatedCost: quotationItems.estimatedCost,
-    })
-    .from(quotationItems)
-    .leftJoin(products, eq(quotationItems.productId, products.id))
-    .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
-    .where(eq(quotationItems.quotationId, quotationId));
+  const items = await query(
+    `SELECT
+       qi.id,
+       qi.product_id,
+       p.name AS product_name,
+       p.sku AS product_sku,
+       pc.name AS category_name,
+       p.unit,
+       qi.quantity,
+       qi.unit_price,
+       qi.discount_pct,
+       qi.discount_amount,
+       qi.tax_amount,
+       qi.line_total,
+       qi.estimated_cost
+     FROM quotation_items qi
+     LEFT JOIN products p ON qi.product_id = p.id
+     LEFT JOIN product_categories pc ON p.category_id = pc.id
+     WHERE qi.quotation_id = $1`,
+    [quotationId]
+  );
 
   return { ...quote, items };
 }
 
 export async function listAlertsForQuotation(quotationId) {
-  const db = getDb();
-  return db
-    .select()
-    .from(dealAlerts)
-    .where(eq(dealAlerts.quotationId, quotationId))
-    .orderBy(desc(dealAlerts.createdAt));
+  return await query(
+    `SELECT * FROM deal_alerts WHERE quotation_id = $1 ORDER BY created_at DESC`,
+    [quotationId]
+  );
 }
 
 export async function findAlertById(alertId) {
-  const db = getDb();
-  const [row] = await db.select().from(dealAlerts).where(eq(dealAlerts.id, alertId));
-  return row || null;
+  return await queryOne(
+    `SELECT * FROM deal_alerts WHERE id = $1`,
+    [alertId]
+  );
 }
 
 export async function updateAlertStatus(alertId, status, resolvedBy) {
-  const db = getDb();
   const isTerminal = status === 'RESOLVED' || status === 'DISMISSED';
-  const [row] = await db
-    .update(dealAlerts)
-    .set({
-      status,
-      resolvedBy,
-      resolvedAt: isTerminal ? new Date() : null,
-    })
-    .where(eq(dealAlerts.id, alertId))
-    .returning();
-  return row;
+  return await queryOne(
+    `UPDATE deal_alerts
+     SET status = $2,
+         resolved_by = $3,
+         resolved_at = $4
+     WHERE id = $1
+     RETURNING *`,
+    [alertId, status, resolvedBy, isTerminal ? new Date() : null]
+  );
 }
 
 export async function createAlert(data) {
-  const db = getDb();
-  const [row] = await db.insert(dealAlerts).values(data).returning();
-  return row;
+  return await queryOne(
+    `INSERT INTO deal_alerts (quotation_id, alert_type, severity, message, status)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      data.quotationId,
+      data.alertType,
+      data.severity || 'MEDIUM',
+      data.message,
+      data.status || 'OPEN',
+    ]
+  );
 }
 
 export async function getTimeline(quotationId) {
-  const db = getDb();
   const [comments, requests] = await Promise.all([
-    db
-      .select({
-        id: negotiationComments.id,
-        message: negotiationComments.message,
-        authorType: negotiationComments.authorType,
-        createdAt: negotiationComments.createdAt,
-      })
-      .from(negotiationComments)
-      .where(eq(negotiationComments.quotationId, quotationId))
-      .orderBy(desc(negotiationComments.createdAt)),
-    db
-      .select({
-        id: negotiationRequests.id,
-        message: negotiationRequests.message,
-        requestType: negotiationRequests.requestType,
-        status: negotiationRequests.status,
-        createdAt: negotiationRequests.createdAt,
-      })
-      .from(negotiationRequests)
-      .where(eq(negotiationRequests.quotationId, quotationId))
-      .orderBy(desc(negotiationRequests.createdAt)),
+    query(
+      `SELECT id, message, author_type, created_at
+       FROM negotiation_comments
+       WHERE quotation_id = $1
+       ORDER BY created_at DESC`,
+      [quotationId]
+    ),
+    query(
+      `SELECT id, message, request_type, status, created_at
+       FROM negotiation_requests
+       WHERE quotation_id = $1
+       ORDER BY created_at DESC`,
+      [quotationId]
+    ),
   ]);
 
   const timeline = [
@@ -225,27 +227,24 @@ export async function getTimeline(quotationId) {
 }
 
 export async function addTimelineComment({ quotationId, authorId, message, authorType = 'INTERNAL' }) {
-  const db = getDb();
-  const [inserted] = await db
-    .insert(negotiationComments)
-    .values({
-      quotationId,
-      authorId,
-      authorType,
-      message,
-    })
-    .returning();
-  return inserted;
+  return await queryOne(
+    `INSERT INTO negotiation_comments (quotation_id, author_id, author_type, message)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [quotationId, authorId || null, authorType, message]
+  );
 }
 
 export async function insertAuditLog(entry) {
-  const db = getDb();
-  return db.insert(auditLogs).values({
-    actorId: entry.actorId,
-    entityType: 'QUOTATION',
-    entityId: entry.entityId,
-    action: entry.action,
-    reason: entry.reason || null,
-    newValue: entry.newValue ? JSON.stringify(entry.newValue) : null,
-  });
+  return await query(
+    `INSERT INTO audit_logs (actor_id, entity_type, entity_id, action, reason, new_value)
+     VALUES ($1, 'QUOTATION', $2, $3, $4, $5)`,
+    [
+      entry.actorId || null,
+      entry.entityId,
+      entry.action,
+      entry.reason || null,
+      entry.newValue ? JSON.stringify(entry.newValue) : null,
+    ]
+  );
 }

@@ -130,13 +130,15 @@ export default function V1CustomersPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
-            >
-              <Plus className="h-4 w-4" />
-              <span>New Customer</span>
-            </button>
+            {['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role) && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#714b67] hover:bg-[#5a3a52] text-white shadow-xs hover:shadow-sm transition-all active:scale-98"
+              >
+                <Plus className="h-4 w-4" />
+                <span>New Customer</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -262,13 +264,17 @@ export default function V1CustomersPage() {
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => navigate('/v1/quotations/new')}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-[#714b67] hover:text-[#5a3a52] hover:underline"
-                  >
-                    <span>Create Deal</span>
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </button>
+                  {['SALES_REP', 'SALES_MANAGER', 'ADMIN'].includes(user?.role) ? (
+                    <button
+                      onClick={() => navigate('/v1/quotations/new')}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#714b67] hover:text-[#5a3a52] hover:underline cursor-pointer"
+                    >
+                      <span>Create Deal</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-medium text-slate-400">Account Active</span>
+                  )}
                 </div>
               </div>
             ))}

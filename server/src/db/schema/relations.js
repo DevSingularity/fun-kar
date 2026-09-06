@@ -83,6 +83,10 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   warehouseStock: many(warehouseStock),
   triggeredUpsells: many(upsellRules, { relationName: 'triggerProduct' }),
   recommendedUpsells: many(upsellRules, { relationName: 'recommendedProduct' }),
+  subscriptionPlan: one(subscriptionPlans, {
+    fields: [products.subscriptionPlanId],
+    references: [subscriptionPlans.id],
+  }),
 }));
 
 export const productVariantsRelations = relations(productVariants, ({ one }) => ({

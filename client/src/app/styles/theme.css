@@ -3,29 +3,29 @@
 	--app-font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 	--app-rgb-primary: 113, 75, 103;
 	--app-rgb-accent: 0, 135, 132;
-	--app-color-bg: #f8f9fa;
+	--app-color-bg: #f8fafc;
 	--app-color-surface: #ffffff;
-	--app-color-surface-elevated: #f1f3f5;
-	--app-color-surface-glass: rgba(255, 255, 255, 0.92);
+	--app-color-surface-elevated: #f1f5f9;
+	--app-color-surface-glass: rgba(255, 255, 255, 0.96);
 	--app-color-surface-panel: #ffffff;
-	--app-color-text: #212529;
-	--app-color-text-muted: #6c757d;
-	--app-color-border: #dee2e6;
+	--app-color-text: #0f172a;
+	--app-color-text-muted: #475569;
+	--app-color-border: #cbd5e1;
 	--app-color-primary: #714b67;
-	--app-color-primary-hover: #5a3a52;
-	--app-color-primary-soft: #f3edf2;
+	--app-color-primary-hover: #56324e;
+	--app-color-primary-soft: #f5edf3;
 	--app-color-accent: #008784;
 	--app-color-accent-hover: #007370;
 	--app-color-accent-soft: #e6f5f5;
-	--app-color-canvas-glow: #efe8ee;
-	--app-color-success: #008784;
+	--app-color-canvas-glow: #f1e9f0;
+	--app-color-success: #059669;
 	--app-color-warning: #d97706;
-	--app-color-danger: #d9534f;
-	--app-color-info: #00a09d;
-	--app-gradient-shell: radial-gradient(circle at top left, rgba(113, 75, 103, 0.06), transparent 32%), radial-gradient(circle at bottom right, rgba(0, 135, 132, 0.05), transparent 28%), linear-gradient(180deg, #f8f9fa 0%, #f1f3f5 100%);
-	--app-gradient-auth-login: linear-gradient(145deg, #241420 0%, #3e2437 52%, #714b67 100%);
-	--app-gradient-auth-register: linear-gradient(145deg, #152226 0%, #1e3538 52%, #008784 100%);
-	--app-shadow-elevated: 0 20px 36px rgba(33, 37, 41, 0.08);
+	--app-color-danger: #e11d48;
+	--app-color-info: #0284c7;
+	--app-gradient-shell: radial-gradient(circle at top left, rgba(113, 75, 103, 0.08), transparent 36%), radial-gradient(circle at bottom right, rgba(0, 135, 132, 0.06), transparent 30%), linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+	--app-gradient-auth-login: linear-gradient(145deg, #1e111b 0%, #3e2437 52%, #714b67 100%);
+	--app-gradient-auth-register: linear-gradient(145deg, #0d1a1b 0%, #172e30 52%, #008784 100%);
+	--app-shadow-elevated: 0 20px 36px rgba(15, 23, 42, 0.08);
 }
 
 @theme{

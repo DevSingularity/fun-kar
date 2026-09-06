@@ -24,24 +24,39 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const setTransitioning = useAuthStore((s) => s.setTransitioning);
 
   const handleChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.name?.trim()) {
+      toast.error('Please enter your full name.');
+      return;
+    }
+    if (!emailRegex.test(formData.email?.trim())) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+    if (!formData.password || formData.password.length < 8) {
+      toast.error('Password must be at least 8 characters long.');
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match.');
       return;
     }
     setIsSubmitting(true);
-    setTransitioning(true, true);
     try {
-      const res = await api.post('/auth/register', formData);
+      const res = await api.post('/auth/register', {
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      });
       const authData = res.data?.data || res.data;
       setAuth({ user: authData.user, accessToken: authData.accessToken });
       toast.success('Account created successfully.');
-      navigate('/dashboard');
+      navigate('/v1/dashboard');
     } catch (error) {
       const msg =
         error.response?.data?.error?.message ||
@@ -49,7 +64,6 @@ export default function RegisterPage() {
         error.response?.data?.message ||
         'Registration failed.';
       toast.error(msg);
-      setTransitioning(false);
       setIsSubmitting(false);
     }
   };

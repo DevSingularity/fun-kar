@@ -1,74 +1,61 @@
-import { getDb } from '../../config/database.js';
-import { customerUsers, portalTokens, customers } from '../../db/schema/index.js';
-import { eq, and, isNull, gt, sql } from 'drizzle-orm';
+import { query, queryOne } from '../../config/database.js';
 
 export async function findActiveByEmail(email) {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(customerUsers)
-    .where(
-      and(
-        eq(sql`lower(${customerUsers.email})`, email.toLowerCase()),
-        eq(customerUsers.isActive, true)
-      )
-    );
-  return row || null;
+  return await queryOne(
+    `SELECT * FROM customer_users
+     WHERE LOWER(email) = LOWER($1) AND is_active = true`,
+    [email]
+  );
 }
 
 export async function findById(id) {
-  const db = getDb();
-  const [row] = await db
-    .select({
-      id: customerUsers.id,
-      name: customerUsers.name,
-      email: customerUsers.email,
-      customerId: customerUsers.customerId,
-      isActive: customerUsers.isActive,
-      customerName: customers.name,
-      customerTier: customers.tier,
-    })
-    .from(customerUsers)
-    .innerJoin(customers, eq(customerUsers.customerId, customers.id))
-    .where(eq(customerUsers.id, id));
-  return row || null;
+  return await queryOne(
+    `SELECT
+       cu.id,
+       cu.name,
+       cu.email,
+       cu.customer_id,
+       cu.is_active,
+       c.name AS customer_name,
+       c.tier AS customer_tier
+     FROM customer_users cu
+     INNER JOIN customers c ON cu.customer_id = c.id
+     WHERE cu.id = $1`,
+    [id]
+  );
 }
 
 export async function findCustomerUserRecord(id) {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(customerUsers)
-    .where(eq(customerUsers.id, id));
-  return row || null;
+  return await queryOne(
+    `SELECT * FROM customer_users WHERE id = $1`,
+    [id]
+  );
 }
 
 export async function insertToken(data) {
-  const db = getDb();
-  const [inserted] = await db.insert(portalTokens).values(data).returning();
-  return inserted;
+  return await queryOne(
+    `INSERT INTO portal_tokens (customer_user_id, token_hash, expires_at, used_at)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [data.customerUserId, data.tokenHash, data.expiresAt, data.usedAt || null]
+  );
 }
 
 export async function findValidToken(tokenHash) {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(portalTokens)
-    .where(
-      and(
-        eq(portalTokens.tokenHash, tokenHash),
-        isNull(portalTokens.usedAt),
-        gt(portalTokens.expiresAt, new Date())
-      )
-    );
-  return row || null;
+  return await queryOne(
+    `SELECT * FROM portal_tokens
+     WHERE token_hash = $1
+       AND used_at IS NULL
+       AND expires_at > NOW()`,
+    [tokenHash]
+  );
 }
 
 export async function markTokenUsed(id) {
-  const db = getDb();
-  await db
-    .update(portalTokens)
-    .set({ usedAt: new Date() })
-    .where(eq(portalTokens.id, id));
+  await query(
+    `UPDATE portal_tokens
+     SET used_at = NOW()
+     WHERE id = $1`,
+    [id]
+  );
 }
-

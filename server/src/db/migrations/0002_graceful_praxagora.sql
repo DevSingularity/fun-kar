@@ -1,0 +1,3 @@
+ALTER TABLE "products" ADD COLUMN "subscription_plan_id" uuid;--> statement-breakpoint
+ALTER TABLE "products" ADD CONSTRAINT "products_subscription_plan_id_subscription_plans_id_fk" FOREIGN KEY ("subscription_plan_id") REFERENCES "public"."subscription_plans"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "products_subscription_plan_id_idx" ON "products" USING btree ("subscription_plan_id");
