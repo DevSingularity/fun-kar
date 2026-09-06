@@ -17,6 +17,17 @@ import {
   Layers,
   HelpCircle,
   X,
+  Edit3,
+  Sliders,
+  CheckCircle2,
+  ShieldCheck,
+  Check,
+  DollarSign,
+  Clock,
+  Settings2,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import api from '../../services/api.js';
 import OdooTopNavbar from '../../components/layout/OdooTopNavbar.jsx';
@@ -28,6 +39,8 @@ const STATUS_PILL_STYLES = {
   PAUSED: 'bg-amber-50 text-amber-700 border-amber-200',
   CANCELLED: 'bg-rose-50 text-rose-700 border-rose-200',
 };
+
+const NOTICE_PRESETS = [0, 15, 30, 60, 90];
 
 export default function V1SubscriptionsPage() {
   const navigate = useNavigate();
@@ -42,12 +55,20 @@ export default function V1SubscriptionsPage() {
   const [search, setSearch] = useState('');
   const [actionState, setActionState] = useState({});
 
-  // New Plan Modal State (for Admin)
+  // Subscription Plans Master Catalog (Admin)
+  const [plansList, setPlansList] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [showPlansCatalog, setShowPlansCatalog] = useState(false);
+
+  // Create / Edit Plan Modal State (for Admin)
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState(null);
   const [planName, setPlanName] = useState('');
   const [planFrequency, setPlanFrequency] = useState('MONTHLY');
   const [planPrice, setPlanPrice] = useState('0.00');
   const [planNoticeDays, setPlanNoticeDays] = useState('0');
+  const [planProrationEnabled, setPlanProrationEnabled] = useState(true);
+  const [planIsActive, setPlanIsActive] = useState(true);
   const [submittingPlan, setSubmittingPlan] = useState(false);
 
   const fetchData = async () => {
@@ -72,8 +93,22 @@ export default function V1SubscriptionsPage() {
     }
   };
 
+  const fetchPlans = async () => {
+    setLoadingPlans(true);
+    try {
+      const res = await api.get('/subscription-plans');
+      const data = res.data?.data;
+      setPlansList(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn('Subscription plans fetch note:', err);
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchPlans();
   }, [statusFilter]);
 
   const setBusy = (id, busy) => setActionState((s) => ({ ...s, [id]: busy }));
@@ -130,26 +165,79 @@ export default function V1SubscriptionsPage() {
     }
   };
 
-  const handleCreatePlan = async (e) => {
+  // Open Create Plan Modal
+  const handleOpenCreatePlan = () => {
+    setEditingPlanId(null);
+    setPlanName('');
+    setPlanFrequency('MONTHLY');
+    setPlanPrice('0.00');
+    setPlanNoticeDays('0');
+    setPlanProrationEnabled(true);
+    setPlanIsActive(true);
+    setShowPlanModal(true);
+  };
+
+  // Open Edit Plan Modal
+  const handleOpenEditPlan = (plan) => {
+    setEditingPlanId(plan.id);
+    setPlanName(plan.name || '');
+    setPlanFrequency(plan.frequency || 'MONTHLY');
+    setPlanPrice(plan.price !== undefined ? String(plan.price) : '0.00');
+    setPlanNoticeDays(plan.cancellationNoticeDays !== undefined ? String(plan.cancellationNoticeDays) : '0');
+    setPlanProrationEnabled(plan.prorationEnabled !== undefined ? Boolean(plan.prorationEnabled) : true);
+    setPlanIsActive(plan.isActive !== undefined ? Boolean(plan.isActive) : true);
+    setShowPlanModal(true);
+  };
+
+  // Toggle Active Status on Plan
+  const handleTogglePlanActive = async (plan) => {
+    const nextStatus = !plan.isActive;
+    try {
+      await api.patch(`/subscription-plans/${plan.id}`, {
+        isActive: nextStatus,
+      });
+      toast.success(`Plan "${plan.name}" is now ${nextStatus ? 'Active' : 'Inactive'}.`);
+      fetchPlans();
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || 'Could not update plan status.');
+    }
+  };
+
+  // Submit Create or Edit Plan
+  const handleSavePlan = async (e) => {
     e.preventDefault();
-    if (!planName) {
+    if (!planName.trim()) {
       toast.error('Plan name is required.');
       return;
     }
+    if (isNaN(Number(planPrice)) || Number(planPrice) < 0) {
+      toast.error('A valid non-negative base price is required.');
+      return;
+    }
+
     setSubmittingPlan(true);
     try {
-      await api.post('/subscription-plans', {
-        name: planName,
+      const payload = {
+        name: planName.trim(),
         frequency: planFrequency,
         price: Number(planPrice),
-        cancellationNoticeDays: Number(planNoticeDays),
-      });
-      toast.success('New subscription plan created successfully.');
+        cancellationNoticeDays: Math.max(0, parseInt(planNoticeDays, 10) || 0),
+        prorationEnabled: Boolean(planProrationEnabled),
+        isActive: Boolean(planIsActive),
+      };
+
+      if (editingPlanId) {
+        await api.patch(`/subscription-plans/${editingPlanId}`, payload);
+        toast.success(`Plan "${planName}" updated successfully.`);
+      } else {
+        await api.post('/subscription-plans', payload);
+        toast.success(`Plan "${planName}" created successfully.`);
+      }
+
       setShowPlanModal(false);
-      setPlanName('');
-      setPlanPrice('0.00');
+      fetchPlans();
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || 'Could not create plan.');
+      toast.error(err?.response?.data?.error?.message || 'Could not save subscription plan.');
     } finally {
       setSubmittingPlan(false);
     }
@@ -170,7 +258,7 @@ export default function V1SubscriptionsPage() {
       <OdooTopNavbar activeTab="Subscriptions" />
       <main className="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-8 py-6 space-y-5">
         
-        {/* Wireframe 9 Header */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-xl font-black text-slate-800 tracking-tight">Subscriptions (List)</h1>
@@ -187,17 +275,158 @@ export default function V1SubscriptionsPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </button>
             {isAdmin && (
-              <button
-                onClick={() => setShowPlanModal(true)}
-                className="px-4 py-1.5 rounded-lg bg-[#008784] hover:bg-[#00706e] text-white text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
-              >
-                <Plus className="h-3.5 w-3.5" /> + New Plan (Admin)
-              </button>
+              <>
+                <button
+                  onClick={() => setShowPlansCatalog(!showPlansCatalog)}
+                  className={`px-3.5 py-1.5 rounded-lg border text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5 ${
+                    showPlansCatalog
+                      ? 'bg-slate-800 text-white border-slate-800'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>Plan Templates</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200/70 text-slate-800 font-black">
+                    {plansList.length}
+                  </span>
+                  {showPlansCatalog ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+                <button
+                  onClick={handleOpenCreatePlan}
+                  className="px-4 py-1.5 rounded-lg bg-[#008784] hover:bg-[#00706e] text-white text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  <Plus className="h-3.5 w-3.5" /> + New Plan (Admin)
+                </button>
+              </>
             )}
           </div>
         </div>
 
-        {/* Wireframe 9 Status Filter Buttons */}
+        {/* Admin Plan Templates Master Catalog Section */}
+        {isAdmin && showPlansCatalog && (
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-[#008784]" />
+                  <h2 className="text-sm font-black text-slate-800 tracking-tight">Subscription Plan Templates Master</h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#008784]/10 text-[#008784]">
+                    Admin CRUD Catalog
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Manage recurring cadence, base pricing, notice policies, and proration rules for all subscription product lines.
+                </p>
+              </div>
+
+              <button
+                onClick={handleOpenCreatePlan}
+                className="px-3 py-1 rounded-lg bg-[#008784] hover:bg-[#00706e] text-white text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1 shrink-0 self-start sm:self-auto"
+              >
+                <Plus className="h-3.5 w-3.5" /> Define Plan
+              </button>
+            </div>
+
+            {loadingPlans ? (
+              <div className="py-8 text-center text-xs text-slate-400 font-medium flex items-center justify-center gap-2">
+                <Spinner size="sm" variant="primary" /> Loading plan catalog...
+              </div>
+            ) : plansList.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400 font-medium">
+                No subscription plan templates configured yet. Click "+ Define Plan" to create one.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {plansList.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className={`rounded-lg border p-3.5 transition-all space-y-3 ${
+                      plan.isActive
+                        ? 'border-slate-200 bg-slate-50/50 hover:bg-white hover:shadow-xs'
+                        : 'border-dashed border-slate-200 bg-slate-50/30 opacity-70'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-bold text-slate-800 text-xs truncate" title={plan.name}>
+                            {plan.name}
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
+                          <span className="uppercase px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-600 font-bold">
+                            {plan.frequency}
+                          </span>
+                          <span>•</span>
+                          <span>{plan.cancellationNoticeDays > 0 ? `${plan.cancellationNoticeDays}d notice` : 'Immediate cancel'}</span>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold border uppercase shrink-0 ${
+                          plan.isActive
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                        }`}
+                      >
+                        {plan.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between pt-1 border-t border-slate-100 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium">Base Recurring Price</span>
+                        <span className="font-extrabold text-slate-900 text-sm">
+                          ₹{Number(plan.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          /{plan.frequency?.toLowerCase().replace('ly', '') || 'cycle'}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block font-medium">Proration Policy</span>
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold ${plan.prorationEnabled ? 'text-emerald-700' : 'text-slate-500'}`}>
+                          {plan.prorationEnabled ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Proration Enabled
+                            </>
+                          ) : (
+                            'No Proration'
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePlanActive(plan)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${
+                          plan.isActive
+                            ? 'border-slate-200 text-slate-600 bg-white hover:bg-slate-100 hover:text-slate-900'
+                            : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                        }`}
+                      >
+                        {plan.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditPlan(plan)}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#008784] hover:bg-[#00706e] text-white text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Edit3 className="h-3.5 w-3.5 text-white" />
+                        <span>Edit Plan</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Status Filter Buttons */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -253,7 +482,7 @@ export default function V1SubscriptionsPage() {
           </div>
         </div>
 
-        {/* Wireframe 9 Subscriptions Table */}
+        {/* Subscriptions Table */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-center">
@@ -367,73 +596,197 @@ export default function V1SubscriptionsPage() {
           )}
         </div>
 
-        {/* Wireframe 9 Helper Banner */}
+        {/* Helper Banner */}
         <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/70 text-amber-900 text-xs flex items-center gap-2">
           <HelpCircle className="h-4 w-4 text-amber-700 shrink-0" />
           <span>Click any subscription row to open its complete billing schedules, cycle history, and mid-cycle proration delta ledger.</span>
         </div>
 
-        {/* Admin Create Plan Modal */}
+        {/* Rich Admin Create / Edit Plan Modal with ALL Fields */}
         {showPlanModal && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-800">Define New Subscription Plan</h3>
-                <button onClick={() => setShowPlanModal(false)} className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-[#008784]/10 text-[#008784]">
+                      <Settings2 className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-sm font-black text-slate-800">
+                      {editingPlanId ? 'Edit Subscription Plan' : 'Define New Subscription Plan'}
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Configure recurring pricing, billing cadence, cancellation notice period, and proration terms.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowPlanModal(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreatePlan} className="space-y-4 text-xs">
+              <form onSubmit={handleSavePlan} className="space-y-4 text-xs">
+                {/* 1. Plan Name */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Plan Name</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Plan Name <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     required
                     value={planName}
                     onChange={(e) => setPlanName(e.target.value)}
-                    placeholder="e.g. Enterprise SLA Care Plan 2yr"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white"
+                    placeholder="e.g. Enterprise SLA Care Plan 24M"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#008784]/30 focus:border-[#008784]"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Unique display identifier shown in sales quotes and invoices.
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* 2. Billing Cadence & Base Recurring Price */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Cadence / Frequency</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Billing Cadence / Frequency <span className="text-rose-500">*</span>
+                    </label>
                     <select
                       value={planFrequency}
                       onChange={(e) => setPlanFrequency(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white"
+                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008784]/30 focus:border-[#008784]"
                     >
-                      <option value="MONTHLY">Monthly</option>
-                      <option value="QUARTERLY">Quarterly</option>
-                      <option value="YEARLY">Yearly</option>
+                      <option value="MONTHLY">Monthly (Every 1 Mo)</option>
+                      <option value="QUARTERLY">Quarterly (Every 3 Mos)</option>
+                      <option value="YEARLY">Yearly (Every 12 Mos)</option>
                     </select>
                   </div>
+
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Cancellation Notice (Days)</label>
-                    <input
-                      type="number"
-                      value={planNoticeDays}
-                      onChange={(e) => setPlanNoticeDays(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white"
-                    />
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Base Recurring Price (₹) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        value={planPrice}
+                        onChange={(e) => setPlanPrice(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full pl-7 pr-3 py-2.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008784]/30 focus:border-[#008784]"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                {/* 3. Cancellation Notice Period (Days) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700">
+                      Cancellation Notice Period (Days)
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {Number(planNoticeDays) === 0 ? 'Immediate cancellation allowed' : `Requires ${planNoticeDays} days advance notice`}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      value={planNoticeDays}
+                      onChange={(e) => setPlanNoticeDays(e.target.value)}
+                      placeholder="0"
+                      className="w-28 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#008784]/30 focus:border-[#008784]"
+                    />
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {NOTICE_PRESETS.map((days) => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setPlanNoticeDays(String(days))}
+                          className={`px-2 py-1 rounded text-[10px] font-bold transition-colors border ${
+                            Number(planNoticeDays) === days
+                              ? 'bg-[#008784] text-white border-[#008784]'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {days === 0 ? 'Immediate (0d)' : `${days}d`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Policy Toggles: Proration & Active Status */}
+                <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                  {/* Proration Toggle */}
+                  <label className="flex items-start gap-3 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50/70 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={planProrationEnabled}
+                      onChange={(e) => setPlanProrationEnabled(e.target.checked)}
+                      className="mt-0.5 rounded text-[#008784] focus:ring-[#008784] h-4 w-4 border-slate-300"
+                    />
+                    <div className="space-y-0.5">
+                      <div className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5 text-[#008784]" />
+                        <span>Allow Mid-Cycle Proration Credit Notes</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        When enabled, cancellations or mid-cycle tier changes automatically compute unconsumed days and issue a refund/credit note.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Active Toggle */}
+                  <label className="flex items-start gap-3 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50/70 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={planIsActive}
+                      onChange={(e) => setPlanIsActive(e.target.checked)}
+                      className="mt-0.5 rounded text-[#008784] focus:ring-[#008784] h-4 w-4 border-slate-300"
+                    />
+                    <div className="space-y-0.5">
+                      <div className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Active in Quotation Catalog</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        Allows sales reps to select this recurring plan when quoting subscription-based products.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Form Buttons */}
+                <div className="flex justify-end items-center gap-2 pt-4 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => setShowPlanModal(false)}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-bold hover:bg-slate-50"
+                    className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submittingPlan}
-                    className="px-4 py-2 rounded-lg bg-[#008784] text-white font-bold hover:bg-[#00706e] disabled:opacity-50"
+                    className="px-5 py-2 rounded-lg bg-[#008784] text-white text-xs font-bold hover:bg-[#00706e] disabled:opacity-50 shadow-xs transition-colors inline-flex items-center gap-1.5"
                   >
-                    {submittingPlan ? 'Creating...' : 'Create Plan'}
+                    {submittingPlan ? (
+                      <>
+                        <Spinner size="sm" variant="white" />
+                        <span>Saving Plan...</span>
+                      </>
+                    ) : editingPlanId ? (
+                      'Update Plan'
+                    ) : (
+                      'Save & Publish Plan'
+                    )}
                   </button>
                 </div>
               </form>

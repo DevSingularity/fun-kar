@@ -36,6 +36,7 @@ export const subscriptionPlans = pgTable(
     cancellationNoticeDays: integer('cancellation_notice_days').notNull().default(0),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('subscription_plans_name_unique').on(table.name),

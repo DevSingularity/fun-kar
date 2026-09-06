@@ -60,14 +60,14 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
             <div className="h-8 w-8 rounded-lg bg-white/10 p-1 flex items-center justify-center border border-white/20 shadow-xs group-hover:bg-white/15 transition-all">
               <img src="/logo.svg" alt="DealFlow360 Logo" className="h-full w-full object-contain" />
             </div>
-            <div className="flex flex-col">
+            {/* <div className="flex flex-col">
               <span className="font-extrabold text-white text-sm sm:text-base leading-tight tracking-tight">
                 DealFlow<span className="text-teal-300">360</span>
               </span>
               <span className="text-[9px] font-semibold text-white/70 uppercase tracking-wider hidden sm:inline">
                 Sales Operations
               </span>
-            </div>
+            </div> */}
           </Link>
 
           {/* Vertical Separator */}
@@ -103,11 +103,11 @@ export default function OdooTopNavbar({ activeTab = 'Dashboard' }) {
         {/* Right User Information & Role */}
         <div className="flex items-center gap-3 shrink-0 ml-4">
 
-          {/* Role Badge */}
+          {/* Role Badge
           <div className="hidden sm:flex items-center gap-1.5 bg-black/25 rounded-lg px-2.5 py-1 border border-white/15 text-[11px] font-bold text-white tracking-wide shadow-2xs">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>{ROLE_DISPLAY_NAMES[userRole] || userRole}</span>
-          </div>
+          </div> */}
 
           {/* User Avatar & Name */}
           <div className="flex items-center gap-2 pl-1">

@@ -23,9 +23,12 @@ export function validateCreatePlan(req, res, next) {
 }
 
 export function validateUpdatePlan(req, res, next) {
-  const { frequency, price } = req.body || {};
+  const { name, frequency, price } = req.body || {};
   const errors = [];
 
+  if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0)) {
+    errors.push({ field: 'name', message: 'Plan name cannot be empty.' });
+  }
   if (frequency !== undefined && !VALID_FREQUENCIES.includes(frequency)) {
     errors.push({ field: 'frequency', message: `Frequency must be one of: ${VALID_FREQUENCIES.join(', ')}` });
   }
