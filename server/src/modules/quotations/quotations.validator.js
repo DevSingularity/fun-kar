@@ -1,6 +1,7 @@
 import { ValidationError } from '../../common/errors.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_QUANTITY = 2_147_483_647;
 
 function isValidUUID(str) {
   return typeof str === 'string' && UUID_REGEX.test(str.trim());
@@ -65,8 +66,8 @@ export function validateAddItem(req, res, next) {
   }
 
   const qty = Number(quantity);
-  if (quantity === undefined || isNaN(qty) || qty <= 0 || !Number.isInteger(qty)) {
-    errors.push({ field: 'quantity', message: 'quantity must be a positive integer.' });
+  if (quantity === undefined || !Number.isSafeInteger(qty) || qty <= 0 || qty > MAX_QUANTITY) {
+    errors.push({ field: 'quantity', message: `quantity must be a positive integer no greater than ${MAX_QUANTITY}.` });
   }
 
   if (discountPct !== undefined) {
@@ -92,8 +93,8 @@ export function validateUpdateItem(req, res, next) {
 
   if (quantity !== undefined) {
     const qty = Number(quantity);
-    if (isNaN(qty) || qty <= 0 || !Number.isInteger(qty)) {
-      errors.push({ field: 'quantity', message: 'quantity must be a positive integer.' });
+    if (!Number.isSafeInteger(qty) || qty <= 0 || qty > MAX_QUANTITY) {
+      errors.push({ field: 'quantity', message: `quantity must be a positive integer no greater than ${MAX_QUANTITY}.` });
     }
   }
 

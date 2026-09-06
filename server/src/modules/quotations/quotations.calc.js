@@ -3,6 +3,10 @@
  * Completely isolated from database and I/O.
  */
 
+import { ValidationError } from '../../common/errors.js';
+
+const MAX_NUMERIC_12_2 = 9_999_999_999.99;
+
 function round2(val) {
   return Number(Math.round(Number(val) * 100) / 100);
 }
@@ -26,6 +30,10 @@ export function computeLineTotals({
   const taxAmount = round2((taxableAmount * taxRate) / 100);
   const lineTotal = taxableAmount + taxAmount;
   const estimatedCost = round2(unitCost * qty);
+
+  if (![discountAmount, taxAmount, lineTotal, estimatedCost].every((value) => Number.isFinite(value) && Math.abs(value) <= MAX_NUMERIC_12_2)) {
+    throw new ValidationError('Line item totals exceed the maximum supported amount.');
+  }
 
   return {
     discountAmount,
