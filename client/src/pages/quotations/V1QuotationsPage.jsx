@@ -145,14 +145,14 @@ export default function V1QuotationsPage() {
             <p className="text-xs font-semibold text-slate-500 animate-pulse">Loading quotations from database...</p>
           </div>
         ) : viewMode === 'kanban' ? (
-          <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 overflow-x-auto overflow-y-hidden pb-0.5">
+          <div className="flex-1 min-h-0 flex lg:grid lg:grid-cols-5 gap-3.5 overflow-x-auto overflow-y-hidden pb-1">
             {STAGE_COLUMNS.map((col) => {
               const quotesInCol = getQuotesForColumn(col.key);
               const colTotal = quotesInCol.reduce((sum, q) => sum + Number(q.grandTotal || q.netAmount || 0), 0);
               return (
                 <div
                   key={col.key}
-                  className="flex flex-col h-full max-h-full rounded-xl border border-slate-200/90 bg-slate-100/70 p-3 shadow-2xs min-w-[220px] overflow-hidden"
+                  className="flex flex-col h-full max-h-full rounded-xl border border-slate-200/90 bg-slate-100/70 p-3 shadow-2xs w-[260px] sm:w-[280px] lg:w-auto shrink-0 lg:shrink min-w-[230px] lg:min-w-0 overflow-hidden"
                 >
                   {/* Column Header */}
                   <div className="shrink-0 flex items-center justify-between pb-2 border-b border-slate-200/80">

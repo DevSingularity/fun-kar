@@ -263,7 +263,7 @@ export default function V1ApprovalDetailPage() {
             Approval Workflow Progress
           </h3>
 
-          <div className="flex items-center justify-between max-w-2xl mx-auto pt-2 pb-2">
+          <div className="flex items-center justify-between max-w-2xl mx-auto pt-2 pb-2 overflow-x-auto no-scrollbar min-w-0">
             
             {/* Step 1: Submitted */}
             <div className="flex flex-col items-center gap-2 text-center">

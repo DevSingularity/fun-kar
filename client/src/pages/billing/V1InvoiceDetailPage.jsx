@@ -63,13 +63,19 @@ export default function V1InvoiceDetailPage() {
 
   const recordPayment = async (e) => {
     e?.preventDefault();
-    if (!amount || Number(amount) <= 0) {
-      toast.error('Enter a valid payment amount.');
+    const numAmount = Number(amount);
+    if (!amount || isNaN(numAmount) || numAmount <= 0) {
+      toast.error('Enter a valid payment amount greater than zero.');
+      return;
+    }
+    const remaining = Number(invoice.invoice.total) - Number(invoice.invoice.amountPaid);
+    if (numAmount > remaining + 0.01) {
+      toast.error(`Payment amount cannot exceed remaining balance of ₹${remaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}.`);
       return;
     }
     setSubmitting(true);
     try {
-      await api.post(`/invoices/${id}/payments`, { amount, method });
+      await api.post(`/invoices/${id}/payments`, { amount: numAmount, method });
       toast.success('Payment recorded successfully.');
       setAmount('');
       fetchData();

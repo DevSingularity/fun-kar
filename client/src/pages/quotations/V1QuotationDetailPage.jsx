@@ -234,7 +234,14 @@ export default function V1QuotationDetailPage() {
   // Handle inline changes for quantity and discount (only allowed in draft)
   const handleItemFieldChange = (itemId, field, value) => {
     if (!isDraft) return;
-    const numVal = field === 'quantity' ? Math.max(1, parseInt(value) || 1) : Math.min(100, Math.max(0, parseFloat(value) || 0));
+    let numVal;
+    if (field === 'quantity') {
+      numVal = Math.max(1, parseInt(value, 10) || 1);
+    } else if (field === 'discountPct') {
+      numVal = Math.min(100, Math.max(0, parseFloat(value) || 0));
+    } else {
+      numVal = value;
+    }
 
     setItems((prevItems) =>
       prevItems.map((item) => {
@@ -272,8 +279,17 @@ export default function V1QuotationDetailPage() {
     const prod = products.find((p) => p.id === newLine.productId);
     if (!prod) return;
 
-    const qty = Number(newLine.quantity) || 1;
-    const disc = Number(newLine.discountPct) || 0;
+    const qty = Math.max(1, parseInt(newLine.quantity, 10) || 1);
+    const disc = Math.min(100, Math.max(0, parseFloat(newLine.discountPct) || 0));
+
+    if (isNaN(qty) || qty < 1) {
+      toast.error('Quantity must be at least 1.');
+      return;
+    }
+    if (isNaN(disc) || disc < 0 || disc > 100) {
+      toast.error('Discount percentage must be between 0% and 100%.');
+      return;
+    }
 
     if (isNew) {
       setItems((prev) => [
